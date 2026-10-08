@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+:root {
+  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+
+  /* AMOLED Dark Palette (Default - matching Android DarkWyrdColors) */
+  --wyrd-bg: #000000;
+  --wyrd-surface: #0A0A0A;
+  --wyrd-surface-elevated: #141414;
+  --wyrd-card: #1A1A1A;
+  --wyrd-border: #262626;
+  --wyrd-border-subtle: #1F1F1F;
+  --wyrd-text-primary: #CECDC4;
+  --wyrd-text-secondary: #8E8E93;
+  --wyrd-text-muted: #636366;
+  --wyrd-text-placeholder: #7A7A7A;
+  --wyrd-primary: #CECDC4;
+  --wyrd-on-primary: #000000;
+  --wyrd-hover: #141414;
+  --wyrd-hover-card: #262626;
+  --wyrd-hover-text: #FFFFFF;
+  --wyrd-reasoning-bg: #0E0E0E;
+  --wyrd-reasoning-header: rgba(20, 20, 20, 0.5);
+  --wyrd-code-bg: #0A0A0A;
+  --wyrd-code-header: #141414;
+  --wyrd-scrollbar: #262626;
+  --wyrd-scrollbar-hover: #383838;
+}
+
+[data-theme="light"], .light {
+  color-scheme: light;
+
+  /* Warm Brutalist Parchment Palette (Exact Android LightWyrdColors) */
+  --wyrd-bg: #F9F9F7;
+  --wyrd-surface: #F0EFEA;
+  --wyrd-surface-elevated: #E8E7E1;
+  --wyrd-card: #DFDED8;
+  --wyrd-border: #CECDC4;
+  --wyrd-border-subtle: #D8D7D0;
+  --wyrd-text-primary: #141414;
+  --wyrd-text-secondary: #636366;
+  --wyrd-text-muted: #8E8E93;
+  --wyrd-text-placeholder: #9E9E9B;
+  --wyrd-primary: #141414;
+  --wyrd-on-primary: #F9F9F7;
+  --wyrd-hover: #E8E7E1;
+  --wyrd-hover-card: #DFDED8;
+  --wyrd-hover-text: #000000;
+  --wyrd-reasoning-bg: #EAE9E3;
+  --wyrd-reasoning-header: rgba(223, 222, 216, 0.6);
+  --wyrd-code-bg: #F0EFEA;
+  --wyrd-code-header: #E8E7E1;
+  --wyrd-scrollbar: #CECDC4;
+  --wyrd-scrollbar-hover: #B8B7AF;
+}
+
+@theme {
+  --font-sans: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --color-black: var(--wyrd-bg);
+  --color-surface: var(--wyrd-surface);
+  --color-surface-elevated: var(--wyrd-surface-elevated);
+  --color-card: var(--wyrd-card);
+  --color-border: var(--wyrd-border);
+  --color-text-white: var(--wyrd-text-primary);
+  --color-text-gray: var(--wyrd-text-secondary);
+  --color-text-muted: var(--wyrd-text-muted);
+  --color-text-placeholder: var(--wyrd-text-placeholder);
+  --color-accent-red: #FF453A;
+  --color-accent-green: #32D74B;
+}
+
+body {
+  background-color: var(--wyrd-bg);
+  color: var(--wyrd-text-primary);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Dynamic theme overrides for Tailwind arbitrary hex values */
+.bg-black,
+.bg-\[\#000000\] {
+  background-color: var(--wyrd-bg) !important;
+}
+
+.bg-\[\#0A0A0A\] {
+  background-color: var(--wyrd-surface) !important;
+}
+
+.bg-\[\#141414\] {
+  background-color: var(--wyrd-surface-elevated) !important;
+}
+
+.bg-\[\#1A1A1A\] {
+  background-color: var(--wyrd-card) !important;
+}
+
+.bg-\[\#0E0E0E\] {
+  background-color: var(--wyrd-reasoning-bg) !important;
+}
+
+.bg-\[\#141414\]\/50 {
+  background-color: var(--wyrd-reasoning-header) !important;
+}
+
+.border-\[\#262626\] {
+  border-color: var(--wyrd-border) !important;
+}
+
+.text-\[\#CECDC4\] {
+  color: var(--wyrd-text-primary) !important;
+}
+
+.text-\[\#8E8E93\] {
+  color: var(--wyrd-text-secondary) !important;
+}
+
+.text-\[\#636366\] {
+  color: var(--wyrd-text-muted) !important;
+}
+
+.placeholder-\[\#7A7A7A\]::placeholder {
+  color: var(--wyrd-text-placeholder) !important;
+}
+
+.hover\:bg-\[\#141414\]:hover {
+  background-color: var(--wyrd-hover) !important;
+}
+
+.hover\:bg-\[\#262626\]:hover {
+  background-color: var(--wyrd-hover-card) !important;
+}
+
+.hover\:bg-\[\#1A1A1A\]:hover {
+  background-color: var(--wyrd-card) !important;
+}
+
+.hover\:text-\[\#CECDC4\]:hover {
+  color: var(--wyrd-text-primary) !important;
+}
+
+.hover\:text-white:hover {
+  color: var(--wyrd-hover-text) !important;
+}
+
+.bg-\[\#CECDC4\] {
+  background-color: var(--wyrd-primary) !important;
+}
+
+.text-black {
+  color: var(--wyrd-on-primary) !important;
+}
+
+.hover\:bg-white:hover {
+  background-color: var(--wyrd-hover-text) !important;
+  opacity: 0.9;
+}
+
+/* Custom minimalist scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--wyrd-scrollbar);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--wyrd-scrollbar-hover);
+}

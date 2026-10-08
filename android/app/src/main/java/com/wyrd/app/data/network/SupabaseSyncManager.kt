@@ -1,0 +1,1158 @@
+package com.wyrd.app.data.network
+
+import android.content.Context
+import android.util.Log
+import com.wyrd.app.data.local.AppDatabase
+import com.wyrd.app.data.local.ChatEntity
+import com.wyrd.app.data.local.MessageEntity
+import com.wyrd.app.data.preferences.PreferencesManager
+import com.wyrd.app.data.preferences.SecureKeyStorage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.util.Locale
+import java.util.UUID
+import java.util.concurrent.TimeUnit
+
+class SupabaseSyncManager(
+    private val context: Context,
+    private val secureKeyStorage: SecureKeyStorage,
+    private val preferencesManager: PreferencesManager,
+    private val database: AppDatabase
+) {
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .build()
+
+    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
+    private val syncMutex = Mutex()
+
+    private fun parseIsoDate(isoStr: String?): Long {
+        if (isoStr.isNullOrBlank()) return 0L
+        return try {
+            OffsetDateTime.parse(isoStr).toInstant().toEpochMilli()
+        } catch (_: Exception) {
+            try {
+                Instant.parse(isoStr).toEpochMilli()
+            } catch (_: Exception) {
+                0L
+            }
+        }
+    }
+
+    private fun formatIsoDate(timeMs: Long): String {
+        val validMs = if (timeMs <= 0L) System.currentTimeMillis() else timeMs
+        return Instant.ofEpochMilli(validMs).toString()
+    }
+
+    // --- Authentication ---
+
+    suspend fun signIn(email: String, password: String): Result<String> = withContext(Dispatchers.IO) {
+        val trimmedEmail = email.trim()
+        val lowerEmail = trimmedEmail.lowercase(Locale.ROOT)
+
+        var result = executeSignIn(trimmedEmail, password)
+        if (result.isFailure && trimmedEmail != lowerEmail) {
+            val retryResult = executeSignIn(lowerEmail, password)
+            if (retryResult.isSuccess) {
+                result = retryResult
+            }
+        }
+        result
+    }
+
+    private suspend fun executeSignIn(cleanEmail: String, password: String): Result<String> {
+        try {
+            val payload = JSONObject().apply {
+                put("email", cleanEmail)
+                put("password", password)
+            }
+            val request = Request.Builder()
+                .url("$SUPABASE_URL/auth/v1/token?grant_type=password")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("X-Client-Info", "wyrd-android/1.0")
+                .post(payload.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            Log.d(TAG, "executeSignIn: attempting sign in for '$cleanEmail'")
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string() ?: ""
+                Log.d(TAG, "executeSignIn response: code=${response.code}, body=$body")
+
+                if (!response.isSuccessful) {
+                    val errJson = try { JSONObject(body) } catch (_: Exception) { null }
+                    val desc = errJson?.optString("error_description", "")?.trim()?.ifEmpty { null }
+                    val msgText = errJson?.optString("msg", "")?.trim()?.ifEmpty { null }
+                    val messageText = errJson?.optString("message", "")?.trim()?.ifEmpty { null }
+                    val errCode = errJson?.optString("error_code", "")?.trim()?.ifEmpty { null }
+
+                    val rawMsg = desc ?: msgText ?: messageText ?: "Authentication failed (${response.code})"
+                    val userFriendlyMsg = when (errCode) {
+                        "invalid_credentials" -> "Invalid login credentials. Please check your email and password (tap the eye icon to verify spelling and case)."
+                        "email_not_confirmed" -> "Email not confirmed. Please check your inbox for the Supabase confirmation link."
+                        "over_email_send_rate_limit" -> "Email rate limit exceeded. Please wait a few minutes before trying again."
+                        else -> rawMsg
+                    }
+                    return Result.failure(Exception(userFriendlyMsg))
+                }
+
+                val json = JSONObject(body)
+                val accessToken = json.getString("access_token")
+                val refreshToken = json.optString("refresh_token", "")
+                val user = json.getJSONObject("user")
+                val userId = user.getString("id")
+                val userEmail = user.optString("email", cleanEmail)
+
+                secureKeyStorage.setSupabaseAccessToken(accessToken)
+                secureKeyStorage.setSupabaseRefreshToken(refreshToken)
+                secureKeyStorage.setSupabaseUserId(userId)
+                secureKeyStorage.setSupabaseUserEmail(userEmail)
+
+                // Trigger initial sync
+                syncAll()
+
+                return Result.success(userEmail)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "executeSignIn error", e)
+            return Result.failure(e)
+        }
+    }
+
+    suspend fun signUp(email: String, password: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val cleanEmail = email.trim()
+            val payload = JSONObject().apply {
+                put("email", cleanEmail)
+                put("password", password)
+            }
+            val request = Request.Builder()
+                .url("$SUPABASE_URL/auth/v1/signup")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("X-Client-Info", "wyrd-android/1.0")
+                .post(payload.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            Log.d(TAG, "signUp attempt for '$cleanEmail'")
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string() ?: ""
+                Log.d(TAG, "signUp response: code=${response.code}, body=$body")
+
+                if (!response.isSuccessful) {
+                    val errJson = try { JSONObject(body) } catch (_: Exception) { null }
+                    val desc = errJson?.optString("error_description", "")?.trim()?.ifEmpty { null }
+                    val msgText = errJson?.optString("msg", "")?.trim()?.ifEmpty { null }
+                    val messageText = errJson?.optString("message", "")?.trim()?.ifEmpty { null }
+                    val errCode = errJson?.optString("error_code", "")?.trim()?.ifEmpty { null }
+
+                    val rawMsg = desc ?: msgText ?: messageText ?: "Sign up failed (${response.code})"
+                    val userFriendlyMsg = when (errCode) {
+                        "over_email_send_rate_limit" -> "Supabase email rate limit exceeded (3/hr limit). Please wait a few minutes before requesting another verification email."
+                        "user_already_exists" -> "An account with this email already exists. Please switch to the 'Sign In' tab."
+                        else -> rawMsg
+                    }
+                    return@withContext Result.failure(Exception(userFriendlyMsg))
+                }
+
+                val json = JSONObject(body)
+                val accessToken = json.optString("access_token", "").trim()
+                val user = json.optJSONObject("user")
+                val userId = user?.optString("id", "")?.trim() ?: ""
+                val userEmail = user?.optString("email", cleanEmail)?.trim() ?: cleanEmail
+
+                if (accessToken.isNotBlank()) {
+                    secureKeyStorage.setSupabaseAccessToken(accessToken)
+                    secureKeyStorage.setSupabaseRefreshToken(json.optString("refresh_token", "").trim())
+                    secureKeyStorage.setSupabaseUserId(userId)
+                    secureKeyStorage.setSupabaseUserEmail(userEmail)
+                    syncAll()
+                    return@withContext Result.success(userEmail)
+                } else {
+                    return@withContext Result.failure(Exception("Account created! A confirmation email was sent to $cleanEmail. Please click the link in your email, then come back and Sign In."))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "signUp error", e)
+            Result.failure(e)
+        }
+    }
+
+    fun signOut() {
+        secureKeyStorage.clearSupabaseAuth()
+    }
+
+    fun isUserSignedIn(): Boolean {
+        return secureKeyStorage.getSupabaseAccessToken().isNotBlank() || secureKeyStorage.getSupabaseRefreshToken().isNotBlank()
+    }
+
+    fun getUserEmail(): String {
+        return secureKeyStorage.getSupabaseUserEmail()
+    }
+
+    // --- JWT Expiration & Token Refresh ---
+
+    private fun isJwtExpired(token: String): Boolean {
+        if (token.isBlank()) return true
+        return try {
+            val parts = token.split(".")
+            if (parts.size != 3) return true
+            val decodedBytes = android.util.Base64.decode(
+                parts[1],
+                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING
+            )
+            val json = JSONObject(String(decodedBytes))
+            val exp = json.optLong("exp", 0L)
+            val nowSec = System.currentTimeMillis() / 1000
+            // Refresh if expiring within 60 seconds
+            nowSec >= (exp - 60)
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    suspend fun getValidAccessToken(): String? = withContext(Dispatchers.IO) {
+        val currentToken = secureKeyStorage.getSupabaseAccessToken()
+        if (currentToken.isNotBlank() && !isJwtExpired(currentToken)) {
+            return@withContext currentToken
+        }
+
+        val refreshToken = secureKeyStorage.getSupabaseRefreshToken()
+        if (refreshToken.isBlank()) {
+            Log.w(TAG, "getValidAccessToken: No refresh token available to renew session")
+            return@withContext if (currentToken.isNotBlank()) currentToken else null
+        }
+
+        Log.i(TAG, "getValidAccessToken: Access token is expired, refreshing via Supabase refresh_token...")
+        val refreshResult = refreshSession(refreshToken)
+        if (refreshResult.isSuccess) {
+            return@withContext refreshResult.getOrNull()
+        } else {
+            Log.e(TAG, "getValidAccessToken: Token refresh failed", refreshResult.exceptionOrNull())
+            return@withContext null
+        }
+    }
+
+    private suspend fun refreshSession(refreshToken: String): Result<String> {
+        try {
+            val payload = JSONObject().apply {
+                put("refresh_token", refreshToken)
+            }
+            val request = Request.Builder()
+                .url("$SUPABASE_URL/auth/v1/token?grant_type=refresh_token")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("X-Client-Info", "wyrd-android/1.0")
+                .post(payload.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string() ?: ""
+                Log.d(TAG, "refreshSession response: code=${response.code}")
+
+                if (!response.isSuccessful) {
+                    val errJson = try { JSONObject(body) } catch (_: Exception) { null }
+                    val errCode = errJson?.optString("error_code", "") ?: ""
+                    Log.w(TAG, "refreshSession failed: code=${response.code}, errCode=$errCode, body=$body")
+                    if (errCode == "refresh_token_not_found" || response.code == 400 || response.code == 401) {
+                        Log.w(TAG, "refreshSession: Token invalid/revoked, clearing local credentials")
+                        signOut()
+                    }
+                    return Result.failure(Exception("Session expired. Please sign in again in Settings."))
+                }
+
+                val json = JSONObject(body)
+                val newAccessToken = json.getString("access_token")
+                val newRefreshToken = json.optString("refresh_token", refreshToken)
+                val user = json.optJSONObject("user")
+                if (user != null) {
+                    val userId = user.optString("id", "")
+                    if (userId.isNotBlank()) secureKeyStorage.setSupabaseUserId(userId)
+                    val email = user.optString("email", "")
+                    if (email.isNotBlank()) secureKeyStorage.setSupabaseUserEmail(email)
+                }
+
+                secureKeyStorage.setSupabaseAccessToken(newAccessToken)
+                secureKeyStorage.setSupabaseRefreshToken(newRefreshToken)
+                Log.i(TAG, "refreshSession: Successfully refreshed access token")
+                return Result.success(newAccessToken)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "refreshSession error", e)
+            return Result.failure(e)
+        }
+    }
+
+    // --- Two-Way Synchronization ---
+
+    suspend fun syncAll(): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!syncMutex.tryLock()) {
+            Log.d(TAG, "syncAll: Sync already in progress, skipping concurrent trigger")
+            return@withContext Result.success(Unit)
+        }
+        try {
+            val token = getValidAccessToken()
+            val userId = secureKeyStorage.getSupabaseUserId()
+            if (token.isNullOrBlank() || userId.isBlank()) {
+                Log.w(TAG, "syncAll: Not authenticated or session expired")
+                return@withContext Result.failure(Exception("Not authenticated with Supabase"))
+            }
+
+            // 1. Sync Profile
+            syncProfile(token, userId)
+
+            // 2. Sync Chats
+            syncChats(token, userId)
+
+            // 3. Sync Messages
+            syncMessages(token, userId)
+
+            // 4. Clean orphaned storage attachments
+            try {
+                cleanOrphanedStorageAttachments()
+            } catch (e: Exception) {
+                Log.w(TAG, "cleanOrphanedStorageAttachments error in syncAll", e)
+            }
+
+            Log.i(TAG, "syncAll: Two-way sync completed successfully")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "syncAll error", e)
+            Result.failure(e)
+        } finally {
+            syncMutex.unlock()
+        }
+    }
+
+    private suspend fun syncProfile(token: String, userId: String) {
+        try {
+            val getReq = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/profiles?id=eq.$userId&select=*")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+
+            client.newCall(getReq).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    Log.w(TAG, "syncProfile get failed: ${resp.code}")
+                    return
+                }
+                val body = resp.body?.string() ?: ""
+                val arr = JSONArray(body)
+                val localUsername = preferencesManager.usernameFlow.first()
+                val localSystemPrompt = preferencesManager.systemPromptFlow.first()
+
+                if (arr.length() > 0) {
+                    val remoteProfile = arr.getJSONObject(0)
+                    val remoteUsername = remoteProfile.optString("username", "")
+                    val remoteSystemPrompt = remoteProfile.optString("system_prompt", "")
+
+                    if (remoteUsername.isNotBlank() && remoteUsername != "Human" && localUsername == "Human") {
+                        preferencesManager.setUsername(remoteUsername)
+                    } else if (localUsername.isNotBlank() && localUsername != remoteUsername) {
+                        updateRemoteProfile(token, userId, localUsername, localSystemPrompt)
+                    }
+
+                    if (remoteSystemPrompt.isNotBlank() && localSystemPrompt.isBlank()) {
+                        preferencesManager.setSystemPrompt(remoteSystemPrompt)
+                    } else if (localSystemPrompt.isNotBlank() && localSystemPrompt != remoteSystemPrompt) {
+                        updateRemoteProfile(token, userId, localUsername, localSystemPrompt)
+                    }
+                } else {
+                    updateRemoteProfile(token, userId, localUsername, localSystemPrompt)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "syncProfile error", e)
+        }
+    }
+
+    private fun updateRemoteProfile(token: String, userId: String, username: String, systemPrompt: String) {
+        try {
+            val payload = JSONObject().apply {
+                put("id", userId)
+                put("username", username)
+                put("system_prompt", systemPrompt)
+                put("updated_at", formatIsoDate(System.currentTimeMillis()))
+            }
+            val req = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/profiles?on_conflict=id")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Prefer", "resolution=merge-duplicates")
+                .post(payload.toString().toRequestBody(jsonMediaType))
+                .build()
+            client.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    Log.w(TAG, "updateRemoteProfile failed: ${resp.code}")
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    private suspend fun syncChats(token: String, userId: String) {
+        val chatDao = database.chatDao()
+        val messageDao = database.messageDao()
+
+        // 1. Download remote chats first
+        val getReq = Request.Builder()
+            .url("$SUPABASE_URL/rest/v1/chats?select=*&order=is_pinned.desc,updated_at.desc,id.desc")
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .get()
+            .build()
+
+        val remoteArr: JSONArray
+        try {
+            val resp = client.newCall(getReq).execute()
+            resp.use {
+                if (!it.isSuccessful) {
+                    val err = it.body?.string() ?: ""
+                    Log.e(TAG, "syncChats download failed: ${it.code} $err")
+                    return
+                }
+                val body = it.body?.string() ?: "[]"
+                remoteArr = JSONArray(body)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "syncChats network error fetching remote chats", e)
+            return
+        }
+
+        // Map remote chats by their id
+        val remoteMap = mutableMapOf<String, JSONObject>()
+        for (i in 0 until remoteArr.length()) {
+            val rObj = remoteArr.getJSONObject(i)
+            val rId = rObj.optString("id", "")
+            if (rId.isNotBlank()) {
+                remoteMap[rId] = rObj
+            }
+        }
+
+        // 2. Reconcile local chats against remote
+        val knownSyncedIds = secureKeyStorage.getKnownSyncedChatIds().toMutableSet()
+        val localChats = chatDao.getAllChatsList()
+        val uploadArr = JSONArray()
+
+        for (localChat in localChats) {
+            val syncId = localChat.syncId
+            if (syncId.isNotBlank()) {
+                val rChat = remoteMap[syncId]
+                if (rChat == null) {
+                    val wasSyncedRemotely = knownSyncedIds.contains(syncId)
+                    val isRecentlyCreated = (System.currentTimeMillis() - localChat.createdAt) < 120_000L
+
+                    if (wasSyncedRemotely && !isRecentlyCreated) {
+                        // Chat was previously synced to remote, and was deleted on remote!
+                        // Remove locally so it does NOT resurrect!
+                        Log.i(TAG, "syncChats: Chat '${localChat.title}' ($syncId) was deleted remotely. Removing locally.")
+                        val msgs = messageDao.getMessagesListForChat(localChat.id)
+                        com.wyrd.app.util.AttachmentHelper.cleanupAttachments(context, msgs)
+                        chatDao.deleteChatById(localChat.id)
+                        messageDao.deleteMessagesForChat(localChat.id)
+                        knownSyncedIds.remove(syncId)
+                    } else {
+                        // Brand new local chat (or created recently) -> pending upload to remote!
+                        Log.i(TAG, "syncChats: Local chat '${localChat.title}' ($syncId) pending upload.")
+                        uploadArr.put(JSONObject().apply {
+                            put("id", syncId)
+                            put("user_id", userId)
+                            put("title", localChat.title)
+                            put("is_pinned", localChat.isPinned)
+                            put("created_at", formatIsoDate(localChat.createdAt))
+                            put("updated_at", formatIsoDate(localChat.updatedAt))
+                        })
+                        knownSyncedIds.add(syncId)
+                    }
+                } else {
+                    // Chat exists on both sides
+                    knownSyncedIds.add(syncId)
+                    val rawUpdatedAt = parseIsoDate(rChat.optString("updated_at"))
+                    val remoteUpdatedAt = if (rawUpdatedAt > 0L) rawUpdatedAt else localChat.updatedAt
+                    val remoteTitle = rChat.optString("title", localChat.title)
+                    val remotePinned = rChat.optBoolean("is_pinned", localChat.isPinned)
+
+                    if (localChat.updatedAt > remoteUpdatedAt) {
+                        // Local has newer updates -> stage for upload
+                        uploadArr.put(JSONObject().apply {
+                            put("id", localChat.syncId)
+                            put("user_id", userId)
+                            put("title", localChat.title)
+                            put("is_pinned", localChat.isPinned)
+                            put("created_at", formatIsoDate(localChat.createdAt))
+                            put("updated_at", formatIsoDate(localChat.updatedAt))
+                        })
+                    } else if (remoteUpdatedAt > localChat.updatedAt || localChat.title != remoteTitle || localChat.isPinned != remotePinned) {
+                        // Remote has newer updates -> update local SQLite
+                        chatDao.updateChat(
+                            localChat.copy(
+                                title = remoteTitle,
+                                isPinned = remotePinned,
+                                updatedAt = remoteUpdatedAt
+                            )
+                        )
+                    }
+                }
+            } else {
+                val newSyncId = UUID.randomUUID().toString()
+                chatDao.updateChat(localChat.copy(syncId = newSyncId))
+                uploadArr.put(JSONObject().apply {
+                    put("id", newSyncId)
+                    put("user_id", userId)
+                    put("title", localChat.title)
+                    put("is_pinned", localChat.isPinned)
+                    put("created_at", formatIsoDate(localChat.createdAt))
+                    put("updated_at", formatIsoDate(localChat.updatedAt))
+                })
+                knownSyncedIds.add(newSyncId)
+            }
+        }
+
+        // 3. Insert remote chats that do not exist locally
+        val localSyncIds = localChats.mapNotNull { it.syncId.ifBlank { null } }.toSet()
+        for ((remoteId, rChat) in remoteMap) {
+            knownSyncedIds.add(remoteId)
+            if (!localSyncIds.contains(remoteId)) {
+                val title = rChat.optString("title", "New Chat")
+                val isPinned = rChat.optBoolean("is_pinned", false)
+                val rawCreatedAt = parseIsoDate(rChat.optString("created_at"))
+                val rawUpdatedAt = parseIsoDate(rChat.optString("updated_at"))
+                val createdAt = if (rawCreatedAt > 0L) rawCreatedAt else System.currentTimeMillis()
+                val updatedAt = if (rawUpdatedAt > 0L) rawUpdatedAt else createdAt
+
+                chatDao.insertChat(
+                    ChatEntity(
+                        title = title,
+                        isPinned = isPinned,
+                        createdAt = createdAt,
+                        updatedAt = updatedAt,
+                        syncId = remoteId
+                    )
+                )
+            }
+        }
+
+        // Save updated known synced chat IDs
+        secureKeyStorage.setKnownSyncedChatIds(knownSyncedIds)
+
+        // 4. Upload pending local updates
+        if (uploadArr.length() > 0) {
+            val uploadReq = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/chats?on_conflict=id")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Prefer", "resolution=merge-duplicates")
+                .post(uploadArr.toString().toRequestBody(jsonMediaType))
+                .build()
+            client.newCall(uploadReq).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    val err = resp.body?.string() ?: ""
+                    Log.e(TAG, "syncChats upload failed: ${resp.code} $err")
+                } else {
+                    Log.d(TAG, "syncChats uploaded ${uploadArr.length()} local chats")
+                }
+            }
+        }
+
+        // 5. Clean up any orphaned messages
+        messageDao.deleteOrphanedMessages()
+    }
+
+    private suspend fun syncMessages(token: String, userId: String) {
+        val chatDao = database.chatDao()
+        val messageDao = database.messageDao()
+        val localChats = chatDao.getAllChatsList()
+
+        for (chat in localChats) {
+            val syncId = chat.syncId
+            if (syncId.isBlank()) continue
+
+            // 1. Upload local messages for this chat
+            val localMsgs = messageDao.getMessagesListForChat(chat.id)
+            val uploadArr = JSONArray()
+            for (msg in localMsgs) {
+                var msgSyncId = msg.syncId
+                if (msgSyncId.isBlank()) {
+                    msgSyncId = UUID.randomUUID().toString()
+                    messageDao.insertMessage(msg.copy(syncId = msgSyncId))
+                }
+
+                val attArray = if (!msg.attachmentsJson.isNullOrBlank()) {
+                    try { JSONArray(msg.attachmentsJson) } catch (_: Exception) { JSONArray() }
+                } else {
+                    JSONArray()
+                }
+
+                var modified = false
+                var finalAttachmentUri = msg.attachmentUri
+                for (j in 0 until attArray.length()) {
+                    val item = attArray.optJSONObject(j) ?: continue
+                    val uri = item.optString("uri", "")
+                    val name = item.optString("name", "attachment")
+                    if (uri.isNotBlank() && !uri.startsWith("http://") && !uri.startsWith("https://")) {
+                        val publicUrl = uploadAttachmentToStorage(uri, name)
+                        if (publicUrl != null) {
+                            item.put("uri", publicUrl)
+                            modified = true
+                            if (j == 0) finalAttachmentUri = publicUrl
+                        } else {
+                            // Fallback: if Storage upload failed, encode compressed image to base64 data URI
+                            // so that cross-device sync renders the image immediately without breaking
+                            if (!uri.startsWith("data:")) {
+                                val b64 = com.wyrd.app.util.AttachmentHelper.getBase64FromPath(uri)
+                                if (!b64.isNullOrBlank()) {
+                                    item.put("uri", "data:image/jpeg;base64,$b64")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (modified) {
+                    try {
+                        val updated = msg.copy(
+                            syncId = msgSyncId,
+                            attachmentsJson = attArray.toString(),
+                            attachmentUri = finalAttachmentUri
+                        )
+                        messageDao.insertMessage(updated)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed updating local message attachments in syncMessages", e)
+                    }
+                }
+
+                uploadArr.put(JSONObject().apply {
+                    put("id", msgSyncId)
+                    put("chat_id", syncId)
+                    put("user_id", userId)
+                    put("role", msg.role)
+                    put("content", msg.content)
+                    if (!msg.reasoning.isNullOrBlank()) {
+                        put("reasoning", msg.reasoning)
+                    } else {
+                        put("reasoning", JSONObject.NULL)
+                    }
+                    put("attachments", attArray)
+                    put("created_at", formatIsoDate(msg.timestamp))
+                })
+            }
+
+            if (uploadArr.length() > 0) {
+                val uploadReq = Request.Builder()
+                    .url("$SUPABASE_URL/rest/v1/messages?on_conflict=id")
+                    .addHeader("apikey", SUPABASE_KEY)
+                    .addHeader("Authorization", "Bearer $token")
+                    .addHeader("Prefer", "resolution=merge-duplicates")
+                    .post(uploadArr.toString().toRequestBody(jsonMediaType))
+                    .build()
+                client.newCall(uploadReq).execute().use { resp ->
+                    if (!resp.isSuccessful) {
+                        val err = resp.body?.string() ?: ""
+                        Log.e(TAG, "syncMessages upload failed for chat ${chat.id}: ${resp.code} $err")
+                    } else {
+                        Log.d(TAG, "syncMessages uploaded ${uploadArr.length()} messages for chat ${chat.id}")
+                    }
+                }
+            }
+
+            // 2. Download remote messages for this chat
+            val getReq = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/messages?chat_id=eq.$syncId&select=*&order=created_at.asc")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+
+            client.newCall(getReq).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    val err = resp.body?.string() ?: ""
+                    Log.e(TAG, "syncMessages download failed for chat ${chat.id}: ${resp.code} $err")
+                    return@use
+                }
+                val body = resp.body?.string() ?: ""
+                val remoteMsgs = JSONArray(body)
+                for (i in 0 until remoteMsgs.length()) {
+                    val rMsg = remoteMsgs.getJSONObject(i)
+                    val rMsgId = rMsg.getString("id")
+                    val role = rMsg.getString("role")
+                    val content = rMsg.optString("content", "")
+                    val reasoning = if (rMsg.has("reasoning") && !rMsg.isNull("reasoning")) {
+                        rMsg.getString("reasoning")
+                    } else null
+                    val attachmentsArr = rMsg.optJSONArray("attachments")
+                    val attachmentsJson = if (attachmentsArr != null && attachmentsArr.length() > 0) attachmentsArr.toString() else null
+                    val firstAtt = if (attachmentsArr != null && attachmentsArr.length() > 0) attachmentsArr.getJSONObject(0) else null
+                    val attachmentUri = firstAtt?.optString("uri")
+                    val attachmentType = firstAtt?.optString("type")
+                    val attachmentName = firstAtt?.optString("name")
+                    val rawTimestamp = parseIsoDate(rMsg.optString("created_at"))
+                    val timestamp = if (rawTimestamp > 0L) rawTimestamp else System.currentTimeMillis()
+
+                    val existingMsg = messageDao.getMessageBySyncId(rMsgId)
+                    if (existingMsg == null) {
+                        messageDao.insertMessage(
+                            MessageEntity(
+                                chatId = chat.id,
+                                role = role,
+                                content = content,
+                                reasoning = reasoning,
+                                timestamp = timestamp,
+                                attachmentUri = attachmentUri,
+                                attachmentType = attachmentType,
+                                attachmentName = attachmentName,
+                                attachmentsJson = attachmentsJson,
+                                syncId = rMsgId
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Fast Background Push on message creation ---
+    suspend fun pushMessageAsync(chatSyncId: String, message: MessageEntity) = withContext(Dispatchers.IO) {
+        val token = getValidAccessToken() ?: return@withContext
+        val userId = secureKeyStorage.getSupabaseUserId()
+        if (userId.isBlank() || chatSyncId.isBlank()) return@withContext
+
+        try {
+            val attArray = if (!message.attachmentsJson.isNullOrBlank()) {
+                try { JSONArray(message.attachmentsJson) } catch (_: Exception) { JSONArray() }
+            } else {
+                JSONArray()
+            }
+
+            var modified = false
+            var finalAttachmentUri = message.attachmentUri
+            for (j in 0 until attArray.length()) {
+                val item = attArray.optJSONObject(j) ?: continue
+                val uri = item.optString("uri", "")
+                val name = item.optString("name", "attachment")
+                if (uri.isNotBlank() && !uri.startsWith("http://") && !uri.startsWith("https://")) {
+                    val publicUrl = uploadAttachmentToStorage(uri, name)
+                    if (publicUrl != null) {
+                        item.put("uri", publicUrl)
+                        modified = true
+                        if (j == 0) finalAttachmentUri = publicUrl
+                    } else {
+                        // Fallback: if Storage upload failed, encode compressed image to base64 data URI
+                        // so that cross-device sync renders the image immediately without breaking
+                        if (!uri.startsWith("data:")) {
+                            val b64 = com.wyrd.app.util.AttachmentHelper.getBase64FromPath(uri)
+                            if (!b64.isNullOrBlank()) {
+                                item.put("uri", "data:image/jpeg;base64,$b64")
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (modified) {
+                try {
+                    val updated = message.copy(
+                        attachmentsJson = attArray.toString(),
+                        attachmentUri = finalAttachmentUri
+                    )
+                    database.messageDao().insertMessage(updated)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed updating local message attachments in pushMessageAsync", e)
+                }
+            }
+
+            val payload = JSONObject().apply {
+                put("id", message.syncId)
+                put("chat_id", chatSyncId)
+                put("user_id", userId)
+                put("role", message.role)
+                put("content", message.content)
+                if (!message.reasoning.isNullOrBlank()) {
+                    put("reasoning", message.reasoning)
+                } else {
+                    put("reasoning", JSONObject.NULL)
+                }
+                put("attachments", attArray)
+                put("created_at", formatIsoDate(message.timestamp))
+            }
+            val req = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/messages?on_conflict=id")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Prefer", "resolution=merge-duplicates")
+                .post(payload.toString().toRequestBody(jsonMediaType))
+                .build()
+            client.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    Log.w(TAG, "pushMessageAsync error: ${resp.code}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "pushMessageAsync failed", e)
+        }
+    }
+
+    // --- Remote Deletion ---
+    suspend fun deleteChat(chatSyncId: String) = withContext(Dispatchers.IO) {
+        secureKeyStorage.removeKnownSyncedChatId(chatSyncId)
+        val token = getValidAccessToken() ?: return@withContext
+        try {
+            // 1. Fetch remote attachments to delete from Supabase Storage
+            val getAttReq = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/messages?chat_id=eq.$chatSyncId&select=attachments")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+
+            val storagePaths = mutableListOf<String>()
+            try {
+                client.newCall(getAttReq).execute().use { resp ->
+                    if (resp.isSuccessful) {
+                        val arr = JSONArray(resp.body?.string() ?: "[]")
+                        for (i in 0 until arr.length()) {
+                            val msgObj = arr.getJSONObject(i)
+                            val attArr = msgObj.optJSONArray("attachments") ?: JSONArray()
+                            for (j in 0 until attArr.length()) {
+                                val att = attArr.getJSONObject(j)
+                                val uri = att.optString("uri", "")
+                                extractStoragePath(uri)?.let { storagePaths.add(it) }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Error fetching attachments before chat delete", e)
+            }
+
+            if (storagePaths.isNotEmpty()) {
+                deleteStorageAttachments(storagePaths)
+            }
+
+            val msgReq = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/messages?chat_id=eq.$chatSyncId")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .delete()
+                .build()
+            try { client.newCall(msgReq).execute().close() } catch (_: Exception) {}
+
+            val req = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/chats?id=eq.$chatSyncId")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .delete()
+                .build()
+            client.newCall(req).execute().use { resp ->
+                Log.d(TAG, "deleteChat remote response: ${resp.code}")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "deleteChat remote error", e)
+        }
+    }
+
+    suspend fun deleteUnpinnedChats() = withContext(Dispatchers.IO) {
+        val token = getValidAccessToken() ?: return@withContext
+        val userId = secureKeyStorage.getSupabaseUserId()
+        if (userId.isBlank()) return@withContext
+        try {
+            val getReq = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/chats?is_pinned=eq.false&user_id=eq.$userId&select=id")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+            val chatIds = mutableListOf<String>()
+            try {
+                client.newCall(getReq).execute().use { resp ->
+                    if (resp.isSuccessful) {
+                        val arr = JSONArray(resp.body?.string() ?: "[]")
+                        for (i in 0 until arr.length()) {
+                            val cid = arr.getJSONObject(i).getString("id")
+                            chatIds.add(cid)
+                            secureKeyStorage.removeKnownSyncedChatId(cid)
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+
+            if (chatIds.isNotEmpty()) {
+                val idsParam = chatIds.joinToString(",")
+                val getAttReq = Request.Builder()
+                    .url("$SUPABASE_URL/rest/v1/messages?chat_id=in.($idsParam)&select=attachments")
+                    .addHeader("apikey", SUPABASE_KEY)
+                    .addHeader("Authorization", "Bearer $token")
+                    .get()
+                    .build()
+
+                val storagePaths = mutableListOf<String>()
+                try {
+                    client.newCall(getAttReq).execute().use { resp ->
+                        if (resp.isSuccessful) {
+                            val arr = JSONArray(resp.body?.string() ?: "[]")
+                            for (i in 0 until arr.length()) {
+                                val msgObj = arr.getJSONObject(i)
+                                val attArr = msgObj.optJSONArray("attachments") ?: JSONArray()
+                                for (j in 0 until attArr.length()) {
+                                    val att = attArr.getJSONObject(j)
+                                    val uri = att.optString("uri", "")
+                                    extractStoragePath(uri)?.let { storagePaths.add(it) }
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error fetching attachments for unpinned chats", e)
+                }
+
+                if (storagePaths.isNotEmpty()) {
+                    deleteStorageAttachments(storagePaths)
+                }
+
+                for (cId in chatIds) {
+                    val delMsgReq = Request.Builder()
+                        .url("$SUPABASE_URL/rest/v1/messages?chat_id=eq.$cId")
+                        .addHeader("apikey", SUPABASE_KEY)
+                        .addHeader("Authorization", "Bearer $token")
+                        .delete()
+                        .build()
+                    try { client.newCall(delMsgReq).execute().close() } catch (_: Exception) {}
+                }
+            }
+
+            val req = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/chats?is_pinned=eq.false&user_id=eq.$userId")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .delete()
+                .build()
+            client.newCall(req).execute().use { resp ->
+                Log.d(TAG, "deleteUnpinnedChats remote response: ${resp.code}")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "deleteUnpinnedChats remote error", e)
+        }
+    }
+
+    // --- Supabase Storage Upload ---
+    suspend fun uploadAttachmentToStorage(localFilePath: String, fileName: String): String? = withContext(Dispatchers.IO) {
+        val file = File(localFilePath)
+        if (!file.exists()) return@withContext null
+        val token = getValidAccessToken() ?: return@withContext null
+        val userId = secureKeyStorage.getSupabaseUserId()
+        if (userId.isBlank()) return@withContext null
+
+        val safeName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        val storagePath = "$userId/${System.currentTimeMillis()}_$safeName"
+        val ext = fileName.substringAfterLast('.', "").lowercase()
+        val mimeType = when (ext) {
+            "jpg", "jpeg" -> "image/jpeg"
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "gif" -> "image/gif"
+            "pdf" -> "application/pdf"
+            "txt" -> "text/plain"
+            "json" -> "application/json"
+            else -> "application/octet-stream"
+        }
+
+        try {
+            val mediaType = mimeType.toMediaTypeOrNull() ?: "application/octet-stream".toMediaType()
+            val requestBody = file.asRequestBody(mediaType)
+            val req = Request.Builder()
+                .url("$SUPABASE_URL/storage/v1/object/attachments/$storagePath")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .post(requestBody)
+                .build()
+
+            client.newCall(req).execute().use { resp ->
+                if (resp.isSuccessful) {
+                    val publicUrl = "$SUPABASE_URL/storage/v1/object/public/attachments/$storagePath"
+                    Log.d(TAG, "Uploaded attachment to Supabase Storage: $publicUrl")
+                    return@withContext publicUrl
+                } else {
+                    val err = resp.body?.string() ?: ""
+                    Log.w(TAG, "Supabase Storage upload failed: ${resp.code} $err")
+                    return@withContext null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Supabase Storage upload exception", e)
+            return@withContext null
+        }
+    }
+
+    suspend fun deleteStorageAttachments(storagePaths: List<String>): Boolean = withContext(Dispatchers.IO) {
+        if (storagePaths.isEmpty()) return@withContext true
+        val token = getValidAccessToken() ?: return@withContext false
+        try {
+            val cleanPaths = storagePaths.mapNotNull { extractStoragePath(it) ?: it.ifBlank { null } }.distinct()
+            if (cleanPaths.isEmpty()) return@withContext true
+
+            val jsonBody = JSONObject().apply {
+                val arr = JSONArray()
+                for (p in cleanPaths) {
+                    arr.put(p)
+                }
+                put("prefixes", arr)
+            }
+            val req = Request.Builder()
+                .url("$SUPABASE_URL/storage/v1/object/attachments")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Content-Type", "application/json")
+                .delete(jsonBody.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            client.newCall(req).execute().use { resp ->
+                Log.d(TAG, "deleteStorageAttachments code=${resp.code}")
+                return@withContext resp.isSuccessful
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "deleteStorageAttachments error", e)
+            return@withContext false
+        }
+    }
+
+    suspend fun cleanOrphanedStorageAttachments(): List<String> = withContext(Dispatchers.IO) {
+        val token = getValidAccessToken()
+        val userId = secureKeyStorage.getSupabaseUserId()
+        Log.d(TAG, "cleanOrphanedStorageAttachments: tokenPresent=${!token.isNullOrBlank()}, userId=$userId")
+        if (token.isNullOrBlank() || userId.isBlank()) return@withContext emptyList()
+
+        try {
+            // 1. List objects in user's folder
+            val listBody = JSONObject().apply {
+                put("prefix", userId)
+                put("limit", 1000)
+            }
+            val listReq = Request.Builder()
+                .url("$SUPABASE_URL/storage/v1/object/list/attachments")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .post(listBody.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            val remoteFiles = mutableListOf<String>()
+            client.newCall(listReq).execute().use { resp ->
+                val body = resp.body?.string() ?: ""
+                Log.d(TAG, "cleanOrphanedStorageAttachments: list code=${resp.code}, body=$body")
+                if (resp.isSuccessful) {
+                    val arr = JSONArray(body)
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val name = obj.optString("name", "")
+                        if (name.isNotBlank() && !obj.isNull("id")) {
+                            remoteFiles.add("$userId/$name")
+                        }
+                    }
+                } else {
+                    Log.w(TAG, "cleanOrphanedStorageAttachments list failed: ${resp.code} $body")
+                }
+            }
+
+            Log.d(TAG, "cleanOrphanedStorageAttachments: found ${remoteFiles.size} remote files in storage: $remoteFiles")
+            if (remoteFiles.isEmpty()) return@withContext emptyList()
+
+            // 2. Fetch all active message attachments for this user
+            val getMsgReq = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/messages?user_id=eq.$userId&select=attachments")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+
+            val activePaths = mutableSetOf<String>()
+            client.newCall(getMsgReq).execute().use { resp ->
+                val body = resp.body?.string() ?: ""
+                Log.d(TAG, "cleanOrphanedStorageAttachments: getMessages code=${resp.code}")
+                if (resp.isSuccessful) {
+                    val arr = JSONArray(body)
+                    for (i in 0 until arr.length()) {
+                        val msgObj = arr.getJSONObject(i)
+                        val attArr = msgObj.optJSONArray("attachments") ?: JSONArray()
+                        for (j in 0 until attArr.length()) {
+                            val att = attArr.getJSONObject(j)
+                            val uri = att.optString("uri", "")
+                            extractStoragePath(uri)?.let { activePaths.add(it) }
+                        }
+                    }
+                } else {
+                    Log.w(TAG, "cleanOrphanedStorageAttachments getMessages failed: ${resp.code} $body")
+                }
+            }
+
+            // Also check local database messages
+            try {
+                val localMsgs = database.messageDao().getAllMessages()
+                for (lm in localMsgs) {
+                    extractStoragePath(lm.attachmentUri)?.let { activePaths.add(it) }
+                    if (!lm.attachmentsJson.isNullOrBlank()) {
+                        try {
+                            val lArr = JSONArray(lm.attachmentsJson)
+                            for (k in 0 until lArr.length()) {
+                                val lObj = lArr.getJSONObject(k)
+                                extractStoragePath(lObj.optString("uri"))?.let { activePaths.add(it) }
+                            }
+                        } catch (_: Exception) {}
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "cleanOrphanedStorageAttachments local check error", e)
+            }
+
+            Log.d(TAG, "cleanOrphanedStorageAttachments: activePaths count=${activePaths.size}, activePaths=$activePaths")
+
+            // 3. Find and remove orphaned files
+            val orphans = remoteFiles.filter { !activePaths.contains(it) }
+            Log.d(TAG, "cleanOrphanedStorageAttachments: orphans count=${orphans.size}, orphans=$orphans")
+            if (orphans.isNotEmpty()) {
+                Log.i(TAG, "Cleaning ${orphans.size} orphaned storage attachments: $orphans")
+                val success = deleteStorageAttachments(orphans)
+                Log.i(TAG, "cleanOrphanedStorageAttachments: deleteStorageAttachments result=$success")
+                return@withContext orphans
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "cleanOrphanedStorageAttachments failed", e)
+        }
+        return@withContext emptyList()
+    }
+
+    fun extractStoragePath(uri: String?): String? {
+        if (uri.isNullOrBlank()) return null
+        val marker = "/attachments/"
+        val idx = uri.indexOf(marker)
+        if (idx != -1) {
+            val path = uri.substring(idx + marker.length).substringBefore('?')
+            return try { java.net.URLDecoder.decode(path, "UTF-8") } catch (_: Exception) { path }
+        }
+        if (uri.contains('/') && !uri.startsWith("http") && !uri.startsWith("content:") && !uri.startsWith("file:") && !uri.startsWith("data:")) {
+            return uri
+        }
+        return null
+    }
+
+    companion object {
+        private const val TAG = "SupabaseSync"
+        const val SUPABASE_URL = "https://ncxbhueublthjfawkkvy.supabase.co"
+        const val SUPABASE_KEY = "sb_publishable_lZa8oy7FwdDOKvv4Jrj26A_skhlS325"
+    }
+}

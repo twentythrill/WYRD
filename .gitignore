@@ -1,0 +1,38 @@
+# OS & Editor
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
+
+# Android & Gradle
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/captures/
+android/.externalNativeBuild/
+android/.cxx/
+android/*.apk
+android/*.aab
+android/local.properties
+android/output-metadata.json
+android/*.jks
+android/*.keystore
+android/*.hprof
+
+# Web & Node
+web/node_modules/
+web/dist/
+web/dist-ssr/
+web/*.local
+web/.env.local
+web/.env.*.local
+web/npm-debug.log*
+web/yarn-debug.log*
+web/yarn-error.log*
+web/pnpm-debug.log*
+
+# Logs
+*.log

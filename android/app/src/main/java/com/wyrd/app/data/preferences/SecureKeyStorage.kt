@@ -1,0 +1,141 @@
+package com.wyrd.app.data.preferences
+
+import android.content.Context
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
+
+import java.io.File
+
+class SecureKeyStorage(context: Context) {
+    private val masterKey = MasterKey.Builder(context)
+        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+        .build()
+
+    private val prefName = if (File(context.applicationInfo.dataDir, "shared_prefs/nullverb_secure_keys.xml").exists()) {
+        "nullverb_secure_keys"
+    } else {
+        "wyrd_secure_keys"
+    }
+
+    private val sharedPreferences = try {
+        createPrefs(context, prefName)
+    } catch (e: Throwable) {
+        try {
+            createPrefs(context, prefName)
+        } catch (_: Throwable) {
+            context.getSharedPreferences(prefName, Context.MODE_PRIVATE)
+        }
+    }
+
+    private fun createPrefs(ctx: Context, name: String) = EncryptedSharedPreferences.create(
+        ctx,
+        name,
+        masterKey,
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    )
+
+    fun getXiaomiApiKey(): String {
+        return sharedPreferences.getString(KEY_XIAOMI_API_KEY, "") ?: ""
+    }
+
+    fun setXiaomiApiKey(key: String) {
+        sharedPreferences.edit().putString(KEY_XIAOMI_API_KEY, key.trim()).apply()
+    }
+
+    fun getOpenAiApiKey(): String {
+        return sharedPreferences.getString(KEY_OPENAI_API_KEY, "") ?: ""
+    }
+
+    fun setOpenAiApiKey(key: String) {
+        sharedPreferences.edit().putString(KEY_OPENAI_API_KEY, key.trim()).apply()
+    }
+
+    fun getExaApiKey(): String {
+        return sharedPreferences.getString(KEY_EXA_API_KEY, "") ?: ""
+    }
+
+    fun setExaApiKey(key: String) {
+        sharedPreferences.edit().putString(KEY_EXA_API_KEY, key.trim()).apply()
+    }
+
+    fun clearAll() {
+        sharedPreferences.edit().clear().commit()
+    }
+
+    fun getSupabaseAccessToken(): String {
+        return sharedPreferences.getString(KEY_SUPABASE_ACCESS_TOKEN, "") ?: ""
+    }
+
+    fun setSupabaseAccessToken(token: String) {
+        sharedPreferences.edit().putString(KEY_SUPABASE_ACCESS_TOKEN, token.trim()).apply()
+    }
+
+    fun getSupabaseRefreshToken(): String {
+        return sharedPreferences.getString(KEY_SUPABASE_REFRESH_TOKEN, "") ?: ""
+    }
+
+    fun setSupabaseRefreshToken(token: String) {
+        sharedPreferences.edit().putString(KEY_SUPABASE_REFRESH_TOKEN, token.trim()).apply()
+    }
+
+    fun getSupabaseUserEmail(): String {
+        return sharedPreferences.getString(KEY_SUPABASE_USER_EMAIL, "") ?: ""
+    }
+
+    fun setSupabaseUserEmail(email: String) {
+        sharedPreferences.edit().putString(KEY_SUPABASE_USER_EMAIL, email.trim()).apply()
+    }
+
+    fun getSupabaseUserId(): String {
+        return sharedPreferences.getString(KEY_SUPABASE_USER_ID, "") ?: ""
+    }
+
+    fun setSupabaseUserId(userId: String) {
+        sharedPreferences.edit().putString(KEY_SUPABASE_USER_ID, userId.trim()).apply()
+    }
+
+    fun getKnownSyncedChatIds(): Set<String> {
+        return sharedPreferences.getStringSet(KEY_SYNCED_CHAT_IDS, emptySet())?.toSet() ?: emptySet()
+    }
+
+    fun setKnownSyncedChatIds(ids: Set<String>) {
+        sharedPreferences.edit().putStringSet(KEY_SYNCED_CHAT_IDS, HashSet(ids)).apply()
+    }
+
+    fun addKnownSyncedChatId(id: String) {
+        val current = getKnownSyncedChatIds().toMutableSet()
+        if (current.add(id)) {
+            setKnownSyncedChatIds(current)
+        }
+    }
+
+    fun removeKnownSyncedChatId(id: String) {
+        val current = getKnownSyncedChatIds().toMutableSet()
+        if (current.remove(id)) {
+            setKnownSyncedChatIds(current)
+        }
+    }
+
+    fun clearSupabaseAuth() {
+        sharedPreferences.edit()
+            .remove(KEY_SUPABASE_ACCESS_TOKEN)
+            .remove(KEY_SUPABASE_REFRESH_TOKEN)
+            .remove(KEY_SUPABASE_USER_EMAIL)
+            .remove(KEY_SUPABASE_USER_ID)
+            .remove(KEY_SYNCED_CHAT_IDS)
+            .apply()
+    }
+
+    companion object {
+        private const val KEY_XIAOMI_API_KEY = "xiaomi_mimo_api_key"
+        private const val KEY_OPENAI_API_KEY = "openai_stt_api_key"
+        private const val KEY_EXA_API_KEY = "exa_search_api_key"
+        private const val KEY_SUPABASE_ACCESS_TOKEN = "supabase_access_token"
+        private const val KEY_SUPABASE_REFRESH_TOKEN = "supabase_refresh_token"
+        private const val KEY_SUPABASE_USER_EMAIL = "supabase_user_email"
+        private const val KEY_SUPABASE_USER_ID = "supabase_user_id"
+        private const val KEY_SYNCED_CHAT_IDS = "supabase_synced_chat_ids"
+    }
+}
+

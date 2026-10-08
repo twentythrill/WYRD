@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/app_icon_trans_black.png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" href="/app_logo.png" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" href="/app_logo.png" id="wyrd-favicon" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WYRD</title>
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('wyrd_app_theme');
+          var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var isDark = saved === 'dark' || (saved !== 'light' && systemDark);
+          var icon = document.getElementById('wyrd-favicon');
+          if (icon) {
+            icon.href = isDark ? '/app_logo.png' : '/app_icon_trans_black.png';
+          }
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+            document.documentElement.setAttribute('data-theme', 'dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
+        } catch(e) {}
+      })();
+    </script>
+    <!-- Google Fonts: Space Grotesk & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-black text-[#CECDC4] antialiased selection:bg-[#262626] selection:text-[#CECDC4]">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
