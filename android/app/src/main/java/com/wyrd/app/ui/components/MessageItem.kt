@@ -429,7 +429,7 @@ fun UserMessageBubble(
                                 color = TextWhite,
                                 fontFamily = SpaceGrotesk,
                                 fontSize = 17.sp,
-                                lineHeight = 25.sp
+                                lineHeight = 23.sp
                             )
                         )
                     }
@@ -648,7 +648,7 @@ fun ReasoningBlock(
                             fontFamily = SpaceGrotesk,
                             color = TextMuted,
                             fontSize = 13.sp,
-                            lineHeight = 19.sp
+                            lineHeight = 18.sp
                         )
                     )
                 }
@@ -1077,7 +1077,7 @@ fun AssistantMessageItem(
                         color = currentTextPrimary,
                         fontFamily = SpaceGrotesk,
                         fontSize = 17.sp,
-                        lineHeight = 25.sp
+                        lineHeight = 23.sp
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1204,7 +1204,7 @@ fun StreamingAssistantMessageItem(
                             color = currentTextPrimary,
                             fontFamily = SpaceGrotesk,
                             fontSize = 17.sp,
-                            lineHeight = 25.sp
+                            lineHeight = 23.sp
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )

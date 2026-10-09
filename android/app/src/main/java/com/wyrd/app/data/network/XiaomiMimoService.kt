@@ -275,6 +275,20 @@ class XiaomiMimoService(
             if (exaSearchService != null) {
                 append("\n[Web Search Tool: You have access to a live web search tool named `web_search` (which calls the Exa search engine). Searches the web for recent events and factual corroboration. Returns URLs, publication dates, and extracted snippets. If the returned snippets do not confirm the claim, treat the claim as unverified. You are in charge of deciding autonomously whether to use web search for the user's answer. If the user's question requires real-time facts, current news, recent releases/updates, live data, or facts beyond your knowledge cutoff, you should invoke web search using:\n<tool_call><function=web_search><parameter=query>your search query</parameter></function></tool_call>\nIf the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]")
             }
+            when (reasoningEffort) {
+                ReasoningEffort.OFF -> {
+                    append("\n[Reasoning: Disabled. Answer directly and immediately with zero internal monologue or thinking scratchpad.]")
+                }
+                ReasoningEffort.LOW -> {
+                    append("\n[Reasoning Budget: Low (~1000 tokens). Strictly constrain your internal thinking/reasoning process to be brief, concise, and focused solely on core deductions. Keep internal thought under 250 words. Do not engage in lengthy internal monologues, exhaustive scenario mapping, or speculative tangents.]")
+                }
+                ReasoningEffort.MEDIUM -> {
+                    append("\n[Reasoning Budget: Medium (~8000 tokens). Keep your internal reasoning balanced, direct, and focused on essential analysis without excessive verbosity.]")
+                }
+                ReasoningEffort.HIGH -> {
+                    append("\n[Reasoning Budget: High (~32000 tokens). You have full allowance for thorough, deep chain-of-thought exploration, rigorous scenario analysis, and multi-perspective verification.]")
+                }
+            }
         }
 
         // Build standard OpenAI messages array (trim history to last 30 turns if needed)
@@ -845,11 +859,18 @@ class XiaomiMimoService(
             effort: String?,       // "low", "medium", "high", or null
             withTools: Boolean
         ) {
+            val maxTokens = when (reasoningEffort) {
+                ReasoningEffort.LOW -> 4096
+                ReasoningEffort.MEDIUM -> 16384
+                ReasoningEffort.HIGH -> 65536
+                ReasoningEffort.OFF -> 4096
+            }
             val payload = JSONObject().apply {
                 put("model", candidateId)
                 put("messages", messagesJsonArray)
                 put("stream", stream)
                 put("temperature", 0.7)
+                put("max_completion_tokens", maxTokens)
 
                 // 1. Xiaomi MiMo / Anthropic standard thinking object
                 if (thinkingType != null) {
@@ -899,20 +920,24 @@ class XiaomiMimoService(
                 addPayload(thinkingType = null, budgetTokens = null, effort = null, withTools = false)
             }
             ReasoningEffort.LOW -> {
-                // Tier 1: Constrained thinking with tight token budget (1024 tokens)
-                if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = 1024, effort = "low", withTools = true)
-                addPayload(thinkingType = "enabled", budgetTokens = 1024, effort = "low", withTools = false)
-
-                // Tier 2: Budget without reasoning_effort string
+                // Tier 1: Strict token budget (1024 tokens) without reasoning_effort override
                 if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = 1024, effort = null, withTools = true)
                 addPayload(thinkingType = "enabled", budgetTokens = 1024, effort = null, withTools = false)
+
+                // Tier 2: Fallback with reasoning_effort string if gateway strictly requires it
+                if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = 1024, effort = "low", withTools = true)
+                addPayload(thinkingType = "enabled", budgetTokens = 1024, effort = "low", withTools = false)
 
                 // Fallback: Default server behavior
                 if (hasTools) addPayload(thinkingType = null, budgetTokens = null, effort = null, withTools = true)
                 addPayload(thinkingType = null, budgetTokens = null, effort = null, withTools = false)
             }
             ReasoningEffort.MEDIUM -> {
-                // Standard balanced thinking: 8192 tokens budget
+                // Tier 1: Strict token budget (8192 tokens) without reasoning_effort override
+                if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = 8192, effort = null, withTools = true)
+                addPayload(thinkingType = "enabled", budgetTokens = 8192, effort = null, withTools = false)
+
+                // Tier 2: Fallback with reasoning_effort string if gateway requires it
                 if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = 8192, effort = "medium", withTools = true)
                 addPayload(thinkingType = "enabled", budgetTokens = 8192, effort = "medium", withTools = false)
 
@@ -925,7 +950,11 @@ class XiaomiMimoService(
                 addPayload(thinkingType = null, budgetTokens = null, effort = null, withTools = false)
             }
             ReasoningEffort.HIGH -> {
-                // Deep comprehensive reasoning: 32768 tokens budget
+                // Tier 1: Strict token budget (32768 tokens) without reasoning_effort override
+                if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = 32768, effort = null, withTools = true)
+                addPayload(thinkingType = "enabled", budgetTokens = 32768, effort = null, withTools = false)
+
+                // Tier 2: Fallback with reasoning_effort string if gateway requires it
                 if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = 32768, effort = "high", withTools = true)
                 addPayload(thinkingType = "enabled", budgetTokens = 32768, effort = "high", withTools = false)
 

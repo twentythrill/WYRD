@@ -291,6 +291,16 @@ export async function* streamLlmCompletion({
   effectiveSystemPrompt += `[Context: ${temporalContext}]`
   effectiveSystemPrompt += `\n[Web Search Tool: You have access to a live web search tool named \`web_search\` (which calls the Exa search engine). Searches the web for recent events and factual corroboration. Returns URLs, publication dates, and extracted snippets. If the returned snippets do not confirm the claim, treat the claim as unverified. You are in charge of deciding autonomously whether to use web search for the user's answer. If the user's question requires real-time facts, current news, recent releases/updates (e.g. game patch notes, versions), live data (weather, stocks, scores), or facts beyond your knowledge cutoff, you should invoke web search using:\n<tool_call><function=web_search><parameter=query>your search query</parameter></function></tool_call>\nIf the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]`
 
+  if (reasoningEffort === 'low') {
+    effectiveSystemPrompt += '\n[Reasoning Budget: Low (~1000 tokens). Strictly constrain your internal thinking/reasoning process to be brief, concise, and focused solely on core deductions. Keep internal thought under 250 words. Do not engage in lengthy internal monologues, exhaustive scenario mapping, or speculative tangents.]'
+  } else if (reasoningEffort === 'medium') {
+    effectiveSystemPrompt += '\n[Reasoning Budget: Medium (~8000 tokens). Keep your internal reasoning balanced, direct, and focused on essential analysis without excessive verbosity.]'
+  } else if (reasoningEffort === 'high') {
+    effectiveSystemPrompt += '\n[Reasoning Budget: High (~32000 tokens). You have full allowance for thorough, deep chain-of-thought exploration, rigorous scenario analysis, and multi-perspective verification.]'
+  } else if (reasoningEffort === 'off') {
+    effectiveSystemPrompt += '\n[Reasoning: Disabled. Answer directly and immediately with zero internal monologue or thinking scratchpad.]'
+  }
+
   // Retain recent context window (last 30 turns) matching Android MAX_CONTEXT_MESSAGES
   const historyToInclude = messages.length > 30 ? messages.slice(-30) : messages
   const hasImagesInConversation = historyToInclude.some(
@@ -330,6 +340,13 @@ export async function* streamLlmCompletion({
   }
   const budget = budgetTokensMap[reasoningEffort] ?? (reasoningEffort === 'off' ? null : 8192)
 
+  const maxTokensMap: Record<string, number> = {
+    low: 4096,
+    medium: 16384,
+    high: 65536,
+    off: 4096,
+  }
+
   let toolExecutionRounds = 0
   const maxToolExecutionRounds = 1
 
@@ -341,6 +358,7 @@ export async function* streamLlmCompletion({
       messages: currentMessages,
       stream: true,
       temperature: 0.7,
+      max_completion_tokens: maxTokensMap[reasoningEffort] || 16384,
     }
 
     if (toolExecutionRounds === 0 && !hasImagesInConversation) {
@@ -356,7 +374,9 @@ export async function* streamLlmCompletion({
         type: 'enabled',
         ...(budget ? { budget_tokens: budget } : {}),
       }
-      bodyPayload.reasoning_effort = reasoningEffort
+      if (!budget) {
+        bodyPayload.reasoning_effort = reasoningEffort
+      }
       if (budget) {
         bodyPayload.thinking_budget = budget
       }

@@ -20,6 +20,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Stop
@@ -51,6 +53,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wyrd.app.R
+import com.wyrd.app.data.preferences.ReasoningEffort
+import com.wyrd.app.data.preferences.SupportedModel
 import com.wyrd.app.ui.theme.Black
 import com.wyrd.app.ui.theme.DarkBorder
 import com.wyrd.app.ui.theme.DarkSurfaceElevated
@@ -64,6 +68,10 @@ fun BigSttOverlay(
     visible: Boolean,
     isRecording: Boolean,
     isTranscribing: Boolean,
+    activeModel: SupportedModel,
+    reasoningEffort: ReasoningEffort,
+    onModelSelected: (SupportedModel) -> Unit,
+    onReasoningEffortSelected: (ReasoningEffort) -> Unit,
     onSendRecording: () -> Unit,
     onStopToEdit: () -> Unit,
     onCancel: () -> Unit,
@@ -149,6 +157,22 @@ fun BigSttOverlay(
                     .navigationBarsPadding()
                     .padding(32.dp)
             ) {
+                // Model and Reasoning Effort Selector pill directly above the big button
+                ModelAndEffortSelector(
+                    activeModel = activeModel,
+                    reasoningEffort = reasoningEffort,
+                    onModelSelected = onModelSelected,
+                    onReasoningEffortSelected = onReasoningEffortSelected,
+                    enabled = !isTranscribing,
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(DarkSurfaceElevated)
+                        .border(0.8.dp, DarkBorder, RoundedCornerShape(22.dp))
+                )
+
+                Spacer(modifier = Modifier.height(28.dp))
+
                 // Outer pulsing ring and main glowing recording button (Tap -> transcribe & auto-send)
                 Box(
                     modifier = Modifier.size(160.dp),

@@ -1,4 +1,4 @@
-# WYRD Web (Desktop & Browser Companion) (v1.0.0)
+# WYRD Web (Desktop & Browser Companion) (v1.1.0)
 
 A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversations, settings, and cognitive states in real-time with the Android application via Supabase.
 
@@ -37,6 +37,7 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
      * **Copy**: One-click prompt/response copying to clipboard with confirmation feedback.
    * **Client-Side Draft New Chat**: Clicking "New Chat" resets to a clean draft session without inserting phantom rows into the database. Threads are created on-demand upon sending the first prompt.
    * **Clean Welcome Screen**: Zero-message and new chat states display the exact mobile app Welcome Screen (160px eye logo at 30% opacity, "Welcome Back, [Username]", and `(◕‿◕)`).
+   * **Condensed Typography Parity (Android Parity)**: Tight, condensed reading rhythm matching Android's 23sp line height (`leading-[24px]` for markdown content, `leading-[23px]` for user bubbles, and `leading-[18px]` for reasoning blocks), eliminating excessive line spacing while maintaining clean legibility.
    * **Monochrome "Thinking" Block (Android Parity)**: Dedicated minimalist reasoning container titled "Thinking" with sleek Lightbulb icon and live streaming pulse indicator, collapsed by default to prevent visual jumping, and completely free of extraneous icons or colored emojis. Strictly suppressed when reasoning effort is "Off".
    * **Gemini-Style Top & Bottom Subtle Fade Gradients (No Solid Cut-Offs)**:
      * **Top**: Transparent TopBar sits directly over a 112px multi-stop subtle fade-to-background gradient, softly veiling text scrolling underneath without harsh solid bars.

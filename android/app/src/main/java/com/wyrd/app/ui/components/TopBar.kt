@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,10 +50,6 @@ fun TopBar(
     onMenuClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val hapticManager = remember { (context.applicationContext as? com.wyrd.app.WyrdApp)?.hapticManager }
-    var dropdownExpanded by remember { mutableStateOf(false) }
-
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -71,149 +68,171 @@ fun TopBar(
 
         Spacer(modifier = Modifier.width(4.dp))
 
-        Box {
-            Row(
-                modifier = Modifier
-                    .clickable {
-                        hapticManager?.tick()
-                        dropdownExpanded = true
-                    }
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "MiMo 2.6",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = TextWhite,
-                        fontSize = 17.sp
-                    )
+        ModelAndEffortSelector(
+            activeModel = activeModel,
+            reasoningEffort = reasoningEffort,
+            onModelSelected = onModelSelected,
+            onReasoningEffortSelected = onReasoningEffortSelected
+        )
+    }
+}
+
+@Composable
+fun ModelAndEffortSelector(
+    activeModel: SupportedModel,
+    reasoningEffort: ReasoningEffort,
+    onModelSelected: (SupportedModel) -> Unit,
+    onReasoningEffortSelected: (ReasoningEffort) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+    enabled: Boolean = true
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val hapticManager = remember { (context.applicationContext as? com.wyrd.app.WyrdApp)?.hapticManager }
+    var dropdownExpanded by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .clickable(enabled = enabled) {
+                    hapticManager?.tick()
+                    dropdownExpanded = true
+                }
+                .padding(contentPadding),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "MiMo 2.6",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = TextWhite,
+                    fontSize = 17.sp
                 )
-                Text(
-                    text = when (activeModel) {
-                        SupportedModel.MIMO_2_6_PRO -> " Pro"
-                        SupportedModel.MIMO_2_6_FLASH -> " Flash"
+            )
+            Text(
+                text = when (activeModel) {
+                    SupportedModel.MIMO_2_6_PRO -> " Pro"
+                    SupportedModel.MIMO_2_6_FLASH -> " Flash"
+                },
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Normal,
+                    color = TextWhite,
+                    fontSize = 17.sp
+                )
+            )
+            Text(
+                text = " · ${reasoningEffort.displayName}",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Normal,
+                    color = TextGray,
+                    fontSize = 15.sp
+                )
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = "Select Model and Effort",
+                tint = TextGray,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
+        DropdownMenu(
+            expanded = dropdownExpanded,
+            onDismissRequest = { dropdownExpanded = false },
+            modifier = Modifier
+                .background(DarkCard)
+                .width(220.dp)
+        ) {
+            Text(
+                text = "MODEL",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = TextMuted,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 10.sp,
+                    letterSpacing = 1.sp
+                ),
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+            )
+
+            SupportedModel.entries.forEach { model ->
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = model.shortName,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = if (model == activeModel) TextWhite else TextGray,
+                                    fontWeight = if (model == activeModel) FontWeight.Bold else FontWeight.Normal
+                                )
+                            )
+                            if (model == activeModel) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = TextWhite,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
                     },
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Normal,
-                        color = TextWhite,
-                        fontSize = 17.sp
-                    )
-                )
-                Text(
-                    text = " · ${reasoningEffort.displayName}",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Normal,
-                        color = TextGray,
-                        fontSize = 15.sp
-                    )
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Select Model and Effort",
-                    tint = TextGray,
-                    modifier = Modifier.size(18.dp)
+                    onClick = {
+                        onModelSelected(model)
+                        dropdownExpanded = false
+                    }
                 )
             }
 
-            DropdownMenu(
-                expanded = dropdownExpanded,
-                onDismissRequest = { dropdownExpanded = false },
-                modifier = Modifier
-                    .background(DarkCard)
-                    .width(220.dp)
-            ) {
-                Text(
-                    text = "MODEL",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = TextMuted,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 10.sp,
-                        letterSpacing = 1.sp
-                    ),
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                )
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 4.dp),
+                color = DarkSurface
+            )
 
-                SupportedModel.entries.forEach { model ->
-                    DropdownMenuItem(
-                        text = {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = model.shortName,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = if (model == activeModel) TextWhite else TextGray,
-                                        fontWeight = if (model == activeModel) FontWeight.Bold else FontWeight.Normal
-                                    )
+            Text(
+                text = "REASONING EFFORT",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = TextMuted,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 10.sp,
+                    letterSpacing = 1.sp
+                ),
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+            )
+
+            ReasoningEffort.entries.forEach { effort ->
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = effort.displayName,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = if (effort == reasoningEffort) TextWhite else TextGray,
+                                    fontWeight = if (effort == reasoningEffort) FontWeight.Bold else FontWeight.Normal
                                 )
-                                if (model == activeModel) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = "Selected",
-                                        tint = TextWhite,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        },
-                        onClick = {
-                            onModelSelected(model)
-                            dropdownExpanded = false
-                        }
-                    )
-                }
-
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    color = DarkSurface
-                )
-
-                Text(
-                    text = "REASONING EFFORT",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = TextMuted,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 10.sp,
-                        letterSpacing = 1.sp
-                    ),
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                )
-
-                ReasoningEffort.entries.forEach { effort ->
-                    DropdownMenuItem(
-                        text = {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = effort.displayName,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = if (effort == reasoningEffort) TextWhite else TextGray,
-                                        fontWeight = if (effort == reasoningEffort) FontWeight.Bold else FontWeight.Normal
-                                    )
+                            )
+                            if (effort == reasoningEffort) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = TextWhite,
+                                    modifier = Modifier.size(16.dp)
                                 )
-                                if (effort == reasoningEffort) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = "Selected",
-                                        tint = TextWhite,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
                             }
-                        },
-                        onClick = {
-                            onReasoningEffortSelected(effort)
-                            dropdownExpanded = false
                         }
-                    )
-                }
+                    },
+                    onClick = {
+                        onReasoningEffortSelected(effort)
+                        dropdownExpanded = false
+                    }
+                )
             }
         }
     }

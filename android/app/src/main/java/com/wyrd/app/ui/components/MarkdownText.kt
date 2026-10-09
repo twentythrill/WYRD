@@ -112,7 +112,7 @@ fun MarkdownText(
                             fontSize = baseFontSize,
                             fontStyle = FontStyle.Italic,
                             color = TextGray,
-                            lineHeight = (baseFontSize.value * 1.45f).sp
+                            lineHeight = (baseFontSize.value * 1.35f).sp
                         )
                     }
                 }
@@ -136,7 +136,7 @@ fun MarkdownText(
                             fontFamily = SpaceGrotesk,
                             fontSize = baseFontSize,
                             color = textColor,
-                            lineHeight = (baseFontSize.value * 1.45f).sp,
+                            lineHeight = (baseFontSize.value * 1.35f).sp,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -148,7 +148,7 @@ fun MarkdownText(
                         fontFamily = SpaceGrotesk,
                         fontSize = baseFontSize,
                         color = textColor,
-                        lineHeight = (baseFontSize.value * 1.45f).sp
+                        lineHeight = (baseFontSize.value * 1.35f).sp
                     )
                 }
             }

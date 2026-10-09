@@ -1,4 +1,4 @@
-# WYRD — Native Android AI Client (v1.0.0)
+# WYRD — Native Android AI Client (v1.1.0)
 
 WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo) with live web search (Exa MCP), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (Whisper), and complete local session persistence.
 
@@ -21,7 +21,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
     - **Top Subtle Gradient**: Multi-stop vertical gradient (~130dp) softly dissolving text scrolling behind the status bar and top bar without harsh solid black blocks.
     - **Bottom Subtle Gradient**: 230dp multi-stop vertical gradient dissolving text smoothly behind the floating capsule and through the transparent navigation bar, delivering pure seamless continuity.
 - **Markdown Engine & Reading Layout**: Jetpack Compose renderer supporting headers, syntax-styled code cards with one-tap copy and horizontal scroll, blockquotes, ordered/unordered lists, bold/italic formatting, and clickable links. Dynamically maps all text spans, code backgrounds, blockquotes, and italic highlights to current theme colors (`LocalWyrdColors`), eliminating white-on-white text issues in Light mode.
-- **Zero-Shift Streaming Typography**: `StreamingAssistantMessageItem` and `AssistantMessageItem` share the exact same 25sp line-height typographic pipeline, markdown preprocessing (`formatMarkdownForReading`), and padding layout. Eliminates intermediate spacing shifts, erratic vertical jumps, or layout snapping between streaming and finalized assistant turns.
+- **Zero-Shift Streaming Typography**: `StreamingAssistantMessageItem` and `AssistantMessageItem` share the exact same condensed 23sp line-height typographic pipeline, markdown preprocessing (`formatMarkdownForReading`), and padding layout. Eliminates intermediate spacing shifts, erratic vertical jumps, or layout snapping between streaming and finalized assistant turns.
 - **Selection & Double-Tap Actions**:
   - Native long-press text selection with system copy handles across all messages, streaming content, and reasoning blocks. Powered by a no-op `BringIntoViewSpec` provided to `LazyColumn` (`LocalBringIntoViewSpec`) and non-consuming gesture timeouts, ensuring text selection is 100% rock-solid with zero jumping, viewport snapping, or scrolling behind the floating capsule anywhere in messages of any length.
   - Double-tapping any sent user bubble opens an action menu:
@@ -95,6 +95,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 ### 4. Speech-to-Text Pipeline (STT)
 - **Spring-Loaded Pull-to-Record**: Swiping right-to-left across the screen (~95dp threshold) features elastic spring resistance with progressive mechanical haptic ticks, collapsing the keyboard and opening the fullscreen STT screen.
 - **Interactive Recording Controls**:
+  - **Top Model & Reasoning Selector**: Elevated brutalist capsule pill positioned directly above the central recording button with generous horizontal padding, allowing the user to seamlessly switch the active LLM model (`MiMo 2.6 Pro` vs `MiMo 2.6 Flash`) and reasoning effort level (`Off`, `Low`, `Medium`, `High`) mid-speaking before hitting send.
   - **Center Glowing Button**: Stops recording, transcribes audio via OpenAI Whisper (`gpt-4o-mini-transcribe`), pastes into prompt, and immediately sends. Automatically engages conversational speech mode with instant real-time streaming TTS, speaking out loud as soon as the first tokens arrive with live word highlighting while the rest of the answer generates.
   - **Stop Button**: Stops recording, transcribes audio, and pastes into the prompt for review without sending.
   - **Cancel (✕) Button & Swipe Right**: Discards captured audio and collapses the overlay.

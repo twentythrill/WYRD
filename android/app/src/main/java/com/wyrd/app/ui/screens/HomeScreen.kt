@@ -1176,6 +1176,10 @@ fun HomeScreen(
             visible = isRecording || isTranscribing,
             isRecording = isRecording,
             isTranscribing = isTranscribing,
+            activeModel = activeModel,
+            reasoningEffort = reasoningEffort,
+            onModelSelected = { viewModel.setActiveModel(it) },
+            onReasoningEffortSelected = { viewModel.setReasoningEffort(it) },
             onSendRecording = { viewModel.stopRecording(autoSend = true) },
             onStopToEdit = { viewModel.stopRecording(autoSend = false) },
             onCancel = { viewModel.cancelRecording() }

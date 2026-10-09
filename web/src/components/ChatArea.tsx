@@ -1010,7 +1010,7 @@ export function ChatArea({
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
                 placeholder="Ask anything..."
-                className="flex-1 px-3 py-2 bg-transparent text-[16px] text-[#CECDC4] placeholder-[#7A7A7A] focus:outline-none resize-none max-h-44 font-sans leading-relaxed"
+                className="flex-1 px-3 py-2 bg-transparent text-[16px] text-[#CECDC4] placeholder-[#7A7A7A] focus:outline-none resize-none max-h-44 font-sans leading-snug"
               />
             )}
 
@@ -1175,7 +1175,7 @@ function MessageItem({
         <div
           onDoubleClick={() => setMenuOpen(true)}
           title="Double click for options"
-          className="max-w-[88%] px-4.5 py-3.5 rounded-[22px] bg-[#1A1A1A] border border-[#262626] text-[16px] text-[#CECDC4] leading-[28px] font-sans shadow-sm cursor-pointer select-text whitespace-pre-wrap"
+          className="max-w-[88%] px-4.5 py-3.5 rounded-[22px] bg-[#1A1A1A] border border-[#262626] text-[16px] text-[#CECDC4] leading-[23px] font-sans shadow-sm cursor-pointer select-text whitespace-pre-wrap"
         >
           {message.content}
         </div>
@@ -1270,19 +1270,19 @@ function MessageItem({
 
 function MarkdownMessage({ content }: { content: string }) {
   return (
-    <div className="text-[17px] leading-[30px] font-sans text-[#CECDC4] select-text w-full">
+    <div className="text-[17px] leading-[24px] font-sans text-[#CECDC4] select-text w-full">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          p: ({ children }) => <p className="mb-4 last:mb-0 leading-[30px]">{children}</p>,
-          h1: ({ children }) => <h1 className="text-xl font-bold mt-6 mb-3 text-[#CECDC4] leading-snug">{children}</h1>,
-          h2: ({ children }) => <h2 className="text-lg font-bold mt-5 mb-2.5 text-[#CECDC4] leading-snug">{children}</h2>,
+          p: ({ children }) => <p className="mb-3.5 last:mb-0 leading-[24px]">{children}</p>,
+          h1: ({ children }) => <h1 className="text-xl font-bold mt-5 mb-2.5 text-[#CECDC4] leading-snug">{children}</h1>,
+          h2: ({ children }) => <h2 className="text-lg font-bold mt-4.5 mb-2 text-[#CECDC4] leading-snug">{children}</h2>,
           h3: ({ children }) => <h3 className="text-base font-semibold mt-4 mb-2 text-[#CECDC4] leading-snug">{children}</h3>,
-          ul: ({ children }) => <ul className="list-disc pl-5 my-3.5 space-y-2 leading-[30px]">{children}</ul>,
-          ol: ({ children }) => <ol className="list-decimal pl-5 my-3.5 space-y-2 leading-[30px]">{children}</ol>,
-          li: ({ children }) => <li className="leading-[30px] pl-1">{children}</li>,
+          ul: ({ children }) => <ul className="list-disc pl-5 my-3 space-y-1.5 leading-[24px]">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal pl-5 my-3 space-y-1.5 leading-[24px]">{children}</ol>,
+          li: ({ children }) => <li className="leading-[24px] pl-1">{children}</li>,
           blockquote: ({ children }) => (
-            <blockquote className="border-l-2 border-[#8E8E93] pl-3.5 my-3.5 italic text-[#8E8E93] leading-[28px]">
+            <blockquote className="border-l-2 border-[#8E8E93] pl-3.5 my-3 italic text-[#8E8E93] leading-[22px]">
               {children}
             </blockquote>
           ),
@@ -1365,7 +1365,7 @@ function ReasoningBlock({
       </button>
 
       {isExpanded && (
-        <div className="p-3.5 text-xs text-[#8E8E93] font-mono leading-relaxed whitespace-pre-wrap border-t border-[#262626] max-h-60 overflow-y-auto select-text">
+        <div className="p-3.5 text-xs text-[#8E8E93] font-mono leading-[18px] whitespace-pre-wrap border-t border-[#262626] max-h-60 overflow-y-auto select-text">
           {reasoning}
         </div>
       )}
