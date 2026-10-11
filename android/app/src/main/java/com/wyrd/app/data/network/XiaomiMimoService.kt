@@ -658,18 +658,48 @@ class XiaomiMimoService(
             if (toolCall != null && hasAnySearch && toolExecutionRounds < maxToolExecutionRounds) {
                 toolExecutionRounds++
                 val isTavily = toolCall.tool == "tavily_search" || (toolCall.tool == "web_search" && hasTavily)
-                val engineName = if (isTavily) "Tavily" else "Exa"
+                var engineName = if (isTavily) "Tavily" else "Exa"
                 val functionName = if (isTavily) "tavily_search" else "exa_search"
 
                 emit(StreamEvent.Status(if (isTavily) "Searching live web with Tavily..." else "Searching web with Exa..."))
                 Log.d(TAG, "Autonomous $engineName search requested for: ${toolCall.query}")
 
-                val searchResult = if (isTavily && tavilySearchService != null) {
-                    tavilySearchService.searchWeb(toolCall.query, apiKey = tavilyApiKey).getOrNull()
-                        ?: TavilySearchService.ZERO_RESULTS_MESSAGE
+                val searchResult: String = if (isTavily && tavilySearchService != null) {
+                    val tavilyRes = tavilySearchService.searchWeb(toolCall.query, apiKey = tavilyApiKey)
+                    if (tavilyRes.isSuccess) {
+                        tavilyRes.getOrNull() ?: TavilySearchService.ZERO_RESULTS_MESSAGE
+                    } else if (exaSearchService != null) {
+                        // Tavily failed (quota limit, expired key, network down) -> Automatic fallback to Exa!
+                        Log.w(TAG, "Tavily search failed (${tavilyRes.exceptionOrNull()?.message}), falling back to Exa")
+                        emit(StreamEvent.Status("Tavily unavailable, falling back to Exa..."))
+                        val exaRes = exaSearchService.searchWeb(toolCall.query, apiKey = exaApiKey)
+                        if (exaRes.isSuccess && exaRes.getOrNull() != ExaSearchService.ZERO_RESULTS_MESSAGE) {
+                            engineName = "Exa (fallback from Tavily)"
+                            exaRes.getOrNull() ?: ExaSearchService.ZERO_RESULTS_MESSAGE
+                        } else {
+                            exaRes.getOrNull() ?: TavilySearchService.ZERO_RESULTS_MESSAGE
+                        }
+                    } else {
+                        TavilySearchService.ZERO_RESULTS_MESSAGE
+                    }
                 } else if (exaSearchService != null) {
-                    exaSearchService.searchWeb(toolCall.query, apiKey = exaApiKey).getOrNull()
-                        ?: ExaSearchService.ZERO_RESULTS_MESSAGE
+                    val exaRes = exaSearchService.searchWeb(toolCall.query, apiKey = exaApiKey)
+                    if (exaRes.isSuccess && exaRes.getOrNull() != ExaSearchService.ZERO_RESULTS_MESSAGE) {
+                        exaRes.getOrNull() ?: ExaSearchService.ZERO_RESULTS_MESSAGE
+                    } else if (exaRes.isFailure && tavilySearchService != null && !tavilyApiKey.isNullOrBlank()) {
+                        // Exa failed (e.g. MCP down/rate limit) and Tavily key is available -> Automatic fallback to Tavily!
+                        Log.w(TAG, "Exa search failed (${exaRes.exceptionOrNull()?.message}), falling back to Tavily")
+                        emit(StreamEvent.Status("Exa unavailable, falling back to Tavily..."))
+                        val tavilyRes = tavilySearchService.searchWeb(toolCall.query, apiKey = tavilyApiKey)
+                        if (tavilyRes.isSuccess) {
+                            engineName = "Tavily (fallback from Exa)"
+                            tavilyRes.getOrNull() ?: TavilySearchService.ZERO_RESULTS_MESSAGE
+                        } else {
+                            ExaSearchService.ZERO_RESULTS_MESSAGE
+                        }
+                    } else {
+                        exaRes.getOrNull() ?: ExaSearchService.ZERO_RESULTS_MESSAGE
+                    }
                 } else {
                     "No search engine available."
                 }

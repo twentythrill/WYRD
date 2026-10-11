@@ -628,15 +628,49 @@ If the request does not require external search, answer directly without invokin
       const { tool, query } = extracted
       const hasTavilyKey = Boolean(localStorage.getItem('wyrd_tavily_api_key')?.trim())
       const isTavily = tool === 'tavily_search' || (tool === 'web_search' && hasTavilyKey)
-      const engineName = isTavily ? 'Tavily' : 'Exa'
+      let engineName = isTavily ? 'Tavily' : 'Exa'
       const toolFunctionName = isTavily ? 'tavily_search' : 'exa_search'
 
       // Clear any partial content from round 1 so XML or preamble never leaks
       yield { clearContent: true }
       yield { status: `Searching ${isTavily ? 'live web with Tavily' : 'web with Exa'} for: "${query}"...` }
 
-      const searchRes = isTavily ? await searchTavilyWeb(query) : await searchExaWeb(query)
-      const searchOutput = searchRes.content || (isTavily ? TAVILY_ZERO_RESULTS_MESSAGE : ZERO_RESULTS_MESSAGE)
+      let searchOutput: string
+      if (isTavily) {
+        const tavilyRes = await searchTavilyWeb(query)
+        if (tavilyRes.success) {
+          searchOutput = tavilyRes.content
+        } else {
+          // Tavily failed (expired key, quota limit, network down) -> Automatic fallback to Exa!
+          console.warn('Tavily search failed, falling back to Exa:', tavilyRes.error)
+          yield { status: `Tavily unavailable, falling back to Exa for: "${query}"...` }
+          const exaRes = await searchExaWeb(query)
+          if (exaRes.success && exaRes.content !== ZERO_RESULTS_MESSAGE) {
+            engineName = 'Exa (fallback from Tavily)'
+            searchOutput = exaRes.content
+          } else {
+            searchOutput = exaRes.content || tavilyRes.content || TAVILY_ZERO_RESULTS_MESSAGE
+          }
+        }
+      } else {
+        const exaRes = await searchExaWeb(query)
+        if (exaRes.success && exaRes.content !== ZERO_RESULTS_MESSAGE) {
+          searchOutput = exaRes.content
+        } else if (!exaRes.success && hasTavilyKey) {
+          // Exa failed (e.g. MCP down/rate limit) and Tavily key is available -> Automatic fallback to Tavily!
+          console.warn('Exa search failed, falling back to Tavily:', exaRes.error)
+          yield { status: `Exa unavailable, falling back to Tavily for: "${query}"...` }
+          const tavilyRes = await searchTavilyWeb(query)
+          if (tavilyRes.success) {
+            engineName = 'Tavily (fallback from Exa)'
+            searchOutput = tavilyRes.content
+          } else {
+            searchOutput = exaRes.content || ZERO_RESULTS_MESSAGE
+          }
+        } else {
+          searchOutput = exaRes.content || ZERO_RESULTS_MESSAGE
+        }
+      }
 
       yield { status: 'Synthesizing answer...' }
 
@@ -649,7 +683,7 @@ If the request does not require external search, answer directly without invokin
         },
         {
           role: 'user',
-          content: `[Web Search Results (via ${engineName}) for "${query}"]:\n${searchOutput}\n\n[INSTRUCTION: Web search via ${engineName} is now COMPLETE. Do NOT invoke ${toolFunctionName} or emit any <tool_call> tags. Directly, accurately, and thoroughly answer the user's question using the search results above and your knowledge.]`,
+          content: `[Web Search Results (via ${engineName}) for "${query}"]:\n${searchOutput}\n\n[INSTRUCTION: Web search is now COMPLETE. Do NOT invoke ${toolFunctionName} or emit any <tool_call> tags. Directly, accurately, and thoroughly answer the user's question using the search results above and your knowledge.]`,
         },
       ]
 

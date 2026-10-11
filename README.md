@@ -41,6 +41,7 @@ WYRD/
   * **Tavily AI Search (`tavily_search`)**: Real-time live web browsing for breaking news, current events, recent releases/updates, sports scores, live data, and up-to-the-minute facts.
   * **Exa AI Search (`exa_search`)**: Neural semantic search engine for deep concept exploration, documentation, technical research, and academic literature.
   * **Model Autonomous Tool Selection**: The LLM autonomously chooses between `tavily_search` and `exa_search` based on query characteristics and temporal needs.
+  * **Automatic Search Fallback Cascade**: High-availability resilience between search engines. If Tavily's token quota is reached or key expires, it transparently fails over to Exa with live status updates, and vice-versa if Exa encounters limits and a Tavily key is present.
   * **Snippet Highlights & Zero-Result Guards**: Structured source blocks (`Title`, `URL`, `Publication Date`, `Highlights / Content Snippets`), tool-boundary zero-result guards, and strict verification trailers to eliminate hallucinations.
 * **Zero-Leak Stream Demuxer (`ThinkAndToolParser`)**: Isolates `<think>` reasoning and `<tool_call>` definitions, completely preventing raw tool XML from leaking into user-facing content.
 

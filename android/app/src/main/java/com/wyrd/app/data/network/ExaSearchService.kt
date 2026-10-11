@@ -127,7 +127,7 @@ class ExaSearchService(
                 if (!response.isSuccessful) {
                     val errBody = response.body?.string() ?: ""
                     Log.w(TAG, "Exa MCP HTTP error (${response.code}): $errBody")
-                    return@withContext Result.success(ZERO_RESULTS_MESSAGE)
+                    return@withContext Result.failure(RuntimeException("Exa MCP HTTP error (${response.code}): $errBody"))
                 }
 
                 val body = response.body ?: return@withContext Result.success(ZERO_RESULTS_MESSAGE)
@@ -184,7 +184,11 @@ class ExaSearchService(
                     }
                 }
 
-                if (isErrorEncountered || resultText.isBlank()) {
+                if (isErrorEncountered) {
+                    return@withContext Result.failure(RuntimeException("Exa search error encountered in stream"))
+                }
+
+                if (resultText.isBlank()) {
                     return@withContext Result.success(ZERO_RESULTS_MESSAGE)
                 }
 
@@ -197,7 +201,7 @@ class ExaSearchService(
             }
         } catch (t: Throwable) {
             Log.e(TAG, "Exa search failed", t)
-            Result.success(ZERO_RESULTS_MESSAGE)
+            Result.failure(t)
         }
     }
 

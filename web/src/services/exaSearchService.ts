@@ -193,10 +193,10 @@ export async function searchExaWeb(
     if (!response.ok) {
       const errText = await response.text()
       console.warn(`Exa MCP HTTP Error (${response.status}): ${errText}`)
-      // Zero-result guard on failure
       return {
-        success: true,
+        success: false,
         content: ZERO_RESULTS_MESSAGE,
+        error: `Exa MCP HTTP ${response.status}`,
       }
     }
 
@@ -248,7 +248,15 @@ export async function searchExaWeb(
       }
     }
 
-    if (isError || !combinedText.trim()) {
+    if (isError) {
+      return {
+        success: false,
+        content: ZERO_RESULTS_MESSAGE,
+        error: 'Exa MCP returned an error',
+      }
+    }
+
+    if (!combinedText.trim()) {
       return {
         success: true,
         content: ZERO_RESULTS_MESSAGE,
@@ -267,12 +275,12 @@ export async function searchExaWeb(
       success: true,
       content: formatExaResults(parsedItems),
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Exa search exception:', err)
-    // Zero-result guard catches network exceptions
     return {
-      success: true,
+      success: false,
       content: ZERO_RESULTS_MESSAGE,
+      error: err instanceof Error ? err.message : String(err),
     }
   }
 }
