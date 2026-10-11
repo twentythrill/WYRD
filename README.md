@@ -38,12 +38,11 @@ WYRD/
 * **Xiaomi MiMo Streaming**: Direct SSE token streaming with automatic cluster routing based on API key tier (`Token Plan` vs `Pay-As-You-Go`).
 * **Reasoning Control & Budget Guardrails**: Native thinking parameter with prompt steering and strict token budget enforcement (`Off`, `Low` 1024, `Medium` 8192, `High` 32768).
 * **Autonomous Dual-Engine Web Search Grounding**:
-  * **Tavily AI Search (`tavily_search`)**: Real-time live web browsing for breaking news, current events, recent releases/updates, corporate announcements, and live web facts.
-  * **Exa AI Search (`exa_search`)**: Neural semantic search engine specialized for employee reviews (Glassdoor, Indeed, Comparably), forum discussions (Reddit, Blind), interview experiences, and workplace culture.
-  * **Intelligent Query-Level Routing & Auto-Switching**: Automatically routes employee sentiment, Glassdoor, and Reddit inquiries to `exa_search` (where bot protection would block standard scrapers), while reserving `tavily_search` for corporate and breaking live web facts.
-  * **Multi-Round Search Tool Combination**: Allows up to 3 sequential tool execution rounds, actively steering the model between search rounds to combine corporate business checks (Tavily) with employee sentiment and reviews (Exa) before synthesizing a verdict.
-  * **Automatic Search Fallback Cascade**: High-availability resilience between search engines. If Tavily's token quota is reached or key expires, it transparently fails over to Exa with live status updates, and vice-versa if Exa encounters limits and a Tavily key is present.
-  * **Snippet Highlights & Zero-Result Guards**: Structured source blocks (`Title`, `URL`, `Publication Date`, `Highlights / Content Snippets`), tool-boundary zero-result guards, and strict verification trailers to eliminate hallucinations.
+  * **Tavily AI Search (`tavily_search`)**: Keyword-based real-time search engine for breaking news, current events, recent releases/updates, official websites, and live factual data.
+  * **Exa AI Search (`exa_search`)**: Neural semantic search engine for community discussions, forum opinions, user reviews, sentiment analysis, long-form articles, and in-depth research.
+  * **Autonomous Multi-Round Search & Tool Combination**: Enables up to 3 sequential tool execution rounds with iterative ReAct evaluation, allowing the model to combine factual search with community discussions or switch tools when initial results are incomplete.
+  * **Zero-Result & Failure Fallback Cascade**: High-availability resilience between search engines. If a search engine yields zero results or encounters an error, the system automatically checks the alternative engine.
+  * **Snippet Highlights & Verification Guards**: Structured source blocks (`URL`, `Publication Date`, `Highlights / Snippets`), tool-boundary zero-result guards, and strict verification trailers to eliminate hallucinations.
 * **Zero-Leak Stream Demuxer (`ThinkAndToolParser`)**: Isolates `<think>` reasoning and `<tool_call>` definitions, completely preventing raw tool XML from leaking into user-facing content.
 
 ### 3. Voice & Audio Pipelines

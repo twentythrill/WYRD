@@ -281,16 +281,13 @@ class XiaomiMimoService(
             if (hasAnySearch) {
                 append("\n[Autonomous Web Search Tools: You have access to external search engines to ground your answers in verified external facts. You are in charge of deciding autonomously whether to use web search.")
                 if (hasTavily) {
-                    append("\n- `tavily_search`: Real-time live web search engine. Specialized for: breaking news, current corporate announcements, recent funding rounds, official company website info, and live facts. Note: Tavily CANNOT bypass anti-bot blocks on Glassdoor or Reddit. Invoke with:\n<tool_call><function=tavily_search><parameter=query>your search query</parameter></function></tool_call>")
+                    append("\n- `tavily_search`: Keyword-based real-time search engine. Best for breaking news, current events, recent releases/updates, official company/product websites, and live factual data. Invoke with:\n<tool_call><function=tavily_search><parameter=query>your search query</parameter></function></tool_call>")
                 }
                 if (hasExa) {
-                    append("\n- `exa_search`: Neural semantic search engine. Specialized for: employee reviews (Glassdoor, Indeed, Comparably), community and forum discussions (Reddit, Hacker News, Blind), interview feedback, workplace culture, and salary data. Exa indexes and searches these platforms directly. Invoke with:\n<tool_call><function=exa_search><parameter=query>your search query</parameter></function></tool_call>")
+                    append("\n- `exa_search`: Neural semantic search engine. Best for community discussions, forum opinions, user reviews, sentiment analysis, long-form articles, and in-depth research. Invoke with:\n<tool_call><function=exa_search><parameter=query>your search query</parameter></function></tool_call>")
                 }
                 if (hasTavily && hasExa) {
-                    append("\n- Tool Selection & Combination Directives:")
-                    append("\n  1. For company employee sentiment, Glassdoor ratings, Reddit threads, workplace culture, or interview experiences: you MUST use `exa_search`. Never use Tavily for Glassdoor or Reddit.")
-                    append("\n  2. For company business health checks, employment audits, or due diligence: ALWAYS combine both tools across search rounds! Use `tavily_search` to verify corporate facts, funding, and news, AND use `exa_search` to uncover employee sentiment, Glassdoor reviews, and workplace culture. Do not write a final verdict until you have searched both sides.")
-                    append("\n  3. If your first search round only returned corporate news or missed employee reviews, immediately invoke `exa_search` in the next round to gather the employee sentiment and Glassdoor data before finalizing your verdict.")
+                    append("\n- Tool Switching & Multi-Turn Combination: You can invoke these search tools sequentially across rounds or combine them if a request has multiple dimensions (e.g. live factual data vs community discussions/reviews) or if the initial search does not provide sufficient, relevant, or complete information.")
                 }
                 append("\nIf the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]")
             }
@@ -664,67 +661,53 @@ class XiaomiMimoService(
 
             if (toolCall != null && hasAnySearch && toolExecutionRounds < maxToolExecutionRounds) {
                 toolExecutionRounds++
-                var isTavily = toolCall.tool == "tavily_search" || (toolCall.tool == "web_search" && hasTavily)
-
-                // Intelligent Auto-Switch / Routing:
-                // If the query asks for employee reviews, Glassdoor, Reddit, workplace culture, ratings, or interview feedback,
-                // Tavily will fail because those sites block generic scrapers. Exa MUST be used.
-                if (isTavily && hasExa && isReviewOrForumQuery(toolCall.query)) {
-                    Log.d(TAG, "Auto-switching tool from Tavily to Exa because query targets employee reviews/forums: ${toolCall.query}")
-                    isTavily = false
-                } else if (!isTavily && !hasExa && hasTavily) {
-                    isTavily = true
-                }
-
+                val isTavily = toolCall.tool == "tavily_search" || (toolCall.tool == "web_search" && hasTavily)
                 var engineName = if (isTavily) "Tavily" else "Exa"
                 val functionName = if (isTavily) "tavily_search" else "exa_search"
 
                 val statusPrefix = if (toolExecutionRounds > 1) "Gathering additional data with " else "Searching "
-                val statusText = if (isTavily) {
-                    "${statusPrefix}live web with Tavily..."
-                } else if (isReviewOrForumQuery(toolCall.query)) {
-                    "${statusPrefix}employee reviews & Glassdoor with Exa..."
-                } else {
-                    "${statusPrefix}web with Exa..."
-                }
-                emit(StreamEvent.Status(statusText))
+                emit(StreamEvent.Status(if (isTavily) "${statusPrefix}live web with Tavily..." else "${statusPrefix}web with Exa..."))
                 Log.d(TAG, "Autonomous $engineName search (round $toolExecutionRounds) requested for: ${toolCall.query}")
 
                 val searchResult: String = if (isTavily && tavilySearchService != null) {
                     val tavilyRes = tavilySearchService.searchWeb(toolCall.query, apiKey = tavilyApiKey)
-                    if (tavilyRes.isSuccess) {
-                        tavilyRes.getOrNull() ?: TavilySearchService.ZERO_RESULTS_MESSAGE
+                    val tavilyText = tavilyRes.getOrNull()
+                    if (tavilyRes.isSuccess && !tavilyText.isNullOrBlank() && tavilyText != TavilySearchService.ZERO_RESULTS_MESSAGE) {
+                        tavilyText
                     } else if (exaSearchService != null) {
-                        // Tavily failed (quota limit, expired key, network down) -> Automatic fallback to Exa!
-                        Log.w(TAG, "Tavily search failed (${tavilyRes.exceptionOrNull()?.message}), falling back to Exa")
-                        emit(StreamEvent.Status("Tavily unavailable, falling back to Exa..."))
+                        // Tavily returned 0 results or encountered an error -> Transparent fallback to Exa!
+                        Log.w(TAG, "Tavily search yielded no data (${tavilyRes.exceptionOrNull()?.message}), falling back to Exa")
+                        emit(StreamEvent.Status("Tavily yielded no data, checking Exa..."))
                         val exaRes = exaSearchService.searchWeb(toolCall.query, apiKey = exaApiKey)
-                        if (exaRes.isSuccess && exaRes.getOrNull() != ExaSearchService.ZERO_RESULTS_MESSAGE) {
+                        val exaText = exaRes.getOrNull()
+                        if (exaRes.isSuccess && !exaText.isNullOrBlank() && exaText != ExaSearchService.ZERO_RESULTS_MESSAGE) {
                             engineName = "Exa (fallback from Tavily)"
-                            exaRes.getOrNull() ?: ExaSearchService.ZERO_RESULTS_MESSAGE
+                            exaText
                         } else {
-                            exaRes.getOrNull() ?: TavilySearchService.ZERO_RESULTS_MESSAGE
+                            tavilyText ?: TavilySearchService.ZERO_RESULTS_MESSAGE
                         }
                     } else {
-                        TavilySearchService.ZERO_RESULTS_MESSAGE
+                        tavilyText ?: TavilySearchService.ZERO_RESULTS_MESSAGE
                     }
                 } else if (exaSearchService != null) {
                     val exaRes = exaSearchService.searchWeb(toolCall.query, apiKey = exaApiKey)
-                    if (exaRes.isSuccess && exaRes.getOrNull() != ExaSearchService.ZERO_RESULTS_MESSAGE) {
-                        exaRes.getOrNull() ?: ExaSearchService.ZERO_RESULTS_MESSAGE
-                    } else if (exaRes.isFailure && tavilySearchService != null && !tavilyApiKey.isNullOrBlank()) {
-                        // Exa failed (e.g. MCP down/rate limit) and Tavily key is available -> Automatic fallback to Tavily!
-                        Log.w(TAG, "Exa search failed (${exaRes.exceptionOrNull()?.message}), falling back to Tavily")
-                        emit(StreamEvent.Status("Exa unavailable, falling back to Tavily..."))
+                    val exaText = exaRes.getOrNull()
+                    if (exaRes.isSuccess && !exaText.isNullOrBlank() && exaText != ExaSearchService.ZERO_RESULTS_MESSAGE) {
+                        exaText
+                    } else if (tavilySearchService != null && !tavilyApiKey.isNullOrBlank()) {
+                        // Exa returned 0 results or encountered an error -> Transparent fallback to Tavily!
+                        Log.w(TAG, "Exa search yielded no data (${exaRes.exceptionOrNull()?.message}), falling back to Tavily")
+                        emit(StreamEvent.Status("Exa yielded no data, checking Tavily..."))
                         val tavilyRes = tavilySearchService.searchWeb(toolCall.query, apiKey = tavilyApiKey)
-                        if (tavilyRes.isSuccess) {
+                        val tavilyText = tavilyRes.getOrNull()
+                        if (tavilyRes.isSuccess && !tavilyText.isNullOrBlank() && tavilyText != TavilySearchService.ZERO_RESULTS_MESSAGE) {
                             engineName = "Tavily (fallback from Exa)"
-                            tavilyRes.getOrNull() ?: TavilySearchService.ZERO_RESULTS_MESSAGE
+                            tavilyText
                         } else {
-                            ExaSearchService.ZERO_RESULTS_MESSAGE
+                            exaText ?: ExaSearchService.ZERO_RESULTS_MESSAGE
                         }
                     } else {
-                        exaRes.getOrNull() ?: ExaSearchService.ZERO_RESULTS_MESSAGE
+                        exaText ?: ExaSearchService.ZERO_RESULTS_MESSAGE
                     }
                 } else {
                     "No search engine available."
@@ -743,11 +726,8 @@ class XiaomiMimoService(
                 })
 
                 val nextInstruction = if (toolExecutionRounds < maxToolExecutionRounds) {
-                    if (isTavily) {
-                        "[INSTRUCTION: Round $toolExecutionRounds results from Tavily (corporate/news) received. CRITICAL: If the user request or project directives ask for employee sentiment, workplace culture, Glassdoor/Reddit reviews, or interview experiences, you MUST now invoke `exa_search` (e.g. `<tool_call><function=exa_search><parameter=query>Company Name employee reviews Glassdoor Reddit</parameter></function></tool_call>`). Do NOT call tavily_search again for reviews or forums. If all required information across both business and employee sentiment is already complete, provide your final response now without calling further tools.]"
-                    } else {
-                        "[INSTRUCTION: Round $toolExecutionRounds results from Exa (reviews/sentiment) received. If you still need breaking news, recent corporate announcements, or official company records, you may invoke `tavily_search`. If all required information is already complete, provide your final response now without calling further tools.]"
-                    }
+                    val altTool = if (isTavily) "exa_search" else "tavily_search"
+                    "[INSTRUCTION: Review the search results above against the user's prompt. If the retrieved evidence is complete and sufficient to answer all aspects of the request, provide your final response now without calling further tools. If crucial details are still missing, incomplete, or if the current search engine did not cover all aspects of the request, you may invoke another search tool (such as $altTool, or refine your query) in the next round to gather the remaining evidence.]"
                 } else {
                     "[INSTRUCTION: Web search is now COMPLETE. Do NOT invoke any further tools or emit <tool_call> tags. Directly, accurately, and thoroughly answer the user's question using all gathered search results and your knowledge.]"
                 }
@@ -1064,42 +1044,6 @@ class XiaomiMimoService(
         val query: String
     )
 
-    private fun isReviewOrForumQuery(query: String): Boolean {
-        val q = query.lowercase()
-        return q.contains("glassdoor") ||
-                q.contains("reddit") ||
-                q.contains("blind") ||
-                q.contains("teamblind") ||
-                q.contains("indeed") ||
-                q.contains("comparably") ||
-                q.contains("levels.fyi") ||
-                q.contains("trustpilot") ||
-                q.contains("g2") ||
-                q.contains("capterra") ||
-                q.contains("employee review") ||
-                q.contains("employee reviews") ||
-                q.contains("staff review") ||
-                q.contains("worker review") ||
-                q.contains("company review") ||
-                q.contains("workplace culture") ||
-                q.contains("work culture") ||
-                q.contains("company culture") ||
-                q.contains("interview review") ||
-                q.contains("interview feedback") ||
-                q.contains("interview question") ||
-                q.contains("interview questions") ||
-                q.contains("interview experience") ||
-                q.contains("work-life") ||
-                q.contains("wlb") ||
-                q.contains("management review") ||
-                q.contains("leadership review") ||
-                q.contains("layoff sentiment") ||
-                q.contains("employee sentiment") ||
-                q.contains("salary") ||
-                q.contains("compensation") ||
-                (q.contains("review") && (q.contains("culture") || q.contains("sentiment") || q.contains("employee") || q.contains("workplace") || q.contains("intern")))
-    }
-
     private fun getWebSearchTools(enableTavily: Boolean = true, enableExa: Boolean = true): JSONArray {
         return JSONArray().apply {
             if (enableTavily) {
@@ -1107,7 +1051,7 @@ class XiaomiMimoService(
                     put("type", "function")
                     put("function", JSONObject().apply {
                         put("name", "tavily_search")
-                        put("description", "Searches the live web in real time for breaking news, corporate announcements, funding, official company site, and live facts via Tavily. Note: cannot access Glassdoor or Reddit.")
+                        put("description", "Keyword-based real-time search engine. Best for breaking news, current events, recent releases/updates, official company/product websites, and live factual data.")
                         put("parameters", JSONObject().apply {
                             put("type", "object")
                             put("properties", JSONObject().apply {
@@ -1126,7 +1070,7 @@ class XiaomiMimoService(
                     put("type", "function")
                     put("function", JSONObject().apply {
                         put("name", "exa_search")
-                        put("description", "Searches the web semantically for employee reviews, Glassdoor ratings, Reddit threads, interview feedback, workplace culture, and forum discussions via Exa.")
+                        put("description", "Neural semantic search engine. Best for community discussions, forum opinions, user reviews, sentiment analysis, long-form articles, and in-depth research.")
                         put("parameters", JSONObject().apply {
                             put("type", "object")
                             put("properties", JSONObject().apply {
