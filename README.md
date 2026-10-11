@@ -1,4 +1,4 @@
-# WYRD (v1.3.0)
+# WYRD (v1.4.0)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -58,10 +58,16 @@ WYRD/
 
 ### 5. Projects & Knowledge Base Spaces (Web & Android)
 * **Custom System Prompt Override**: Dedicated project spaces with custom system prompts that strictly override the generic global system prompt for focused domain tasks.
-* **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any project. The text content is extracted client-side and injected as contextual knowledge base memory during LLM completions.
-* **Folder-Like Organization**: Folders in the sidebar (Web) and drawer (Android) grouping nested conversation threads. Conversations created within a project stay inside its folder; chats outside live in the generic HISTORY section.
-* **Breadcrumb Navigation**: Dynamic folder indicator displaying the active project name directly in the top navigation bar.
-* **Full Cloud & Offline Sync**: Full Room database support (v7 migration) and Supabase tables (`projects`, `project_files`, `chats.project_id`) with real-time bidirectional synchronization across Android and Web.
+* **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any project. The text content is extracted client-side and injected as contextual knowledge base memory during LLM completions. Staging files during project creation is supported on both Web and Android.
+* **Safe Storage Persistence**: Whitelisted project files in Supabase Storage prevent active project knowledge attachments from being purged during orphan cleanup passes.
+* **Strict Context Scoping**: Strict project context isolation ensures project system instructions and knowledge base files never leak into generic chat sessions.
+* **Folder-Like Organization**: Folders in the sidebar (Web) and drawer (Android) grouping nested conversation threads. Header clicks cleanly toggle folder expansion; conversations created within a project stay inside its folder; chats outside live in the generic HISTORY section.
+* **Breadcrumb Navigation**: Dynamic folder indicator displaying the active project name directly in the top navigation bar and drafting state.
+* **Full Cloud & Offline Sync**: Full Room database support (v8 migration with composite index optimization) and Supabase tables (`projects`, `project_files`, `chats.project_id`) with real-time bidirectional synchronization across Android and Web.
+
+### 6. Full Markdown Tables & Typography Engine
+* **Brutalist Tables Rendering**: Parses standard Markdown tables (`| Col 1 | Col 2 |`) into clean, responsive tabular cards with header distinctions, column alignment (`left`, `center`, `right`), horizontal scrolling, and custom borders.
+* **100% TTS Character Index Parity**: Formatted table cells maintain exact character offsets and plain-text representation on both Web and Android, preserving seamless word-by-word TTS highlighting and tap/double-click seek.
 
 ---
 
@@ -69,6 +75,7 @@ WYRD/
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.4.0** | 2026-10-11 | Complete architecture overhaul of Projects (isolated scoping, storage orphan protection, creation file staging, clean navigation toggles) and native Markdown Table rendering engine with 1:1 TTS word-sync parity across Web and Android. |
 | **v1.3.0** | 2026-10-11 | Implemented Dual Search Engine architecture (Tavily AI for real-time live web browsing + Exa AI for semantic exploration) with autonomous model tool selection, settings configuration, and clean verification trailers across Web and Android. |
 | **v1.2.0** | 2026-10-11 | Added Projects feature across Web and Android: custom system prompt overrides, knowledge base source file attachments (.md, .txt, .pdf, code), folder-based sidebar and drawer organization, and real-time Supabase sync. |
 | **v1.1.0** | 2026-10-09 | Added mid-speech model and reasoning selector in Android STT overlay, reasoning token budget enforcement guardrails, and condensed typography parity across Android (23sp) and Web. |

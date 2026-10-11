@@ -1,4 +1,4 @@
-# WYRD Web (Desktop & Browser Companion) (v1.3.0)
+# WYRD Web (Desktop & Browser Companion) (v1.4.0)
 
 A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversations, settings, and cognitive states in real-time with the Android application via Supabase.
 
@@ -6,6 +6,7 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
 
 * **Framework**: React 19 + TypeScript + Vite 8
 * **Styling**: Tailwind CSS v4 + Space Grotesk & JetBrains Mono typography
+* **Markdown & Tables**: Custom brutalist reading formatter (`readingFormatter.ts`) with responsive Markdown Tables (`| Col |`), styled headers, aligned cells, and 1:1 character index TTS sync.
 * **Audio & Speech**: OpenAI Whisper (`whisper-1`) for speech-to-text (STT) + Native Web Speech API (`window.speechSynthesis`) for zero-latency Text-to-Speech (TTS)
 * **Backend & Sync**: Supabase (PostgreSQL + Row-Level Security + Realtime Replication)
 * **Icons & UI**: Official WYRD Brand Starburst Eye Logo + Lucide React
@@ -77,8 +78,10 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
    * **30-Turn Context Window Clamping**: Clamps message payload to the most recent 30 conversation turns to preserve token budgets and avoid gateway limits.
 9. **Projects & Knowledge Base Spaces**:
    * **Custom System Prompt Override**: Dedicated projects with custom instructions that strictly override the generic profile system prompt.
-   * **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code files. Text is extracted client-side (using `pdfjs-dist` for PDFs) and injected into the LLM context for all chats within that project.
-   * **Folder Structure & Nested Chats**: Collapsible `PROJECTS` section in the sidebar with nested chat lists, project creation modal, file manager, and active project breadcrumb in the top navigation bar. Generic chats reside in the `HISTORY` section.
+   * **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code files. Text is extracted client-side (using `pdfjs-dist` for PDFs) and injected into the LLM context for all chats within that project. Supports staging files during project creation with badge preview and deletion.
+   * **Safe Storage Persistence**: Direct Supabase storage without shadow `localStorage` layers; project file storage paths (`project_files.storage_path`) are whitelisted in `cleanOrphanedStorageAttachments` to prevent premature purging.
+   * **Strict Context Scoping**: Strict project isolation ensures instructions and knowledge files never leak into generic chat sessions.
+   * **Folder Structure & Clean Navigation**: Collapsible `PROJECTS` section in the sidebar with nested chat lists. Header click toggles folder expansion cleanly without redundant child rows. Active project breadcrumbs in the top bar and draft badge on empty greeting.
    * **Two-Way Supabase Sync**: Real-time bidirectional replication of projects, attached project files, and chat assignments across Web and Android.
 
 ## Local Development & Spin-Up

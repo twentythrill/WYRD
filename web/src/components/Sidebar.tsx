@@ -351,11 +351,7 @@ export function Sidebar({
                       <div key={project.id} className="space-y-0.5">
                         {/* Project Header Row */}
                         <div
-                          onClick={() => {
-                            setExpandedProjects((prev) => new Set(prev).add(project.id))
-                            onNewChatInProject(project.id)
-                            if (window.innerWidth < 768) onClose()
-                          }}
+                          onClick={() => toggleProjectExpansion(project.id)}
                           className={`group flex items-center justify-between px-2 py-2 rounded-xl cursor-pointer transition-colors ${
                             isProjectActive
                               ? 'bg-[#1A1A1A] text-[#CECDC4]'
@@ -363,13 +359,7 @@ export function Sidebar({
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0 pr-1.5">
-                            <span
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                toggleProjectExpansion(project.id)
-                              }}
-                              className="p-0.5 text-[#636366] hover:text-[#CECDC4] rounded cursor-pointer"
-                            >
+                            <span className="p-0.5 text-[#636366] hover:text-[#CECDC4] rounded cursor-pointer">
                               {isExpanded ? (
                                 <ChevronDown className="w-3.5 h-3.5" />
                               ) : (
@@ -389,18 +379,19 @@ export function Sidebar({
                             </span>
                           </div>
 
-                          {/* Hover Action Buttons */}
-                          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity shrink-0">
+                          {/* Action Buttons: New Chat in Project & Settings */}
+                          <div className="flex items-center gap-1 transition-opacity shrink-0">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
+                                setExpandedProjects((prev) => new Set(prev).add(project.id))
                                 onNewChatInProject(project.id)
                                 if (window.innerWidth < 768) onClose()
                               }}
-                              title="New Chat in Project"
+                              title="New chat in project"
                               className="p-1 rounded text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626] cursor-pointer"
                             >
-                              <Plus className="w-3.5 h-3.5" />
+                              <Plus className="w-3.5 h-3.5 stroke-[2]" />
                             </button>
                             <button
                               onClick={(e) => {
@@ -410,7 +401,7 @@ export function Sidebar({
                               title="Project Settings"
                               className="p-1 rounded text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626] cursor-pointer"
                             >
-                              <Settings2 className="w-3.5 h-3.5" />
+                              <Settings2 className="w-3.5 h-3.5 stroke-[1.8]" />
                             </button>
                           </div>
                         </div>
@@ -418,21 +409,19 @@ export function Sidebar({
                         {/* Expanded Project Chats */}
                         {isExpanded && (
                           <div className="space-y-0.5">
-                            <div
-                              onClick={() => {
-                                onNewChatInProject(project.id)
-                                if (window.innerWidth < 768) onClose()
-                              }}
-                              className={`pl-8 pr-3 py-1.5 text-xs rounded-xl cursor-pointer font-sans flex items-center gap-1.5 transition-colors ${
-                                isProjectActive
-                                  ? 'bg-[#1A1A1A] text-[#CECDC4]'
-                                  : 'text-[#636366] hover:text-[#CECDC4] hover:bg-[#141414]'
-                              }`}
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>New Chat in {project.name}</span>
-                            </div>
-                            {projectChatList.map((chat) => renderChatItem(chat, true))}
+                            {projectChatList.length === 0 ? (
+                              <div
+                                onClick={() => {
+                                  onNewChatInProject(project.id)
+                                  if (window.innerWidth < 768) onClose()
+                                }}
+                                className="pl-8 pr-3 py-1.5 text-xs text-[#636366] hover:text-[#CECDC4] hover:bg-[#141414] rounded-xl cursor-pointer font-sans transition-colors"
+                              >
+                                + Start first chat in {project.name}
+                              </div>
+                            ) : (
+                              projectChatList.map((chat) => renderChatItem(chat, true))
+                            )}
                           </div>
                         )}
                       </div>

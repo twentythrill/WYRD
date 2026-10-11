@@ -734,6 +734,43 @@ fun HomeScreen(
                                     fontSize = 22.sp
                                 )
                             )
+
+                            if (activeProject != null && activeChatId == null) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(DarkSurfaceElevated)
+                                        .border(0.8.dp, DarkBorder, RoundedCornerShape(16.dp))
+                                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .clip(CircleShape)
+                                            .background(White)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Drafting in ",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontFamily = SpaceGrotesk,
+                                            color = TextMuted,
+                                            fontSize = 12.sp
+                                        )
+                                    )
+                                    Text(
+                                        text = activeProject!!.name,
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontFamily = SpaceGrotesk,
+                                            color = TextWhite,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 12.sp
+                                        )
+                                    )
+                                }
+                            }
                         }
                     } else {
                         // Active conversation stream with contentPadding allowing smooth scrolling behind both top bar and bottom capsule
@@ -1224,7 +1261,7 @@ fun HomeScreen(
                     showProjectDialog = false
                     projectToEdit = null
                 },
-                onSave = { name, description, systemPrompt ->
+                onSave = { name, description, systemPrompt, stagedUris ->
                     val currentProject = projectToEdit
                     if (currentProject != null) {
                         viewModel.updateProject(
@@ -1235,7 +1272,7 @@ fun HomeScreen(
                             )
                         )
                     } else {
-                        viewModel.createProject(name, description, systemPrompt)
+                        viewModel.createProject(name, description, systemPrompt, stagedUris)
                     }
                     showProjectDialog = false
                     projectToEdit = null

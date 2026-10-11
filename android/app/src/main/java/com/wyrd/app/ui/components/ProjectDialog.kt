@@ -65,6 +65,7 @@ import com.wyrd.app.data.local.ProjectFileEntity
 import com.wyrd.app.ui.MainViewModel
 import com.wyrd.app.ui.theme.AccentRed
 import com.wyrd.app.ui.theme.DarkBorder
+import com.wyrd.app.ui.theme.DarkCard
 import com.wyrd.app.ui.theme.DarkSurface
 import com.wyrd.app.ui.theme.DarkSurfaceElevated
 import com.wyrd.app.ui.theme.SpaceGrotesk
@@ -79,12 +80,14 @@ fun ProjectDialog(
     project: ProjectEntity?,
     viewModel: MainViewModel,
     onDismiss: () -> Unit,
-    onSave: (name: String, description: String, systemPrompt: String) -> Unit,
+    onSave: (name: String, description: String, systemPrompt: String, stagedUris: List<Uri>) -> Unit,
     onDelete: (ProjectEntity) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var name by remember(project) { mutableStateOf(project?.name ?: "") }
     var description by remember(project) { mutableStateOf(project?.description ?: "") }
     var systemPrompt by remember(project) { mutableStateOf(project?.systemPrompt ?: "") }
+    var stagedUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val projectFiles by remember(project?.id) {
@@ -98,8 +101,12 @@ fun ProjectDialog(
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        if (uri != null && project != null) {
-            viewModel.addProjectFile(project.id, uri)
+        if (uri != null) {
+            if (project != null) {
+                viewModel.addProjectFile(project.id, uri)
+            } else {
+                stagedUris = stagedUris + uri
+            }
         }
     }
 
@@ -292,45 +299,131 @@ fun ProjectDialog(
                             )
                         }
 
-                        if (project != null) {
-                            TextButton(
-                                onClick = { filePickerLauncher.launch("*/*") }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = null,
-                                    tint = TextWhite,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Add File",
-                                    color = TextWhite,
-                                    fontFamily = SpaceGrotesk,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
+                        TextButton(
+                            onClick = { filePickerLauncher.launch("*/*") }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                tint = TextWhite,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Add File",
+                                color = TextWhite,
+                                fontFamily = SpaceGrotesk,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
                     if (project == null) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(DarkSurfaceElevated)
-                                .padding(14.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Save project first to attach knowledge base files.",
-                                color = TextMuted,
-                                fontSize = 12.sp,
-                                fontFamily = SpaceGrotesk
-                            )
+                        if (stagedUris.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(DarkSurfaceElevated)
+                                    .clickable { filePickerLauncher.launch("*/*") }
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        imageVector = Icons.Default.UploadFile,
+                                        contentDescription = null,
+                                        tint = TextMuted,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Tap to add source files (.md, .txt, .pdf, code)",
+                                        color = TextGray,
+                                        fontSize = 12.sp,
+                                        fontFamily = SpaceGrotesk
+                                    )
+                                }
+                            }
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                stagedUris.forEach { uri ->
+                                    val fileName = AttachmentHelper.getFileName(context, uri)
+                                    val fileSize = AttachmentHelper.getFileSize(context, uri)
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(DarkSurfaceElevated)
+                                            .border(0.5.dp, DarkBorder, RoundedCornerShape(10.dp))
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Description,
+                                                contentDescription = null,
+                                                tint = TextGray,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Column {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(
+                                                        text = fileName,
+                                                        color = TextWhite,
+                                                        fontSize = 12.sp,
+                                                        fontFamily = SpaceGrotesk,
+                                                        fontWeight = FontWeight.Medium,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(4.dp))
+                                                            .background(DarkCard)
+                                                            .border(0.5.dp, DarkBorder, RoundedCornerShape(4.dp))
+                                                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "Staged",
+                                                            color = TextMuted,
+                                                            fontSize = 9.sp,
+                                                            fontFamily = SpaceGrotesk
+                                                        )
+                                                    }
+                                                }
+                                                Text(
+                                                    text = AttachmentHelper.formatSize(fileSize),
+                                                    color = TextMuted,
+                                                    fontSize = 10.sp,
+                                                    fontFamily = SpaceGrotesk
+                                                )
+                                            }
+                                        }
+
+                                        IconButton(
+                                            onClick = { stagedUris = stagedUris.filter { it != uri } },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Remove file",
+                                                tint = AccentRed.copy(alpha = 0.8f),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     } else if (projectFiles.isEmpty()) {
                         Box(
@@ -470,7 +563,7 @@ fun ProjectDialog(
                     Button(
                         onClick = {
                             if (name.isNotBlank()) {
-                                onSave(name.trim(), description.trim(), systemPrompt.trim())
+                                onSave(name.trim(), description.trim(), systemPrompt.trim(), stagedUris)
                                 onDismiss()
                             }
                         },

@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [ChatEntity::class, MessageEntity::class, ProjectEntity::class, ProjectFileEntity::class],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,7 +34,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     dbName
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
@@ -108,6 +108,13 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 database.execSQL("ALTER TABLE chats ADD COLUMN projectId INTEGER")
                 database.execSQL("ALTER TABLE chats ADD COLUMN projectSyncId TEXT")
+            }
+        }
+
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_chats_projectId ON chats(projectId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_chats_projectSyncId ON chats(projectSyncId)")
             }
         }
     }

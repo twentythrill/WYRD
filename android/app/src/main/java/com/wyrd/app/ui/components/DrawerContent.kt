@@ -297,8 +297,11 @@ fun DrawerContent(
                                 .background(if (isProjectSelected) DarkCard else androidx.compose.ui.graphics.Color.Transparent)
                                 .clickable {
                                     hapticManager?.tick()
-                                    expandedProjectIds = expandedProjectIds + project.id
-                                    onNewChatInProject(project.id)
+                                    expandedProjectIds = if (isExpanded) {
+                                        expandedProjectIds - project.id
+                                    } else {
+                                        expandedProjectIds + project.id
+                                    }
                                 }
                                 .padding(horizontal = 8.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -390,37 +393,6 @@ fun DrawerContent(
                     }
 
                     if (isExpanded) {
-                        item(key = "proj_${project.id}_new_chat") {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isProjectSelected) DarkCard else androidx.compose.ui.graphics.Color.Transparent)
-                                    .clickable {
-                                        hapticManager?.tick()
-                                        onNewChatInProject(project.id)
-                                    }
-                                    .padding(start = 36.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = null,
-                                    tint = if (isProjectSelected) TextWhite else TextMuted,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "New chat in ${project.name}",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = if (isProjectSelected) TextWhite else TextMuted,
-                                        fontFamily = SpaceGrotesk,
-                                        fontSize = 12.sp
-                                    )
-                                )
-                            }
-                        }
-
                         items(projectChats, key = { "proj_${project.id}_${it.id}" }) { chat ->
                             ChatItemRow(
                                 chat = chat,

@@ -20,6 +20,9 @@ interface ProjectFileDao {
     @Query("SELECT * FROM project_files WHERE syncId = :syncId LIMIT 1")
     suspend fun getFileBySyncId(syncId: String): ProjectFileEntity?
 
+    @Query("SELECT * FROM project_files")
+    suspend fun getAllFiles(): List<ProjectFileEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFile(file: ProjectFileEntity): Long
 

@@ -724,6 +724,31 @@ class SupabaseSyncManager(
         secureKeyStorage.removeKnownSyncedProjectId(projectSyncId)
         val token = getValidAccessToken() ?: return@withContext
         try {
+            // First fetch files of this project to delete from storage
+            try {
+                val getFilesReq = Request.Builder()
+                    .url("$SUPABASE_URL/rest/v1/project_files?project_id=eq.$projectSyncId&select=storage_path")
+                    .addHeader("apikey", SUPABASE_KEY)
+                    .addHeader("Authorization", "Bearer $token")
+                    .get()
+                    .build()
+                client.newCall(getFilesReq).execute().use { resp ->
+                    if (resp.isSuccessful) {
+                        val arr = JSONArray(resp.body?.string() ?: "[]")
+                        val paths = mutableListOf<String>()
+                        for (i in 0 until arr.length()) {
+                            val sp = arr.getJSONObject(i).optString("storage_path", "")
+                            if (sp.isNotBlank()) paths.add(sp)
+                        }
+                        if (paths.isNotEmpty()) {
+                            deleteStorageAttachments(paths)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to clean storage files for deleted project $projectSyncId", e)
+            }
+
             val req = Request.Builder()
                 .url("$SUPABASE_URL/rest/v1/projects?id=eq.$projectSyncId")
                 .addHeader("apikey", SUPABASE_KEY)
@@ -984,6 +1009,19 @@ class SupabaseSyncManager(
 
         // 5. Clean up any orphaned messages
         messageDao.deleteOrphanedMessages()
+
+        // 6. Backfill local projectId for any chats where projectSyncId is set but projectId is null
+        try {
+            val chatsNeedingProjectId = chatDao.getAllChatsList().filter { !it.projectSyncId.isNullOrBlank() && it.projectId == null }
+            for (c in chatsNeedingProjectId) {
+                val proj = database.projectDao().getProjectBySyncId(c.projectSyncId!!)
+                if (proj != null) {
+                    chatDao.updateChat(c.copy(projectId = proj.id))
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Backfill chats projectId error", e)
+        }
     }
 
     private suspend fun syncMessages(token: String, userId: String) {
@@ -1531,6 +1569,39 @@ class SupabaseSyncManager(
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "cleanOrphanedStorageAttachments local check error", e)
+            }
+
+            // Whitelist remote project files in Supabase Storage
+            try {
+                val getProjFilesReq = Request.Builder()
+                    .url("$SUPABASE_URL/rest/v1/project_files?select=storage_path")
+                    .addHeader("apikey", SUPABASE_KEY)
+                    .addHeader("Authorization", "Bearer $token")
+                    .get()
+                    .build()
+                client.newCall(getProjFilesReq).execute().use { resp ->
+                    if (resp.isSuccessful) {
+                        val body = resp.body?.string() ?: ""
+                        val arr = JSONArray(body)
+                        for (i in 0 until arr.length()) {
+                            val pfObj = arr.getJSONObject(i)
+                            val sp = pfObj.optString("storage_path", "")
+                            extractStoragePath(sp)?.let { activePaths.add(it) } ?: if (sp.isNotBlank()) activePaths.add(sp) else Unit
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "cleanOrphanedStorageAttachments remote project_files check error", e)
+            }
+
+            // Whitelist local database project files
+            try {
+                val localProjFiles = database.projectFileDao().getAllFiles()
+                for (lpf in localProjFiles) {
+                    extractStoragePath(lpf.storagePath)?.let { activePaths.add(it) } ?: if (lpf.storagePath.isNotBlank()) activePaths.add(lpf.storagePath) else Unit
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "cleanOrphanedStorageAttachments local project_files check error", e)
             }
 
             Log.d(TAG, "cleanOrphanedStorageAttachments: activePaths count=${activePaths.size}, activePaths=$activePaths")

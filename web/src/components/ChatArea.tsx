@@ -18,7 +18,7 @@ import {
   Paperclip,
   Lightbulb,
 } from 'lucide-react'
-import { type Chat, type Message, type Profile, type MessageAttachment } from '@/lib/supabase'
+import { type Chat, type Message, type Profile, type MessageAttachment, type Project } from '@/lib/supabase'
 import {
   AudioRecorder,
   transcribeAudio,
@@ -30,6 +30,7 @@ import { FormattedMessage } from '@/components/FormattedMessage'
 
 interface ChatAreaProps {
   chat: Chat | null
+  activeProject?: Project | null
   messages: Message[]
   profile: Profile | null
   isGenerating: boolean
@@ -131,6 +132,7 @@ function formatFileSize(bytes: number): string {
 
 export function ChatArea({
   chat,
+  activeProject,
   messages,
   profile,
   isGenerating,
@@ -685,6 +687,18 @@ export function ChatArea({
             </div>
             <div className="h-2.5" />
             <div className="font-sans text-[22px] text-[#636366]">(◕‿◕)</div>
+            {activeProject && (
+              <div
+                className={`mt-4 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono border ${
+                  isDark
+                    ? 'border-[#262626] bg-[#141414] text-[#CECDC4]'
+                    : 'border-[#DCDBCF] bg-[#EAE9E2] text-[#141414]'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-[#CECDC4]' : 'bg-[#141414]'}`} />
+                <span>Drafting in <span className="font-semibold">{activeProject.name}</span></span>
+              </div>
+            )}
           </div>
         ) : (
           <div ref={contentContainerRef} className="max-w-3xl mx-auto space-y-6">

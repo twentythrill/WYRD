@@ -7,142 +7,6 @@ import {
   type ProjectFile,
 } from '@/lib/supabase'
 
-const LOCAL_PROJECTS_KEY = 'wyrd_local_projects'
-const LOCAL_PROJECT_FILES_KEY = 'wyrd_local_project_files'
-const LOCAL_CHAT_PROJECT_MAP_KEY = 'wyrd_chat_project_map'
-
-export function getChatProjectMap(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem(LOCAL_CHAT_PROJECT_MAP_KEY)
-    return raw ? JSON.parse(raw) : {}
-  } catch {
-    return {}
-  }
-}
-
-export function setChatProjectAssociation(chatId: string, projectId: string | null): void {
-  try {
-    const map = getChatProjectMap()
-    if (projectId) {
-      map[chatId] = projectId
-    } else {
-      delete map[chatId]
-    }
-    localStorage.setItem(LOCAL_CHAT_PROJECT_MAP_KEY, JSON.stringify(map))
-  } catch (e) {
-    console.warn('Failed to update chat project map:', e)
-  }
-}
-
-export function reassignChatProjectAssociation(oldProjectId: string, newProjectId: string): void {
-  try {
-    const map = getChatProjectMap()
-    let changed = false
-    for (const [chatId, pId] of Object.entries(map)) {
-      if (pId === oldProjectId) {
-        map[chatId] = newProjectId
-        changed = true
-      }
-    }
-    if (changed) {
-      localStorage.setItem(LOCAL_CHAT_PROJECT_MAP_KEY, JSON.stringify(map))
-    }
-  } catch (e) {
-    console.warn('Failed to reassign chat project map:', e)
-  }
-}
-
-function getLocalProjects(userId?: string): Project[] {
-  try {
-    const raw = localStorage.getItem(LOCAL_PROJECTS_KEY)
-    const list: Project[] = raw ? JSON.parse(raw) : []
-    return userId ? list.filter((p) => p.user_id === userId || !p.user_id) : list
-  } catch {
-    return []
-  }
-}
-
-function saveLocalProject(project: Project): void {
-  try {
-    const raw = localStorage.getItem(LOCAL_PROJECTS_KEY)
-    const list: Project[] = raw ? JSON.parse(raw) : []
-    const index = list.findIndex((p) => p.id === project.id)
-    if (index >= 0) {
-      list[index] = project
-    } else {
-      list.unshift(project)
-    }
-    localStorage.setItem(LOCAL_PROJECTS_KEY, JSON.stringify(list))
-  } catch (e) {
-    console.warn('Failed to save local project:', e)
-  }
-}
-
-function updateLocalProject(projectId: string, updates: Partial<Project>): Project | null {
-  try {
-    const raw = localStorage.getItem(LOCAL_PROJECTS_KEY)
-    const list: Project[] = raw ? JSON.parse(raw) : []
-    const index = list.findIndex((p) => p.id === projectId)
-    if (index >= 0) {
-      const updated = { ...list[index], ...updates, updated_at: new Date().toISOString() }
-      list[index] = updated
-      localStorage.setItem(LOCAL_PROJECTS_KEY, JSON.stringify(list))
-      return updated
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
-function deleteLocalProject(projectId: string): void {
-  try {
-    const raw = localStorage.getItem(LOCAL_PROJECTS_KEY)
-    const list: Project[] = raw ? JSON.parse(raw) : []
-    const filtered = list.filter((p) => p.id !== projectId)
-    localStorage.setItem(LOCAL_PROJECTS_KEY, JSON.stringify(filtered))
-  } catch (e) {
-    console.warn('Failed to delete local project:', e)
-  }
-}
-
-function getLocalProjectFiles(projectId: string): ProjectFile[] {
-  try {
-    const raw = localStorage.getItem(LOCAL_PROJECT_FILES_KEY)
-    const all: ProjectFile[] = raw ? JSON.parse(raw) : []
-    return all.filter((f) => f.project_id === projectId)
-  } catch {
-    return []
-  }
-}
-
-function saveLocalProjectFile(file: ProjectFile): void {
-  try {
-    const raw = localStorage.getItem(LOCAL_PROJECT_FILES_KEY)
-    const all: ProjectFile[] = raw ? JSON.parse(raw) : []
-    const index = all.findIndex((f) => f.id === file.id)
-    if (index >= 0) {
-      all[index] = file
-    } else {
-      all.push(file)
-    }
-    localStorage.setItem(LOCAL_PROJECT_FILES_KEY, JSON.stringify(all))
-  } catch (e) {
-    console.warn('Failed to save local project file:', e)
-  }
-}
-
-function deleteLocalProjectFile(fileId: string): void {
-  try {
-    const raw = localStorage.getItem(LOCAL_PROJECT_FILES_KEY)
-    const all: ProjectFile[] = raw ? JSON.parse(raw) : []
-    const filtered = all.filter((f) => f.id !== fileId)
-    localStorage.setItem(LOCAL_PROJECT_FILES_KEY, JSON.stringify(filtered))
-  } catch (e) {
-    console.warn('Failed to delete local project file:', e)
-  }
-}
-
 export const dbService = {
   // --- Profile Operations ---
   async getProfile(userId: string): Promise<Profile | null> {
@@ -173,9 +37,8 @@ export const dbService = {
     return data
   },
 
-  // --- Project Operations with Resilient Local Fallback ---
+  // --- Project Operations ---
   async getProjects(userId: string): Promise<Project[]> {
-    const local = getLocalProjects(userId)
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -186,57 +49,13 @@ export const dbService = {
         .order('id', { ascending: false })
 
       if (error) {
-        console.warn('Supabase projects query returned error (using local storage fallback):', error.message)
-        return local
+        console.error('Error fetching projects from Supabase:', error.message)
+        return []
       }
-
-      if (data) {
-        // Prune any local projects that were previously synced with UUIDs but deleted remotely
-        const localProjectsOnly = local.filter((p) => p.id.startsWith('local_'))
-        if (localProjectsOnly.length !== local.length) {
-          localStorage.setItem(LOCAL_PROJECTS_KEY, JSON.stringify(localProjectsOnly))
-        }
-
-        // Auto-migrate any local_ projects to Supabase now that connection/schema is active
-        for (const lp of localProjectsOnly) {
-          try {
-            const { data: created } = await supabase
-              .from('projects')
-              .insert({
-                user_id: userId,
-                name: lp.name,
-                system_prompt: lp.system_prompt,
-                description: lp.description,
-                is_pinned: lp.is_pinned,
-              })
-              .select()
-              .single()
-            if (created) {
-              deleteLocalProject(lp.id)
-              data.unshift(created)
-              reassignChatProjectAssociation(lp.id, created.id)
-              // Update any chats that used this local project id
-              try {
-                await supabase
-                  .from('chats')
-                  .update({ project_id: created.id })
-                  .eq('project_id', lp.id)
-              } catch {}
-            }
-          } catch {
-            // Keep local project until next sync opportunity
-          }
-        }
-
-        const remainingLocal = getLocalProjects(userId).filter((p) => p.id.startsWith('local_'))
-        const remoteIds = new Set(data.map((p) => p.id))
-        const unsynced = remainingLocal.filter((p) => !remoteIds.has(p.id))
-        return [...unsynced, ...data]
-      }
-      return local
+      return data || []
     } catch (e) {
-      console.warn('Network error fetching projects, using local storage fallback:', e)
-      return local
+      console.error('Network error fetching projects:', e)
+      return []
     }
   },
 
@@ -246,17 +65,6 @@ export const dbService = {
     systemPrompt: string = '',
     description?: string
   ): Promise<Project | null> {
-    const localProj: Project = {
-      id: `local_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      user_id: userId,
-      name,
-      description: description || null,
-      system_prompt: systemPrompt,
-      is_pinned: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -271,23 +79,17 @@ export const dbService = {
         .single()
 
       if (error) {
-        console.warn('Supabase projects table unavailable or error, saving locally:', error.message)
-        saveLocalProject(localProj)
-        return localProj
+        console.error('Error creating project:', error.message)
+        return null
       }
       return data
     } catch (err) {
-      console.warn('Network exception while saving project, saving locally:', err)
-      saveLocalProject(localProj)
-      return localProj
+      console.error('Exception creating project:', err)
+      return null
     }
   },
 
   async updateProject(projectId: string, updates: Partial<Project>): Promise<Project | null> {
-    if (projectId.startsWith('local_')) {
-      return updateLocalProject(projectId, updates)
-    }
-
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -297,21 +99,17 @@ export const dbService = {
         .single()
 
       if (error) {
-        console.warn('Supabase update failed, saving locally:', error.message)
-        return updateLocalProject(projectId, updates)
+        console.error('Error updating project:', error.message)
+        return null
       }
       return data
     } catch (err) {
-      console.warn('Network exception while updating project:', err)
-      return updateLocalProject(projectId, updates)
+      console.error('Exception updating project:', err)
+      return null
     }
   },
 
   async deleteProject(projectId: string): Promise<boolean> {
-    deleteLocalProject(projectId)
-    if (projectId.startsWith('local_')) {
-      return true
-    }
     try {
       // 1. Delete all project files in storage
       const { data: files } = await supabase
@@ -326,21 +124,22 @@ export const dbService = {
         }
       }
 
+      // 2. Detach chats and delete project row
       await supabase.from('chats').update({ project_id: null }).eq('project_id', projectId)
-      await supabase.from('projects').delete().eq('id', projectId)
+      const { error } = await supabase.from('projects').delete().eq('id', projectId)
+      if (error) {
+        console.error('Error deleting project:', error.message)
+        return false
+      }
       return true
     } catch (e) {
-      console.warn('Error during project deletion:', e)
-      return true
+      console.error('Error during project deletion:', e)
+      return false
     }
   },
 
-  // --- Project Files Operations with Resilient Local Fallback ---
+  // --- Project Files Operations ---
   async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
-    const local = getLocalProjectFiles(projectId)
-    if (projectId.startsWith('local_')) {
-      return local
-    }
     try {
       const { data, error } = await supabase
         .from('project_files')
@@ -349,16 +148,13 @@ export const dbService = {
         .order('created_at', { ascending: true })
 
       if (error) {
-        return local
+        console.error('Error fetching project files:', error.message)
+        return []
       }
-      if (data) {
-        const remoteIds = new Set(data.map((f) => f.id))
-        const unsynced = local.filter((f) => !remoteIds.has(f.id))
-        return [...unsynced, ...data]
-      }
-      return local
-    } catch {
-      return local
+      return data || []
+    } catch (err) {
+      console.error('Exception fetching project files:', err)
+      return []
     }
   },
 
@@ -373,23 +169,6 @@ export const dbService = {
       textContent?: string
     }
   ): Promise<ProjectFile | null> {
-    const localFile: ProjectFile = {
-      id: `local_f_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      project_id: projectId,
-      user_id: userId,
-      name: fileInfo.name,
-      size: fileInfo.size,
-      mime_type: fileInfo.mimeType,
-      storage_path: fileInfo.storagePath,
-      text_content: fileInfo.textContent || null,
-      created_at: new Date().toISOString(),
-    }
-
-    if (projectId.startsWith('local_')) {
-      saveLocalProjectFile(localFile)
-      return localFile
-    }
-
     try {
       const { data, error } = await supabase
         .from('project_files')
@@ -406,19 +185,17 @@ export const dbService = {
         .single()
 
       if (error) {
-        console.warn('Failed to insert project file to Supabase, saving locally:', error.message)
-        saveLocalProjectFile(localFile)
-        return localFile
+        console.error('Failed to insert project file:', error.message)
+        return null
       }
       return data
-    } catch {
-      saveLocalProjectFile(localFile)
-      return localFile
+    } catch (err) {
+      console.error('Exception inserting project file:', err)
+      return null
     }
   },
 
   async deleteProjectFile(fileId: string, storagePath?: string): Promise<boolean> {
-    deleteLocalProjectFile(fileId)
     if (storagePath) {
       try {
         await deleteStorageAttachments([storagePath])
@@ -426,14 +203,11 @@ export const dbService = {
         console.warn('Error deleting project file from storage:', e)
       }
     }
-    if (fileId.startsWith('local_')) {
-      return true
-    }
     try {
-      await supabase.from('project_files').delete().eq('id', fileId)
-      return true
+      const { error } = await supabase.from('project_files').delete().eq('id', fileId)
+      return !error
     } catch {
-      return true
+      return false
     }
   },
 
@@ -447,16 +221,11 @@ export const dbService = {
       .order('updated_at', { ascending: false })
       .order('id', { ascending: false })
 
-    const localMap = getChatProjectMap()
     if (error) {
       console.error('Error fetching chats:', error)
       return []
     }
-    const list = data || []
-    return list.map((chat) => ({
-      ...chat,
-      project_id: chat.project_id || localMap[chat.id] || null,
-    }))
+    return data || []
   },
 
   async createChat(
@@ -464,80 +233,30 @@ export const dbService = {
     title: string = 'New Chat',
     projectId?: string | null
   ): Promise<Chat | null> {
-    const isValidUuid = projectId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId)
-    const remoteProjectId = isValidUuid ? projectId : null
-
-    const localChatId = `local_chat_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
-    const localChat: Chat = {
-      id: localChatId,
-      user_id: userId,
-      title,
-      is_pinned: false,
-      project_id: projectId || null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-
-    if (projectId) {
-      setChatProjectAssociation(localChatId, projectId)
-    }
-
     try {
-      const insertPayload: Record<string, any> = {
-        user_id: userId,
-        title,
-        is_pinned: false,
-      }
-      if (remoteProjectId) {
-        insertPayload.project_id = remoteProjectId
-      }
-
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from('chats')
-        .insert(insertPayload)
+        .insert({
+          user_id: userId,
+          title,
+          is_pinned: false,
+          project_id: projectId || null,
+        })
         .select()
         .single()
 
-      // If inserting with project_id failed (e.g. column doesn't exist yet on chats table), retry without project_id
-      if (error && remoteProjectId) {
-        console.warn('createChat with project_id failed, retrying without project_id:', error.message)
-        const retry = await supabase
-          .from('chats')
-          .insert({
-            user_id: userId,
-            title,
-            is_pinned: false,
-          })
-          .select()
-          .single()
-        data = retry.data
-        error = retry.error
-      }
-
       if (error) {
-        console.error('Error creating chat in Supabase, using local chat fallback:', error)
-        return localChat
+        console.error('Error creating chat in Supabase:', error)
+        return null
       }
-
-      const assignedProjectId = projectId || data?.project_id || null
-      if (data?.id && assignedProjectId) {
-        setChatProjectAssociation(data.id, assignedProjectId)
-      }
-
-      return {
-        ...data,
-        project_id: assignedProjectId,
-      }
+      return data
     } catch (e) {
-      console.warn('Exception creating chat, using local chat fallback:', e)
-      return localChat
+      console.error('Exception creating chat:', e)
+      return null
     }
   },
 
   async updateChat(chatId: string, updates: Partial<Chat>): Promise<Chat | null> {
-    if (updates.project_id !== undefined) {
-      setChatProjectAssociation(chatId, updates.project_id)
-    }
     const { data, error } = await supabase
       .from('chats')
       .update({ ...updates, updated_at: new Date().toISOString() })
@@ -553,7 +272,6 @@ export const dbService = {
   },
 
   async deleteChat(chatId: string): Promise<boolean> {
-    setChatProjectAssociation(chatId, null)
     if (chatId.startsWith('local_chat_')) {
       return true
     }
@@ -908,7 +626,26 @@ export const dbService = {
         return []
       }
 
+      // Also query active project files so knowledge base files are NEVER deleted as orphans!
+      const { data: pFiles, error: pFilesError } = await supabase
+        .from('project_files')
+        .select('storage_path')
+        .eq('user_id', userId)
+
+      if (pFilesError) {
+        console.warn('Error querying project files for orphaned cleanup:', pFilesError)
+      }
+
       const activePaths = new Set(extractStoragePathsFromMessages(msgs || []))
+      if (pFiles && pFiles.length > 0) {
+        for (const pf of pFiles) {
+          const path = extractStoragePath(pf.storage_path)
+          if (path) {
+            activePaths.add(path)
+          }
+        }
+      }
+
       const orphanedPaths: string[] = []
       for (const file of files) {
         if (!file.name || file.id === null) continue

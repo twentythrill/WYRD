@@ -36,30 +36,43 @@ data class AttachedItem(
 )
 
 object AttachmentHelper {
+    fun getFileName(context: Context, uri: Uri): String {
+        var displayName = "attachment"
+        try {
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex != -1) {
+                        displayName = cursor.getString(nameIndex) ?: displayName
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            uri.lastPathSegment?.let { displayName = it }
+        }
+        return displayName
+    }
+
+    fun getFileSize(context: Context, uri: Uri): Long {
+        var sizeBytes = 0L
+        try {
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    if (sizeIndex != -1 && !cursor.isNull(sizeIndex)) {
+                        sizeBytes = cursor.getLong(sizeIndex)
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return sizeBytes
+    }
 
     suspend fun processUri(context: Context, uri: Uri): AttachedItem? = withContext(Dispatchers.IO) {
         try {
             val contentResolver = context.contentResolver
-            var displayName = "attachment"
-            var sizeBytes = 0L
-
-            // 1. Query display name and size from content resolver
-            try {
-                contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                        if (nameIndex != -1) {
-                            displayName = cursor.getString(nameIndex) ?: displayName
-                        }
-                        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                        if (sizeIndex != -1 && !cursor.isNull(sizeIndex)) {
-                            sizeBytes = cursor.getLong(sizeIndex)
-                        }
-                    }
-                }
-            } catch (_: Exception) {
-                uri.lastPathSegment?.let { displayName = it }
-            }
+            val displayName = getFileName(context, uri)
+            val sizeBytes = getFileSize(context, uri)
 
             var mimeType = contentResolver.getType(uri) ?: guessMimeType(displayName)
 

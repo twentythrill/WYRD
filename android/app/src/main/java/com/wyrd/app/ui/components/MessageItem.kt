@@ -662,6 +662,24 @@ data class FormattedReadingContent(
     val baseAnnotatedString: AnnotatedString
 )
 
+private fun parseTableCells(line: String): List<String> {
+    var trimmed = line.trim()
+    if (trimmed.startsWith("|")) trimmed = trimmed.substring(1)
+    if (trimmed.endsWith("|")) trimmed = trimmed.substring(0, trimmed.length - 1)
+    return trimmed.split("|").map { it.trim() }
+}
+
+private fun isTableSeparator(line: String): Boolean {
+    val trimmed = line.trim()
+    if (!trimmed.contains("-") || !trimmed.contains("|")) return false
+    val cells = parseTableCells(trimmed)
+    if (cells.isEmpty()) return false
+    return cells.all { cell ->
+        val c = cell.trim()
+        c.isNotEmpty() && c.matches(Regex("^:?-+:?$"))
+    }
+}
+
 fun formatMarkdownForReading(
     markdown: String,
     textColor: Color = Color(0xFFCECDC4),
@@ -678,13 +696,15 @@ fun formatMarkdownForReading(
 
     val lines = markdown.split("\n")
     var inCodeBlock = false
+    var lineIndex = 0
 
-    for (lineIndex in lines.indices) {
+    while (lineIndex < lines.size) {
         val line = lines[lineIndex]
         val trimmed = line.trim()
 
         if (trimmed.startsWith("```")) {
             inCodeBlock = !inCodeBlock
+            lineIndex++
             continue
         }
 
@@ -703,6 +723,83 @@ fun formatMarkdownForReading(
             if (lineIndex < lines.size - 1) {
                 builder.append("\n")
                 plainBuilder.append("\n")
+            }
+            lineIndex++
+            continue
+        }
+
+        // Tables: header line containing '|' and next line is table separator
+        if (trimmed.contains("|") && lineIndex + 1 < lines.size && isTableSeparator(lines[lineIndex + 1])) {
+            val headerCells = parseTableCells(line)
+            val allRows = mutableListOf<List<String>>()
+            allRows.add(headerCells)
+            lineIndex += 2 // skip header and separator lines
+
+            while (lineIndex < lines.size) {
+                val nextLine = lines[lineIndex].trim()
+                if (nextLine.isEmpty() || !nextLine.contains("|") || nextLine.startsWith("```") || nextLine.startsWith("#") || nextLine.startsWith(">")) {
+                    break
+                }
+                val rowCells = parseTableCells(nextLine)
+                allRows.add(rowCells)
+                lineIndex++
+            }
+
+            val numCols = headerCells.size
+            if (numCols > 0) {
+                val colWidths = IntArray(numCols) { col ->
+                    allRows.maxOfOrNull { row -> (row.getOrNull(col) ?: "").length } ?: 3
+                }
+                for (c in 0 until numCols) {
+                    if (colWidths[c] < 3) colWidths[c] = 3
+                }
+
+                val sb = java.lang.StringBuilder()
+                // Header
+                sb.append("| ")
+                headerCells.forEachIndexed { idx, cell ->
+                    sb.append(cell.padEnd(colWidths[idx]))
+                    if (idx < numCols - 1) sb.append(" | ") else sb.append(" |")
+                }
+                sb.append("\n")
+
+                // Separator
+                sb.append("|")
+                for (idx in 0 until numCols) {
+                    sb.append("-".repeat(colWidths[idx] + 2))
+                    sb.append("|")
+                }
+                sb.append("\n")
+
+                // Data rows
+                for (r in 1 until allRows.size) {
+                    val row = allRows[r]
+                    sb.append("| ")
+                    for (idx in 0 until numCols) {
+                        val cell = row.getOrNull(idx) ?: ""
+                        sb.append(cell.padEnd(colWidths[idx]))
+                        if (idx < numCols - 1) sb.append(" | ") else sb.append(" |")
+                    }
+                    sb.append("\n")
+                }
+
+                val tableText = sb.toString().trimEnd('\n')
+                builder.pushStyle(
+                    SpanStyle(
+                        fontFamily = FontFamily.Monospace,
+                        background = inlineCodeBg,
+                        color = textColor,
+                        fontSize = 13.sp
+                    )
+                )
+                builder.append(tableText)
+                builder.pop()
+                plainBuilder.append(tableText)
+
+                if (lineIndex < lines.size) {
+                    builder.append("\n\n")
+                    plainBuilder.append("\n\n")
+                }
             }
             continue
         }
@@ -738,6 +835,7 @@ fun formatMarkdownForReading(
                     builder.append("\n")
                     plainBuilder.append("\n")
                 }
+                lineIndex++
                 continue
             }
         }
@@ -765,6 +863,7 @@ fun formatMarkdownForReading(
                 builder.append("\n")
                 plainBuilder.append("\n")
             }
+            lineIndex++
             continue
         }
 
@@ -788,6 +887,7 @@ fun formatMarkdownForReading(
                 builder.append("\n")
                 plainBuilder.append("\n")
             }
+            lineIndex++
             continue
         }
 
@@ -813,6 +913,7 @@ fun formatMarkdownForReading(
                 builder.append("\n")
                 plainBuilder.append("\n")
             }
+            lineIndex++
             continue
         }
 
@@ -821,6 +922,7 @@ fun formatMarkdownForReading(
                 builder.append("\n")
                 plainBuilder.append("\n")
             }
+            lineIndex++
             continue
         }
 
@@ -838,6 +940,7 @@ fun formatMarkdownForReading(
             builder.append("\n")
             plainBuilder.append("\n")
         }
+        lineIndex++
     }
 
     return FormattedReadingContent(

@@ -46,6 +46,7 @@ export function ProjectModal({
   const [description, setDescription] = useState('')
   const [systemPrompt, setSystemPrompt] = useState('')
   const [files, setFiles] = useState<ProjectFile[]>([])
+  const [stagedFiles, setStagedFiles] = useState<File[]>([])
   const [isLoadingFiles, setIsLoadingFiles] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -57,6 +58,7 @@ export function ProjectModal({
 
   useEffect(() => {
     setErrorMessage(null)
+    setStagedFiles([])
     if (project) {
       setName(project.name || '')
       setDescription(project.description || '')
@@ -89,6 +91,26 @@ export function ProjectModal({
     try {
       const saved = await onSave(name.trim(), description.trim(), systemPrompt.trim())
       if (saved) {
+        // If there were staged files for a new project, upload them now!
+        if (stagedFiles.length > 0) {
+          for (const file of stagedFiles) {
+            try {
+              const textContent = await extractTextFromFile(file)
+              const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+              const publicUrl = await dbService.uploadAttachment(userId, file, cleanName)
+              await dbService.createProjectFile(userId, saved.id, {
+                name: file.name,
+                size: file.size,
+                mimeType: file.type || 'application/octet-stream',
+                storagePath: publicUrl || `${userId}/${cleanName}`,
+                textContent: textContent || undefined,
+              })
+            } catch (fileErr) {
+              console.warn('Failed to upload staged file:', file.name, fileErr)
+            }
+          }
+        }
+
         setSavedSuccess(true)
         setTimeout(() => {
           setSavedSuccess(false)
@@ -107,26 +129,29 @@ export function ProjectModal({
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files
-    if (!selectedFiles || selectedFiles.length === 0 || !project) return
+    if (!selectedFiles || selectedFiles.length === 0) return
+
+    if (!project) {
+      // Stage files locally for new project
+      setStagedFiles((prev) => [...prev, ...Array.from(selectedFiles)])
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      return
+    }
 
     setIsUploading(true)
     try {
       for (const file of Array.from(selectedFiles)) {
         const textContent = await extractTextFromFile(file)
         const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-        const storagePath = `${userId}/projects/${project.id}/${Date.now()}_${cleanName}`
-
-        // Upload attachment to Supabase Storage
-        const publicUrl = await dbService.uploadAttachment(userId, file, `projects/${project.id}/${cleanName}`)
-        if (!publicUrl) {
-          console.warn('Failed to upload file to storage:', file.name)
-        }
+        const publicUrl = await dbService.uploadAttachment(userId, file, cleanName)
 
         const newFile = await dbService.createProjectFile(userId, project.id, {
           name: file.name,
           size: file.size,
           mimeType: file.type || 'application/octet-stream',
-          storagePath: storagePath,
+          storagePath: publicUrl || `${userId}/${cleanName}`,
           textContent: textContent || undefined,
         })
 
@@ -142,6 +167,10 @@ export function ProjectModal({
         fileInputRef.current.value = ''
       }
     }
+  }
+
+  const handleRemoveStagedFile = (index: number) => {
+    setStagedFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
   const handleDeleteFile = async (file: ProjectFile) => {
@@ -294,17 +323,15 @@ export function ProjectModal({
                 </p>
               </div>
 
-              {project && (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="px-2.5 py-1 rounded-lg bg-[#1F1F1F] hover:bg-[#262626] border border-[#262626] text-xs font-medium text-[#CECDC4] flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{isUploading ? 'Uploading...' : 'Add Files'}</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="px-2.5 py-1 rounded-lg bg-[#1F1F1F] hover:bg-[#262626] border border-[#262626] text-xs font-medium text-[#CECDC4] flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{isUploading ? 'Uploading...' : 'Add Files'}</span>
+              </button>
             </div>
 
             <input
@@ -316,16 +343,12 @@ export function ProjectModal({
               onChange={handleFileUpload}
             />
 
-            {!project ? (
-              <div className="p-4 bg-[#141414] border border-[#262626] rounded-xl text-center text-xs text-[#8E8E93]">
-                Save this project first to start uploading source knowledge files.
-              </div>
-            ) : isLoadingFiles ? (
+            {isLoadingFiles ? (
               <div className="p-4 flex items-center justify-center gap-2 text-xs text-[#8E8E93]">
                 <div className="w-3.5 h-3.5 border-2 border-[#262626] border-t-[#CECDC4] rounded-full animate-spin" />
                 <span>Loading project files...</span>
               </div>
-            ) : files.length === 0 ? (
+            ) : files.length === 0 && stagedFiles.length === 0 ? (
               <div
                 onClick={() => fileInputRef.current?.click()}
                 className="p-6 bg-[#141414]/50 border border-dashed border-[#262626] hover:border-[#383838] rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors"
@@ -335,6 +358,37 @@ export function ProjectModal({
               </div>
             ) : (
               <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                {/* Staged files for new project */}
+                {stagedFiles.map((file, idx) => (
+                  <div
+                    key={`staged_${idx}`}
+                    className="flex items-center justify-between p-2.5 bg-[#141414] border border-[#383838] rounded-xl group transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                      <FileText className="w-4 h-4 text-[#CECDC4] shrink-0" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-medium text-[#CECDC4] truncate">{file.name}</p>
+                          <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 bg-[#262626] text-[#8E8E93] rounded">
+                            Staged
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-[#636366]">{formatFileSize(file.size)}</p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveStagedFile(idx)}
+                      title="Remove staged file"
+                      className="p-1 rounded text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#FF453A]/10 transition-colors cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Uploaded files */}
                 {files.map((file) => (
                   <div
                     key={file.id}

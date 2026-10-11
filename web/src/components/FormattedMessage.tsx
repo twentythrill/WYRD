@@ -5,6 +5,9 @@ import {
   type FormattedWord,
   type InlineSpan,
   type ReadingBlock,
+  type TableCell,
+  type TableRow,
+  type ColumnAlignment,
 } from '@/utils/readingFormatter'
 
 interface FormattedMessageProps {
@@ -182,6 +185,20 @@ function RenderBlock({
           language={block.language || 'code'}
           rawCode={block.rawCode || ''}
           words={block.words}
+          plainText={plainText}
+          activeHighlightRange={activeHighlightRange}
+          isDark={isDark}
+          activeWordRef={activeWordRef}
+          onSeek={onSeek}
+        />
+      )
+
+    case 'table':
+      return (
+        <TableBlockItem
+          headers={block.tableHeaders || []}
+          alignments={block.tableAlignments || []}
+          rows={block.tableRows || []}
           plainText={plainText}
           activeHighlightRange={activeHighlightRange}
           isDark={isDark}
@@ -394,6 +411,104 @@ function CodeBlockItem({
           ))}
         </code>
       </pre>
+    </div>
+  )
+}
+
+function TableBlockItem({
+  headers,
+  alignments,
+  rows,
+  plainText,
+  activeHighlightRange,
+  isDark,
+  activeWordRef,
+  onSeek,
+}: {
+  headers: TableCell[]
+  alignments: ColumnAlignment[]
+  rows: TableRow[]
+  plainText: string
+  activeHighlightRange: [number, number] | null
+  isDark: boolean
+  activeWordRef: React.MutableRefObject<HTMLSpanElement | null>
+  onSeek?: (plainText: string, charOffset: number) => void
+}) {
+  const containerBg = isDark ? 'bg-[#0A0A0A] border-[#262626]' : 'bg-[#F2F1EC] border-[#DCDBCF]'
+  const headerBg = isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#E5E4DC] border-[#DCDBCF]'
+  const headerTextColor = isDark ? 'text-[#CECDC4]' : 'text-[#141414]'
+  const rowBorder = isDark ? 'border-[#1F1F1F]' : 'border-[#E5E4DC]'
+  const hoverRowBg = isDark ? 'hover:bg-[#141414]/50' : 'hover:bg-[#EAE9E2]/50'
+
+  const getAlignClass = (align?: ColumnAlignment) => {
+    switch (align) {
+      case 'center':
+        return 'text-center'
+      case 'right':
+        return 'text-right'
+      case 'left':
+      default:
+        return 'text-left'
+    }
+  }
+
+  return (
+    <div className={`my-4 w-full overflow-x-auto rounded-xl border ${containerBg} shadow-xs`}>
+      <table className="w-full border-collapse text-xs md:text-sm font-sans select-text">
+        {headers.length > 0 && (
+          <thead>
+            <tr className={headerBg}>
+              {headers.map((h, hIdx) => {
+                const align = alignments[hIdx] || 'default'
+                return (
+                  <th
+                    key={hIdx}
+                    className={`px-3.5 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-wider border-b ${headerTextColor} ${getAlignClass(
+                      align
+                    )}`}
+                  >
+                    <RenderSpans
+                      spans={h.spans}
+                      plainText={plainText}
+                      activeHighlightRange={activeHighlightRange}
+                      isDark={isDark}
+                      activeWordRef={activeWordRef}
+                      onSeek={onSeek}
+                    />
+                  </th>
+                )
+              })}
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {rows.map((row, rIdx) => (
+            <tr
+              key={rIdx}
+              className={`border-b ${rowBorder} last:border-b-0 ${hoverRowBg} transition-colors`}
+            >
+              {row.cells.map((cell, cIdx) => {
+                const align = alignments[cIdx] || 'default'
+                return (
+                  <td
+                    key={cIdx}
+                    className={`px-3.5 py-2.5 align-top leading-[22px] ${getAlignClass(align)}`}
+                  >
+                    <RenderSpans
+                      spans={cell.spans}
+                      plainText={plainText}
+                      activeHighlightRange={activeHighlightRange}
+                      isDark={isDark}
+                      activeWordRef={activeWordRef}
+                      onSeek={onSeek}
+                    />
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

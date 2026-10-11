@@ -72,6 +72,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
+    // Chat session state
+    private val _activeChatId = MutableStateFlow<Long?>(null)
+    val activeChatId: StateFlow<Long?> = _activeChatId.asStateFlow()
+
     // Projects state
     val projectList: StateFlow<List<ProjectEntity>> = projectDao.getAllProjects()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -80,13 +84,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val activeProjectId: StateFlow<Long?> = _activeProjectId.asStateFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val activeProject: StateFlow<ProjectEntity?> = _activeProjectId.flatMapLatest { id ->
-        if (id == null) flowOf<ProjectEntity?>(null) else flow { emit(projectDao.getProjectById(id)) }
+    val activeProject: StateFlow<ProjectEntity?> = kotlinx.coroutines.flow.combine(_activeChatId, _activeProjectId) { chatId, activeProjId ->
+        Pair(chatId, activeProjId)
+    }.flatMapLatest { (chatId, activeProjId) ->
+        val effectiveProjId = if (chatId != null) {
+            chatDao.getChatById(chatId)?.projectId
+        } else {
+            activeProjId
+        }
+        if (effectiveProjId == null) flowOf<ProjectEntity?>(null) else flow { emit(projectDao.getProjectById(effectiveProjId)) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    // Chat session state
-    private val _activeChatId = MutableStateFlow<Long?>(null)
-    val activeChatId: StateFlow<Long?> = _activeChatId.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -359,7 +366,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         nativeTtsManager.stop()
     }
 
-    fun createProject(name: String, description: String = "", systemPrompt: String = "", onCreated: (Long) -> Unit = {}) {
+    fun createProject(
+        name: String,
+        description: String = "",
+        systemPrompt: String = "",
+        stagedUris: List<Uri> = emptyList(),
+        onCreated: (Long) -> Unit = {}
+    ) {
         hapticManager.click()
         viewModelScope.launch(Dispatchers.IO) {
             val entity = ProjectEntity(
@@ -368,6 +381,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 systemPrompt = systemPrompt.trim()
             )
             val newId = projectDao.insertProject(entity)
+            val createdProj = projectDao.getProjectById(newId)
+
+            for (uri in stagedUris) {
+                try {
+                    val item = AttachmentHelper.processUri(app, uri)
+                    if (item != null) {
+                        var storagePath = item.uriString
+                        if (supabaseSyncManager.isUserSignedIn()) {
+                            val publicUrl = supabaseSyncManager.uploadAttachmentToStorage(item.uriString, item.name)
+                            if (publicUrl != null) {
+                                storagePath = publicUrl
+                            }
+                        }
+                        val fileEntity = ProjectFileEntity(
+                            projectId = newId,
+                            projectSyncId = createdProj?.syncId ?: "",
+                            name = item.name,
+                            size = item.sizeBytes,
+                            mimeType = item.mimeType,
+                            storagePath = storagePath,
+                            textContent = item.textContent
+                        )
+                        projectFileDao.insertFile(fileEntity)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("MainViewModel", "Failed to add staged project file $uri", e)
+                }
+            }
+
             _activeProjectId.value = newId
             _activeChatId.value = null
             if (supabaseSyncManager.isUserSignedIn()) {
@@ -794,7 +836,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Guarantee custom system prompt & base url are read live from DataStore
         // If chat belongs to a project, strictly override with project instructions + knowledge base files
         val currentChat = chatDao.getChatById(chatId)
-        val projId = currentChat?.projectId ?: _activeProjectId.value
+        val projId = if (currentChat != null) currentChat.projectId else _activeProjectId.value
         val project = if (projId != null) projectDao.getProjectById(projId) else null
 
         val effectiveSystemPrompt: String

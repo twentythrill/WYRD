@@ -1,10 +1,17 @@
 package com.wyrd.app.data.local
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-@Entity(tableName = "chats")
+@Entity(
+    tableName = "chats",
+    indices = [
+        Index(value = ["projectId"]),
+        Index(value = ["projectSyncId"])
+    ]
+)
 data class ChatEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

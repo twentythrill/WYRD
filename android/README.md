@@ -1,4 +1,4 @@
-# WYRD — Native Android AI Client (v1.3.0)
+# WYRD — Native Android AI Client (v1.4.0)
 
 WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo) with dual web search engines (Tavily AI for live web and Exa AI for semantic exploration), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (Whisper), and complete local session persistence.
 
@@ -20,7 +20,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
     - Status bar and 3-button navigation bar are 100% transparent (`android.graphics.Color.TRANSPARENT`) with OS contrast enforcement disabled (`isStatusBarContrastEnforced = false`, `isNavigationBarContrastEnforced = false`), eliminating gray scrims.
     - **Top Subtle Gradient**: Multi-stop vertical gradient (~130dp) softly dissolving text scrolling behind the status bar and top bar without harsh solid black blocks.
     - **Bottom Subtle Gradient**: 230dp multi-stop vertical gradient dissolving text smoothly behind the floating capsule and through the transparent navigation bar, delivering pure seamless continuity.
-- **Markdown Engine & Reading Layout**: Jetpack Compose renderer supporting headers, syntax-styled code cards with one-tap copy and horizontal scroll, blockquotes, ordered/unordered lists, bold/italic formatting, and clickable links. Dynamically maps all text spans, code backgrounds, blockquotes, and italic highlights to current theme colors (`LocalWyrdColors`), eliminating white-on-white text issues in Light mode.
+- **Markdown & Tabular Layout Engine**: Jetpack Compose renderer supporting headers, syntax-styled code cards with one-tap copy and horizontal scroll, blockquotes, ordered/unordered lists, bold/italic formatting, and clickable links. Includes a specialized Markdown Table parser rendering aligned, padded monospaced tabular grids with header separation, dynamic column formatting, and 1:1 character index parity in `plainBuilder` to ensure uninterrupted TTS word-by-word tracking.
 - **Zero-Shift Streaming Typography**: `StreamingAssistantMessageItem` and `AssistantMessageItem` share the exact same condensed 23sp line-height typographic pipeline, markdown preprocessing (`formatMarkdownForReading`), and padding layout. Eliminates intermediate spacing shifts, erratic vertical jumps, or layout snapping between streaming and finalized assistant turns.
 - **Selection & Double-Tap Actions**:
   - Native long-press text selection with system copy handles across all messages, streaming content, and reasoning blocks. Powered by a no-op `BringIntoViewSpec` provided to `LazyColumn` (`LocalBringIntoViewSpec`) and non-consuming gesture timeouts, ensuring text selection is 100% rock-solid with zero jumping, viewport snapping, or scrolling behind the floating capsule anywhere in messages of any length.
@@ -161,11 +161,13 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 
 ### 8. Projects & Knowledge Base Spaces
 - **Custom System Prompt Override**: Dedicated projects with custom instructions that strictly override the generic profile system prompt.
-- **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any project. The text is extracted client-side via `AttachmentHelper` and formatted into contextual knowledge base memory before prompt dispatch.
-- **Collapsible Folder Organization**: The Material 3 navigation drawer features a collapsible `PROJECTS` section with nested chat threads, chat counts, quick `+` chat creation, and project settings dialog. Generic chats reside in the `HISTORY` section.
-- **TopBar Breadcrumb**: Subtle folder indicator in the top bar displaying the active project name.
-- **Room SQLite Migration (v7)**: Added `ProjectEntity`, `ProjectFileEntity`, foreign keys, and indices with `MIGRATION_6_7`.
-- **Bidirectional Cloud Sync**: Full two-way sync with Supabase tables `projects`, `project_files`, and `chats.project_id`.
+- **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any project. The text is extracted client-side via `AttachmentHelper` and formatted into contextual knowledge base memory before prompt dispatch. Supports staging files during new project creation.
+- **Safe Storage Persistence**: Both local and remote project knowledge files are whitelisted in `cleanOrphanedStorageAttachments` to prevent active project documents from ever being deleted during sync cleanups.
+- **Strict Context Scoping**: System prompt overrides and knowledge documents only apply to conversations belonging to that project, preventing leakage into generic chats.
+- **Collapsible Folder Organization**: The Material 3 navigation drawer features a collapsible `PROJECTS` section with nested chat threads, chat counts, quick `+` chat creation, and project settings dialog. Tapping the project header toggles expansion cleanly without duplicate child rows.
+- **TopBar & Greeting Breadcrumbs**: Subtle folder indicator in the top bar displaying the active project name, and an intuitive "Drafting in [Project]" badge on new chat greetings.
+- **Room SQLite Migration (v8)**: Bumped database to version 8 with `MIGRATION_7_8` adding composite performance indices on `chats(projectId)` and `chats(projectSyncId)`.
+- **Bidirectional Cloud Sync**: Full two-way sync with Supabase tables `projects`, `project_files`, and `chats.project_id`, complete with automatic foreign key backfilling.
 
 ---
 

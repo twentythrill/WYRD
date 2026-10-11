@@ -25,6 +25,18 @@ export interface InlineSpan {
   words: FormattedWord[]
 }
 
+export type ColumnAlignment = 'left' | 'center' | 'right' | 'default'
+
+export interface TableCell {
+  spans: InlineSpan[]
+  words: FormattedWord[]
+  rawText: string
+}
+
+export interface TableRow {
+  cells: TableCell[]
+}
+
 export type ReadingBlockType =
   | 'header'
   | 'paragraph'
@@ -32,6 +44,7 @@ export type ReadingBlockType =
   | 'bullet'
   | 'numbered'
   | 'codeBlock'
+  | 'table'
 
 export interface ReadingBlock {
   type: ReadingBlockType
@@ -39,6 +52,9 @@ export interface ReadingBlock {
   numberPrefix?: string // "1. " for numbered list
   language?: string // for code block
   rawCode?: string // code content for copy button
+  tableHeaders?: TableCell[]
+  tableAlignments?: ColumnAlignment[]
+  tableRows?: TableRow[]
   spans: InlineSpan[]
   words: FormattedWord[]
 }
@@ -252,6 +268,36 @@ function parseInlineSpans(
   return { spans, plainAcc }
 }
 
+function parseTableCells(line: string): string[] {
+  let trimmed = line.trim()
+  if (trimmed.startsWith('|')) {
+    trimmed = trimmed.substring(1)
+  }
+  if (trimmed.endsWith('|')) {
+    trimmed = trimmed.substring(0, trimmed.length - 1)
+  }
+  return trimmed.split('|').map((c) => c.trim())
+}
+
+function isTableSeparator(line: string): boolean {
+  const trimmed = line.trim()
+  if (!trimmed.includes('-') || !trimmed.includes('|')) return false
+  const cells = parseTableCells(trimmed)
+  if (cells.length === 0) return false
+  return cells.every((cell) => /^:?-{2,}:?$/.test(cell.trim()) || /^:?-+:?$/.test(cell.trim()))
+}
+
+function getColumnAlignment(sep?: string): ColumnAlignment {
+  if (!sep) return 'default'
+  const trimmed = sep.trim()
+  const startsColon = trimmed.startsWith(':')
+  const endsColon = trimmed.endsWith(':')
+  if (startsColon && endsColon) return 'center'
+  if (endsColon) return 'right'
+  if (startsColon) return 'left'
+  return 'default'
+}
+
 /**
  * Formats a markdown string into structured blocks with word token offsets and an exact
  * matching plainText string suitable for native TTS playback.
@@ -300,6 +346,84 @@ export function formatMarkdownForReading(markdown: string): FormattedReadingCont
 
     if (inCodeBlock) {
       codeBuffer.push(rawLine)
+      continue
+    }
+
+    // Table detection: line must have '|' and next line must be table separator
+    if (trimmed.includes('|') && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+      const headerLine = rawLine
+      const sepLine = lines[i + 1]
+      const rawHeaderCells = parseTableCells(headerLine)
+      const rawSepCells = parseTableCells(sepLine)
+      const alignments = rawSepCells.map(getColumnAlignment)
+
+      // Parse headers
+      const tableHeaders: TableCell[] = []
+      const allTableWords: FormattedWord[] = []
+      for (const hText of rawHeaderCells) {
+        const startOffset = plainText.length
+        const { spans, plainAcc } = parseInlineSpans(hText, startOffset)
+        const words = spans.flatMap((s) => s.words)
+        allTableWords.push(...words)
+        tableHeaders.push({
+          spans,
+          words,
+          rawText: hText,
+        })
+        plainText += plainAcc + ' '
+      }
+      plainText = plainText.trimEnd() + '\n'
+
+      // Skip separator line in loop
+      i += 1
+
+      // Parse consecutive data rows
+      const tableRows: TableRow[] = []
+      while (i + 1 < lines.length) {
+        const nextLine = lines[i + 1]
+        const nextTrimmed = nextLine.trim()
+        if (
+          !nextTrimmed ||
+          !nextTrimmed.includes('|') ||
+          nextTrimmed.startsWith('```') ||
+          nextTrimmed.startsWith('#') ||
+          nextTrimmed.startsWith('>')
+        ) {
+          break
+        }
+
+        i += 1
+        const rawRowCells = parseTableCells(nextLine)
+        const rowCells: TableCell[] = []
+        for (let c = 0; c < rawHeaderCells.length; c++) {
+          const cellText = rawRowCells[c] || ''
+          const startOffset = plainText.length
+          const { spans, plainAcc } = parseInlineSpans(cellText, startOffset)
+          const words = spans.flatMap((s) => s.words)
+          allTableWords.push(...words)
+          rowCells.push({
+            spans,
+            words,
+            rawText: cellText,
+          })
+          plainText += plainAcc + ' '
+        }
+        plainText = plainText.trimEnd() + '\n'
+        tableRows.push({ cells: rowCells })
+      }
+
+      if (i < lines.length - 1) {
+        plainText += '\n'
+      }
+
+      blocks.push({
+        type: 'table',
+        tableHeaders,
+        tableAlignments: alignments,
+        tableRows,
+        words: allTableWords,
+        spans: [],
+      })
       continue
     }
 

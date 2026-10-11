@@ -548,7 +548,7 @@ export function App() {
 
     // Determine system prompt: if in project, strictly override global system prompt with project instructions & knowledge files
     const currentChat = chats.find((c) => c.id === chatId)
-    const effectiveProjectId = currentChat?.project_id || activeProjectId
+    const effectiveProjectId = currentChat ? (currentChat.project_id || null) : activeProjectId
     const currentProject = effectiveProjectId ? projects.find((p) => p.id === effectiveProjectId) : null
 
     let effectiveSystemPrompt = profile?.system_prompt || ''
@@ -860,7 +860,7 @@ export function App() {
 
   const activeChat = chats.find((c) => c.id === activeChatId) || null
   const activeProject =
-    projects.find((p) => p.id === (activeChat?.project_id || activeProjectId)) || null
+    projects.find((p) => p.id === (activeChat ? (activeChat.project_id || null) : activeProjectId)) || null
 
   return (
     <div className="w-screen h-screen flex bg-black overflow-hidden select-none font-sans text-[#CECDC4]">
@@ -914,6 +914,7 @@ export function App() {
         {/* Chat Feed & Empty State matching HomeScreen.kt */}
         <ChatArea
           chat={activeChat}
+          activeProject={activeProject}
           messages={messages}
           profile={profile}
           isGenerating={isGenerating}
