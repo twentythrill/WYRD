@@ -12,6 +12,7 @@ data class ProjectEntity(
     val name: String,
     val description: String = "",
     val systemPrompt: String = "",
+    val color: String = "",
     val isPinned: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()

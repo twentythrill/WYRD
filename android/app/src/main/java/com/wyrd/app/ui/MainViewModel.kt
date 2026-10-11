@@ -370,6 +370,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         name: String,
         description: String = "",
         systemPrompt: String = "",
+        color: String = "",
         stagedUris: List<Uri> = emptyList(),
         onCreated: (Long) -> Unit = {}
     ) {
@@ -378,7 +379,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val entity = ProjectEntity(
                 name = name.trim(),
                 description = description.trim(),
-                systemPrompt = systemPrompt.trim()
+                systemPrompt = systemPrompt.trim(),
+                color = color.trim()
             )
             val newId = projectDao.insertProject(entity)
             val createdProj = projectDao.getProjectById(newId)

@@ -3,12 +3,24 @@ import { ArrowLeft, Check, Trash2, Upload, FileText, X, AlertTriangle, Plus } fr
 import { type Project, type ProjectFile } from '@/lib/supabase'
 import { dbService } from '@/services/dbService'
 
+export const PROJECT_COLOR_PRESETS = [
+  { hex: '', name: 'Default', bg: '#CECDC4' },
+  { hex: '#F97316', name: 'Orange', bg: '#F97316' },
+  { hex: '#F59E0B', name: 'Amber', bg: '#F59E0B' },
+  { hex: '#10B981', name: 'Emerald', bg: '#10B981' },
+  { hex: '#06B6D4', name: 'Cyan', bg: '#06B6D4' },
+  { hex: '#3B82F6', name: 'Blue', bg: '#3B82F6' },
+  { hex: '#8B5CF6', name: 'Purple', bg: '#8B5CF6' },
+  { hex: '#EC4899', name: 'Pink', bg: '#EC4899' },
+  { hex: '#EF4444', name: 'Red', bg: '#EF4444' },
+]
+
 interface ProjectModalProps {
   isOpen: boolean
   project: Project | null
   userId: string
   onClose: () => void
-  onSave: (name: string, description: string, systemPrompt: string) => Promise<Project | null>
+  onSave: (name: string, description: string, systemPrompt: string, color: string) => Promise<Project | null>
   onDelete?: (projectId: string) => Promise<boolean>
 }
 
@@ -45,6 +57,7 @@ export function ProjectModal({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [systemPrompt, setSystemPrompt] = useState('')
+  const [color, setColor] = useState('')
   const [files, setFiles] = useState<ProjectFile[]>([])
   const [stagedFiles, setStagedFiles] = useState<File[]>([])
   const [isLoadingFiles, setIsLoadingFiles] = useState(false)
@@ -63,6 +76,7 @@ export function ProjectModal({
       setName(project.name || '')
       setDescription(project.description || '')
       setSystemPrompt(project.system_prompt || '')
+      setColor(project.color || '')
       setIsLoadingFiles(true)
       dbService.getProjectFiles(project.id).then((res) => {
         setFiles(res)
@@ -72,6 +86,7 @@ export function ProjectModal({
       setName('')
       setDescription('')
       setSystemPrompt('')
+      setColor('')
       setFiles([])
       setIsLoadingFiles(false)
     }
@@ -89,7 +104,7 @@ export function ProjectModal({
     setErrorMessage(null)
     setIsSaving(true)
     try {
-      const saved = await onSave(name.trim(), description.trim(), systemPrompt.trim())
+      const saved = await onSave(name.trim(), description.trim(), systemPrompt.trim(), color)
       if (saved) {
         // If there were staged files for a new project, upload them now!
         if (stagedFiles.length > 0) {
@@ -291,6 +306,46 @@ export function ProjectModal({
             />
           </div>
 
+          {/* Project Color */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[#CECDC4]">
+              Project Color
+            </label>
+            <div className="flex items-center gap-1.5 pt-1 pb-1 px-0.5 overflow-x-auto">
+              {PROJECT_COLOR_PRESETS.map((preset) => {
+                const isSelected = (color || '') === preset.hex
+                return (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => setColor(preset.hex)}
+                    title={preset.name}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+                      isSelected
+                        ? 'border-2 border-white'
+                        : 'border-2 border-transparent hover:border-[#2C2C2E]'
+                    }`}
+                  >
+                    <span
+                      className="w-6 h-6 rounded-full flex items-center justify-center border border-white/10 transition-transform"
+                      style={{ backgroundColor: preset.bg }}
+                    >
+                      {isSelected && (
+                        <Check
+                          className={`w-3.5 h-3.5 ${
+                            preset.hex === '' || preset.hex === '#F59E0B'
+                              ? 'text-black'
+                              : 'text-white'
+                          } stroke-[3]`}
+                        />
+                      )}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           {/* Custom System Prompt Override */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -301,9 +356,6 @@ export function ProjectModal({
                 Overrides Global Prompt
               </span>
             </div>
-            <p className="text-[11px] text-[#8E8E93] leading-relaxed">
-              When chatting inside this project, these instructions completely replace the global system prompt.
-            </p>
             <textarea
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}

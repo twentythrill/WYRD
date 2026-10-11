@@ -60,6 +60,23 @@ export function Sidebar({
   const [renameText, setRenameText] = useState('')
   const [chatToDelete, setChatToDelete] = useState<Chat | null>(null)
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set())
+  const [projectContextMenu, setProjectContextMenu] = useState<{
+    project: Project
+    x: number
+    y: number
+  } | null>(null)
+
+  useEffect(() => {
+    const handleClick = () => setProjectContextMenu(null)
+    if (projectContextMenu) {
+      window.addEventListener('click', handleClick)
+      window.addEventListener('contextmenu', handleClick)
+    }
+    return () => {
+      window.removeEventListener('click', handleClick)
+      window.removeEventListener('contextmenu', handleClick)
+    }
+  }, [projectContextMenu])
 
   // Automatically expand project if active chat belongs to it or if activeProjectId is set
   useEffect(() => {
@@ -324,12 +341,12 @@ export function Sidebar({
           <div className="flex-1 overflow-y-auto px-2 py-1 space-y-3">
             {/* PROJECTS SECTION */}
             <div>
-              <div className="px-3 py-1 flex items-center justify-between text-[10px] font-sans font-bold tracking-[1.2px] text-[#636366] uppercase">
+              <div className="pl-3 pr-2 py-1 flex items-center justify-between text-[10px] font-sans font-bold tracking-[1.2px] text-[#636366] uppercase">
                 <span>PROJECTS</span>
                 <button
                   onClick={onCreateProject}
                   title="Create new project"
-                  className="p-1 rounded hover:bg-[#141414] text-[#8E8E93] hover:text-[#CECDC4] transition-colors cursor-pointer"
+                  className="w-12 h-7 rounded-lg bg-[#1C1C1E] hover:bg-[#2C2C2E] border border-[#2C2C2E] hover:border-[#3A3A3C] text-[#CECDC4] hover:text-white transition-all cursor-pointer flex items-center justify-center shadow-sm shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                 </button>
@@ -352,6 +369,14 @@ export function Sidebar({
                         {/* Project Header Row */}
                         <div
                           onClick={() => toggleProjectExpansion(project.id)}
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            setProjectContextMenu({
+                              project,
+                              x: e.clientX,
+                              y: e.clientY,
+                            })
+                          }}
                           className={`group flex items-center justify-between px-2 py-2 rounded-xl cursor-pointer transition-colors ${
                             isProjectActive
                               ? 'bg-[#1A1A1A] text-[#CECDC4]'
@@ -367,20 +392,33 @@ export function Sidebar({
                               )}
                             </span>
                             {isExpanded ? (
-                              <FolderOpen className="w-4 h-4 text-[#CECDC4] shrink-0" />
+                              <FolderOpen
+                                className="w-4 h-4 shrink-0"
+                                style={{ color: project.color?.trim() || '#CECDC4' }}
+                              />
                             ) : (
-                              <Folder className="w-4 h-4 text-[#8E8E93] shrink-0" />
+                              <Folder
+                                className="w-4 h-4 shrink-0"
+                                style={{ color: project.color?.trim() || '#8E8E93' }}
+                              />
                             )}
                             <span className="text-xs font-semibold font-sans truncate">
                               {project.name}
                             </span>
-                            <span className="text-[10px] text-[#636366] font-mono px-1.5 py-0.2 bg-[#1A1A1A] rounded-full border border-[#262626]">
-                              {projectChatList.length}
-                            </span>
                           </div>
 
-                          {/* Action Buttons: New Chat in Project & Settings */}
-                          <div className="flex items-center gap-1 transition-opacity shrink-0">
+                          {/* Actions: Settings on Hover & Wide Box New Chat Button */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onEditProject(project)
+                              }}
+                              title="Project Settings"
+                              className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626] transition-all cursor-pointer"
+                            >
+                              <Settings className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -389,19 +427,9 @@ export function Sidebar({
                                 if (window.innerWidth < 768) onClose()
                               }}
                               title="New chat in project"
-                              className="p-1 rounded text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626] cursor-pointer"
+                              className="w-12 h-7 rounded-lg bg-[#1C1C1E] hover:bg-[#2C2C2E] border border-[#2C2C2E] hover:border-[#3A3A3C] text-[#CECDC4] hover:text-white transition-all cursor-pointer flex items-center justify-center shadow-sm shrink-0"
                             >
-                              <Plus className="w-3.5 h-3.5 stroke-[2]" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                onEditProject(project)
-                              }}
-                              title="Project Settings"
-                              className="p-1 rounded text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626] cursor-pointer"
-                            >
-                              <Settings2 className="w-3.5 h-3.5 stroke-[1.8]" />
+                              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                             </button>
                           </div>
                         </div>
@@ -525,6 +553,27 @@ export function Sidebar({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Project Context Menu (Right Click) */}
+      {projectContextMenu && (
+        <div
+          style={{ top: projectContextMenu.y, left: projectContextMenu.x }}
+          className="fixed z-50 min-w-[140px] bg-[#1C1C1E] border border-[#2C2C2E] rounded-xl py-1 shadow-2xl animate-in fade-in duration-100 select-none"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              const proj = projectContextMenu.project
+              setProjectContextMenu(null)
+              onEditProject(proj)
+            }}
+            className="w-full px-3 py-2 text-left text-xs text-[#CECDC4] hover:text-white hover:bg-[#2C2C2E] flex items-center gap-2 cursor-pointer transition-colors font-sans"
+          >
+            <Settings2 className="w-3.5 h-3.5 stroke-[2]" />
+            <span>Settings</span>
+          </button>
         </div>
       )}
     </>

@@ -3,6 +3,7 @@ package com.wyrd.app.ui.components
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -63,6 +64,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -241,7 +243,7 @@ fun DrawerContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                        .padding(start = 10.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -254,17 +256,23 @@ fun DrawerContent(
                             letterSpacing = 1.2.sp
                         )
                     )
-                    IconButton(
-                        onClick = {
-                            hapticManager?.tick()
-                            onCreateProject()
-                        },
-                        modifier = Modifier.size(24.dp)
+                    Box(
+                        modifier = Modifier
+                            .height(30.dp)
+                            .width(48.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF1E1E1E))
+                            .border(1.dp, Color(0xFF2E2E2E), RoundedCornerShape(8.dp))
+                            .clickable {
+                                hapticManager?.tick()
+                                onCreateProject()
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = "New Project",
-                            tint = TextGray,
+                            tint = TextWhite,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -290,106 +298,20 @@ fun DrawerContent(
                     val isProjectSelected = (activeProjectId == project.id && activeChatId == null)
 
                     item(key = "proj_${project.id}") {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isProjectSelected) DarkCard else androidx.compose.ui.graphics.Color.Transparent)
-                                .clickable {
-                                    hapticManager?.tick()
-                                    expandedProjectIds = if (isExpanded) {
-                                        expandedProjectIds - project.id
-                                    } else {
-                                        expandedProjectIds + project.id
-                                    }
+                        ProjectItemRow(
+                            project = project,
+                            isExpanded = isExpanded,
+                            isSelected = isProjectSelected,
+                            onToggleExpand = {
+                                expandedProjectIds = if (isExpanded) {
+                                    expandedProjectIds - project.id
+                                } else {
+                                    expandedProjectIds + project.id
                                 }
-                                .padding(horizontal = 8.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .clickable {
-                                        hapticManager?.tick()
-                                        expandedProjectIds = if (isExpanded) {
-                                            expandedProjectIds - project.id
-                                        } else {
-                                            expandedProjectIds + project.id
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
-                                    contentDescription = if (isExpanded) "Collapse" else "Expand",
-                                    tint = TextMuted,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(
-                                imageVector = if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder,
-                                contentDescription = null,
-                                tint = if (isExpanded || isProjectSelected) TextWhite else TextGray,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = project.name,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = if (isExpanded || isProjectSelected) TextWhite else TextGray,
-                                    fontFamily = SpaceGrotesk,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 13.sp
-                                ),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(DarkSurfaceElevated)
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = projectChats.size.toString(),
-                                    color = TextMuted,
-                                    fontSize = 10.sp,
-                                    fontFamily = SpaceGrotesk
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    hapticManager?.tick()
-                                    onNewChatInProject(project.id)
-                                },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "New Chat in Project",
-                                    tint = TextMuted,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    hapticManager?.tick()
-                                    onEditProject(project)
-                                },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Settings,
-                                    contentDescription = "Project Settings",
-                                    tint = TextMuted,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        }
+                            },
+                            onNewChat = { onNewChatInProject(project.id) },
+                            onSettings = { onEditProject(project) }
+                        )
                     }
 
                     if (isExpanded) {
@@ -499,6 +421,148 @@ private fun DrawerActionItem(
                 fontSize = 15.sp
             )
         )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ProjectItemRow(
+    project: ProjectEntity,
+    isExpanded: Boolean,
+    isSelected: Boolean,
+    onToggleExpand: () -> Unit,
+    onNewChat: () -> Unit,
+    onSettings: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val hapticManager = remember { (context.applicationContext as? com.wyrd.app.WyrdApp)?.hapticManager }
+
+    val projectColor = remember(project.color) {
+        if (project.color.isNotBlank()) {
+            try {
+                Color(android.graphics.Color.parseColor(project.color))
+            } catch (e: Exception) {
+                null
+            }
+        } else null
+    }
+
+    Box {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (isSelected) DarkCard else Color.Transparent)
+                .combinedClickable(
+                    onClick = {
+                        focusManager.clearFocus(force = true)
+                        keyboardController?.hide()
+                        hapticManager?.tick()
+                        onToggleExpand()
+                    },
+                    onLongClick = {
+                        focusManager.clearFocus(force = true)
+                        keyboardController?.hide()
+                        hapticManager?.heavyClick()
+                        menuExpanded = true
+                    }
+                )
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable {
+                        hapticManager?.tick()
+                        onToggleExpand()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    tint = TextMuted,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder,
+                contentDescription = null,
+                tint = projectColor ?: (if (isExpanded || isSelected) TextWhite else TextGray),
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = project.name,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = if (isExpanded || isSelected) TextWhite else TextGray,
+                    fontFamily = SpaceGrotesk,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Box(
+                modifier = Modifier
+                    .height(30.dp)
+                    .width(48.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF1E1E1E))
+                    .border(1.dp, Color(0xFF2E2E2E), RoundedCornerShape(8.dp))
+                    .clickable {
+                        hapticManager?.tick()
+                        onNewChat()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "New Chat in Project",
+                    tint = TextWhite,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false },
+            properties = androidx.compose.ui.window.PopupProperties(focusable = false),
+            modifier = Modifier.background(DarkCard)
+        ) {
+            DropdownMenuItem(
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = null,
+                            tint = TextWhite,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Settings",
+                            color = TextWhite,
+                            fontFamily = SpaceGrotesk,
+                            fontSize = 14.sp
+                        )
+                    }
+                },
+                onClick = {
+                    menuExpanded = false
+                    onSettings()
+                }
+            )
+        }
     }
 }
 

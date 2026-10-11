@@ -63,7 +63,8 @@ export const dbService = {
     userId: string,
     name: string,
     systemPrompt: string = '',
-    description?: string
+    description?: string,
+    color?: string
   ): Promise<Project | null> {
     try {
       const { data, error } = await supabase
@@ -73,6 +74,7 @@ export const dbService = {
           name,
           system_prompt: systemPrompt,
           description: description || null,
+          color: color || '',
           is_pinned: false,
         })
         .select()

@@ -1,4 +1,4 @@
-# WYRD Web (Desktop & Browser Companion) (v1.4.0)
+# WYRD Web (Desktop & Browser Companion) (v1.5.1)
 
 A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversations, settings, and cognitive states in real-time with the Android application via Supabase.
 
@@ -76,12 +76,15 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
      * **Multi-Format Tool Extraction**: Accurately parses standard tool calls, XML parameters (`<parameter=query>`), XML query tags (`<query>`), function syntax, and bracket actions.
    * **30-Turn Context Window Clamping**: Clamps message payload to the most recent 30 conversation turns to preserve token budgets and avoid gateway limits.
 9. **Projects & Knowledge Base Spaces**:
+   * **Custom Project Colors & Palettes**: 9-color curated warm brutalist palette (Default Bone White, Orange, Amber, Emerald, Cyan, Electric Blue, Purple, Pink, Crimson Red) with swatches in the project modal. Selected project colors dynamically tint folder icons in the sidebar, nested chats, and top navigation bar breadcrumbs.
+   * **Instant Settings Access (Hover Gear Icon & Right-Click)**: Hovering over any project row in the sidebar reveals a sleek gear icon (`Settings`) alongside the new-chat button to immediately access project settings. Right-clicking (`onContextMenu`) also opens the project settings context menu.
+   * **Unified Wide Plus Buttons**: Standardized wide `[ + ]` box buttons (`w-12 h-7 rounded-lg`) for both the "PROJECTS" header row and individual project rows with pixel-perfect right margin alignment.
    * **Custom System Prompt Override**: Dedicated projects with custom instructions that strictly override the generic profile system prompt.
    * **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code files. Text is extracted client-side (using `pdfjs-dist` for PDFs) and injected into the LLM context for all chats within that project. Supports staging files during project creation with badge preview and deletion.
    * **Safe Storage Persistence**: Direct Supabase storage without shadow `localStorage` layers; project file storage paths (`project_files.storage_path`) are whitelisted in `cleanOrphanedStorageAttachments` to prevent premature purging.
    * **Strict Context Scoping**: Strict project isolation ensures instructions and knowledge files never leak into generic chat sessions.
    * **Folder Structure & Clean Navigation**: Collapsible `PROJECTS` section in the sidebar with nested chat lists. Header click toggles folder expansion cleanly without redundant child rows. Active project breadcrumbs in the top bar and draft badge on empty greeting.
-   * **Two-Way Supabase Sync**: Real-time bidirectional replication of projects, attached project files, and chat assignments across Web and Android.
+   * **Two-Way Supabase Sync**: Real-time bidirectional replication of projects (including project colors), attached project files, and chat assignments across Web and Android.
 
 ## Local Development & Spin-Up
 

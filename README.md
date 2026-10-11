@@ -1,4 +1,4 @@
-# WYRD (v1.4.0)
+# WYRD (v1.5.1)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -13,15 +13,15 @@ WYRD/
 ├── android/          # Native Android AI Client (Kotlin + Jetpack Compose)
 │   ├── app/          # App source, UI components, Room database, network services
 │   ├── build.gradle.kts
-│   └── README.md     # Android client architecture & documentation (v1.3.0)
+│   └── README.md     # Android client architecture & documentation (v1.5.0)
 │
 ├── web/              # Desktop & Browser Companion (React 19 + TypeScript + Vite)
 │   ├── src/          # React components, services, Supabase integration
 │   ├── package.json
-│   └── README.md     # Web client architecture & documentation (v1.3.0)
+│   └── README.md     # Web client architecture & documentation (v1.5.0)
 │
 ├── .gitignore        # Unified repository ignore rules
-└── README.md         # Master repository overview (v1.3.0)
+└── README.md         # Master repository overview (v1.5.0)
 ```
 
 ---
@@ -57,13 +57,16 @@ WYRD/
 * **Automated Storage Cleanup**: Deleting conversations or editing turns proactively purges orphaned remote files and local caches.
 
 ### 5. Projects & Knowledge Base Spaces (Web & Android)
+* **Custom Project Colors & Palettes**: 9-color curated warm brutalist palette (Default Bone White, Orange, Amber, Emerald, Cyan, Electric Blue, Purple, Pink, Crimson Red) with swatches in project dialogs. Selected project colors dynamically tint folder icons in the drawer/sidebar and top navigation bar breadcrumbs.
+* **Streamlined Side Panel / Drawer Experience**: Removed chat counter badges and gear buttons for a minimal, hyper-clean look, and added unified wide `[ + ]` box buttons across headers and item rows for easy tapping and clicking.
+* **Instant Settings Access**: Projects can be configured effortlessly: on Android, long-pressing any project row brings up a native settings dropdown; on Web, a sleek gear icon appears on row hover (mirroring chat hover actions) and right-clicking opens the settings context menu.
 * **Custom System Prompt Override**: Dedicated project spaces with custom system prompts that strictly override the generic global system prompt for focused domain tasks.
 * **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any project. The text content is extracted client-side and injected as contextual knowledge base memory during LLM completions. Staging files during project creation is supported on both Web and Android.
 * **Safe Storage Persistence**: Whitelisted project files in Supabase Storage prevent active project knowledge attachments from being purged during orphan cleanup passes.
 * **Strict Context Scoping**: Strict project context isolation ensures project system instructions and knowledge base files never leak into generic chat sessions.
 * **Folder-Like Organization**: Folders in the sidebar (Web) and drawer (Android) grouping nested conversation threads. Header clicks cleanly toggle folder expansion; conversations created within a project stay inside its folder; chats outside live in the generic HISTORY section.
 * **Breadcrumb Navigation**: Dynamic folder indicator displaying the active project name directly in the top navigation bar and drafting state.
-* **Full Cloud & Offline Sync**: Full Room database support (v8 migration with composite index optimization) and Supabase tables (`projects`, `project_files`, `chats.project_id`) with real-time bidirectional synchronization across Android and Web.
+* **Full Cloud & Offline Sync**: Full Room database support (v9 migration with `color` column and composite index optimization) and Supabase tables (`projects`, `project_files`, `chats.project_id`) with real-time bidirectional synchronization across Android and Web.
 
 ### 6. Full Markdown Tables & Typography Engine
 * **Brutalist Tables Rendering**: Parses standard Markdown tables (`| Col 1 | Col 2 |`) into clean, responsive tabular cards with header distinctions, column alignment (`left`, `center`, `right`), horizontal scrolling, and custom borders.
@@ -75,6 +78,8 @@ WYRD/
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.5.1** | 2026-10-12 | Unified side panel button geometry, two-way Supabase project color sync, hover gear icon for Web project settings, concentric color swatch containment, and cleaned redundant dialog text. |
+| **v1.5.0** | 2026-10-12 | Side panel/drawer projects redesign: removed counters and gear buttons, enlarged new chat button, added long-press (Android) and right-click (Web) settings dropdown, 9-color project palette customization, Room v9 migration, and Supabase sync parity. |
 | **v1.4.0** | 2026-10-11 | Complete architecture overhaul of Projects (isolated scoping, storage orphan protection, creation file staging, clean navigation toggles) and native Markdown Table rendering engine with 1:1 TTS word-sync parity across Web and Android. |
 | **v1.3.0** | 2026-10-11 | Implemented Dual Search Engine architecture (Tavily AI for real-time live web browsing + Exa AI for semantic exploration) with autonomous model tool selection, settings configuration, and clean verification trailers across Web and Android. |
 | **v1.2.0** | 2026-10-11 | Added Projects feature across Web and Android: custom system prompt overrides, knowledge base source file attachments (.md, .txt, .pdf, code), folder-based sidebar and drawer organization, and real-time Supabase sync. |

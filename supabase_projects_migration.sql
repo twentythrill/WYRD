@@ -10,10 +10,24 @@ CREATE TABLE IF NOT EXISTS public.projects (
     name TEXT NOT NULL,
     description TEXT,
     system_prompt TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL DEFAULT '',
     is_pinned BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Ensure color column exists if projects table already existed
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'projects' 
+        AND column_name = 'color'
+    ) THEN
+        ALTER TABLE public.projects ADD COLUMN color TEXT NOT NULL DEFAULT '';
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_projects_user_id ON public.projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON public.projects(updated_at DESC);

@@ -44,6 +44,7 @@ import com.wyrd.app.ui.theme.TextWhite
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import com.wyrd.app.ui.theme.SpaceGrotesk
 
@@ -55,6 +56,7 @@ fun TopBar(
     onReasoningEffortSelected: (ReasoningEffort) -> Unit,
     onMenuClick: () -> Unit,
     activeProjectName: String? = null,
+    activeProjectColor: String? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -83,6 +85,15 @@ fun TopBar(
         )
 
         if (!activeProjectName.isNullOrBlank()) {
+            val projectColor = remember(activeProjectColor) {
+                if (!activeProjectColor.isNullOrBlank()) {
+                    try {
+                        Color(android.graphics.Color.parseColor(activeProjectColor))
+                    } catch (e: Exception) {
+                        null
+                    }
+                } else null
+            }
             Spacer(modifier = Modifier.width(8.dp))
             Row(
                 modifier = Modifier
@@ -94,7 +105,7 @@ fun TopBar(
                 Icon(
                     imageVector = Icons.Default.Folder,
                     contentDescription = null,
-                    tint = TextMuted,
+                    tint = projectColor ?: TextMuted,
                     modifier = Modifier.size(13.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))

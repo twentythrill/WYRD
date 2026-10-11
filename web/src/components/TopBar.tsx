@@ -23,6 +23,7 @@ interface TopBarProps {
   reasoningEffortId: string
   activeChatTitle?: string
   activeProjectName?: string
+  activeProjectColor?: string | null
   isSidebarOpen?: boolean
   isDark?: boolean
   onSelectModel: (modelId: string) => void
@@ -36,6 +37,7 @@ export function TopBar({
   reasoningEffortId,
   activeChatTitle,
   activeProjectName,
+  activeProjectColor,
   isSidebarOpen,
   isDark = true,
   onSelectModel,
@@ -160,7 +162,10 @@ export function TopBar({
       {/* Active Conversation / Project Breadcrumb */}
       {activeProjectName ? (
         <div className="ml-2 pl-2.5 sm:ml-2.5 sm:pl-3 border-l border-[#262626] h-5 flex items-center min-w-0 gap-1.5 text-xs text-[#8E8E93]">
-          <Folder className="w-3.5 h-3.5 text-[#CECDC4] shrink-0" />
+          <Folder
+            className="w-3.5 h-3.5 shrink-0"
+            style={{ color: activeProjectColor?.trim() || '#CECDC4' }}
+          />
           <span className="font-semibold text-[#CECDC4] truncate max-w-[90px] sm:max-w-[140px] font-sans">
             {activeProjectName}
           </span>

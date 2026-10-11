@@ -509,6 +509,7 @@ class SupabaseSyncManager(
                             put("name", localProj.name)
                             put("description", localProj.description)
                             put("system_prompt", localProj.systemPrompt)
+                            put("color", localProj.color)
                             put("is_pinned", localProj.isPinned)
                             put("created_at", formatIsoDate(localProj.createdAt))
                             put("updated_at", formatIsoDate(localProj.updatedAt))
@@ -522,6 +523,7 @@ class SupabaseSyncManager(
                     val remoteName = rProj.optString("name", localProj.name)
                     val remoteDesc = rProj.optString("description", localProj.description)
                     val remotePrompt = rProj.optString("system_prompt", localProj.systemPrompt)
+                    val remoteColor = rProj.optString("color", localProj.color)
                     val remotePinned = rProj.optBoolean("is_pinned", localProj.isPinned)
 
                     if (localProj.updatedAt > remoteUpdatedAt) {
@@ -531,16 +533,18 @@ class SupabaseSyncManager(
                             put("name", localProj.name)
                             put("description", localProj.description)
                             put("system_prompt", localProj.systemPrompt)
+                            put("color", localProj.color)
                             put("is_pinned", localProj.isPinned)
                             put("created_at", formatIsoDate(localProj.createdAt))
                             put("updated_at", formatIsoDate(localProj.updatedAt))
                         })
-                    } else if (remoteUpdatedAt > localProj.updatedAt || localProj.name != remoteName || localProj.description != remoteDesc || localProj.systemPrompt != remotePrompt || localProj.isPinned != remotePinned) {
+                    } else if (remoteUpdatedAt > localProj.updatedAt || localProj.name != remoteName || localProj.description != remoteDesc || localProj.systemPrompt != remotePrompt || localProj.color != remoteColor || localProj.isPinned != remotePinned) {
                         projectDao.updateProject(
                             localProj.copy(
                                 name = remoteName,
                                 description = remoteDesc,
                                 systemPrompt = remotePrompt,
+                                color = remoteColor,
                                 isPinned = remotePinned,
                                 updatedAt = remoteUpdatedAt
                             )
@@ -559,6 +563,7 @@ class SupabaseSyncManager(
                 val name = rProj.optString("name", "Project")
                 val description = rProj.optString("description", "")
                 val systemPrompt = rProj.optString("system_prompt", "")
+                val color = rProj.optString("color", "")
                 val isPinned = rProj.optBoolean("is_pinned", false)
                 val rawCreatedAt = parseIsoDate(rProj.optString("created_at"))
                 val rawUpdatedAt = parseIsoDate(rProj.optString("updated_at"))
@@ -570,6 +575,7 @@ class SupabaseSyncManager(
                         name = name,
                         description = description,
                         systemPrompt = systemPrompt,
+                        color = color,
                         isPinned = isPinned,
                         createdAt = createdAt,
                         updatedAt = updatedAt,

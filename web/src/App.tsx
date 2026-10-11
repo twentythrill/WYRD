@@ -363,7 +363,8 @@ export function App() {
   const handleSaveProject = async (
     name: string,
     description: string,
-    systemPrompt: string
+    systemPrompt: string,
+    color: string = ''
   ): Promise<Project | null> => {
     const userId = session?.user?.id || 'local_user'
     if (editingProject) {
@@ -371,6 +372,7 @@ export function App() {
         name,
         description,
         system_prompt: systemPrompt,
+        color,
       })
       if (updated) {
         setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
@@ -381,7 +383,8 @@ export function App() {
         userId,
         name,
         systemPrompt,
-        description
+        description,
+        color
       )
       if (created) {
         setProjects((prev) => {
@@ -902,6 +905,7 @@ export function App() {
             reasoningEffortId={profile?.reasoning_effort || 'medium'}
             activeChatTitle={activeChat?.title}
             activeProjectName={activeProject?.name}
+            activeProjectColor={activeProject?.color}
             isSidebarOpen={isSidebarOpen}
             isDark={isDark}
             onSelectModel={handleModelSelected}

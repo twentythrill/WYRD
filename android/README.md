@@ -1,4 +1,4 @@
-# WYRD — Native Android AI Client (v1.4.0)
+# WYRD — Native Android AI Client (v1.5.1)
 
 WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo) with dual web search engines (Tavily AI for live web and Exa AI for semantic exploration), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (Whisper), and complete local session persistence.
 
@@ -163,10 +163,11 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 - **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any project. The text is extracted client-side via `AttachmentHelper` and formatted into contextual knowledge base memory before prompt dispatch. Supports staging files during new project creation.
 - **Safe Storage Persistence**: Both local and remote project knowledge files are whitelisted in `cleanOrphanedStorageAttachments` to prevent active project documents from ever being deleted during sync cleanups.
 - **Strict Context Scoping**: System prompt overrides and knowledge documents only apply to conversations belonging to that project, preventing leakage into generic chats.
-- **Collapsible Folder Organization**: The Material 3 navigation drawer features a collapsible `PROJECTS` section with nested chat threads, chat counts, quick `+` chat creation, and project settings dialog. Tapping the project header toggles expansion cleanly without duplicate child rows.
+- **Collapsible Folder Organization & Wide Action Buttons**: The navigation drawer features a clean collapsible `PROJECTS` section with nested chat threads, unified wide `[ + ]` box buttons (48dp x 30dp) for one-tap new chat creation, and long-press settings dropdown. Tapping the project header toggles expansion cleanly without duplicate child rows.
+- **Custom Project Colors & Palettes**: 9-color curated warm brutalist palette (Default Bone White, Orange, Amber, Emerald, Cyan, Electric Blue, Purple, Pink, Crimson Red) with swatches in the project dialog. Project colors dynamically tint folder icons in the drawer and top navigation bar breadcrumbs.
 - **TopBar & Greeting Breadcrumbs**: Subtle folder indicator in the top bar displaying the active project name, and an intuitive "Drafting in [Project]" badge on new chat greetings.
-- **Room SQLite Migration (v8)**: Bumped database to version 8 with `MIGRATION_7_8` adding composite performance indices on `chats(projectId)` and `chats(projectSyncId)`.
-- **Bidirectional Cloud Sync**: Full two-way sync with Supabase tables `projects`, `project_files`, and `chats.project_id`, complete with automatic foreign key backfilling.
+- **Room SQLite Migration (v9)**: Database version 9 with `MIGRATION_8_9` adding `color TEXT NOT NULL DEFAULT ''` to `projects`, plus composite performance indices on `chats(projectId)` and `chats(projectSyncId)`.
+- **Bidirectional Cloud Sync**: Full two-way sync with Supabase tables `projects` (including project `color`), `project_files`, and `chats.project_id`, complete with automatic foreign key backfilling.
 
 ---
 

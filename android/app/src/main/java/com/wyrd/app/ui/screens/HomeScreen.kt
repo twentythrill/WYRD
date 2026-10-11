@@ -1176,6 +1176,7 @@ fun HomeScreen(
                             }
                         },
                         activeProjectName = activeProject?.name,
+                        activeProjectColor = activeProject?.color,
                         modifier = Modifier.align(Alignment.TopCenter)
                     )
 
@@ -1261,18 +1262,19 @@ fun HomeScreen(
                     showProjectDialog = false
                     projectToEdit = null
                 },
-                onSave = { name, description, systemPrompt, stagedUris ->
+                onSave = { name, description, systemPrompt, color, stagedUris ->
                     val currentProject = projectToEdit
                     if (currentProject != null) {
                         viewModel.updateProject(
                             currentProject.copy(
                                 name = name,
                                 description = description,
-                                systemPrompt = systemPrompt
+                                systemPrompt = systemPrompt,
+                                color = color
                             )
                         )
                     } else {
-                        viewModel.createProject(name, description, systemPrompt, stagedUris)
+                        viewModel.createProject(name, description, systemPrompt, color, stagedUris)
                     }
                     showProjectDialog = false
                     projectToEdit = null

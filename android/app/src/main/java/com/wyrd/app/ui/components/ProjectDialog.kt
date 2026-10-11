@@ -22,8 +22,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
@@ -75,18 +78,31 @@ import com.wyrd.app.ui.theme.TextWhite
 import com.wyrd.app.ui.theme.White
 import com.wyrd.app.util.AttachmentHelper
 
+val PROJECT_COLOR_PRESETS = listOf(
+    "" to "Default",       // Bone White
+    "#F97316" to "Orange",  // Warm Orange
+    "#F59E0B" to "Amber",   // Warm Gold
+    "#10B981" to "Emerald", // Green
+    "#06B6D4" to "Cyan",    // Teal
+    "#3B82F6" to "Blue",    // Electric Blue
+    "#8B5CF6" to "Purple",  // Violet
+    "#EC4899" to "Pink",    // Rose
+    "#EF4444" to "Red"      // Crimson
+)
+
 @Composable
 fun ProjectDialog(
     project: ProjectEntity?,
     viewModel: MainViewModel,
     onDismiss: () -> Unit,
-    onSave: (name: String, description: String, systemPrompt: String, stagedUris: List<Uri>) -> Unit,
+    onSave: (name: String, description: String, systemPrompt: String, color: String, stagedUris: List<Uri>) -> Unit,
     onDelete: (ProjectEntity) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var name by remember(project) { mutableStateOf(project?.name ?: "") }
     var description by remember(project) { mutableStateOf(project?.description ?: "") }
     var systemPrompt by remember(project) { mutableStateOf(project?.systemPrompt ?: "") }
+    var color by remember(project) { mutableStateOf(project?.color ?: "") }
     var stagedUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
@@ -213,6 +229,58 @@ fun ProjectDialog(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
+                    // Project Color Swatches
+                    Text(
+                        text = "Project Color",
+                        fontFamily = SpaceGrotesk,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextWhite
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        PROJECT_COLOR_PRESETS.forEach { (presetHex, label) ->
+                            val isSelected = color.equals(presetHex, ignoreCase = true)
+                            val swatchColor = if (presetHex.isEmpty()) Color(0xFFE8E8E6) else {
+                                try {
+                                    Color(android.graphics.Color.parseColor(presetHex))
+                                } catch (e: Exception) {
+                                    Color(0xFFE8E8E6)
+                                }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(swatchColor)
+                                    .border(
+                                        width = if (isSelected) 2.dp else 1.dp,
+                                        color = if (isSelected) White else DarkBorder,
+                                        shape = CircleShape
+                                    )
+                                    .clickable { color = presetHex },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = label,
+                                        tint = if (presetHex.isEmpty() || presetHex.equals("#F59E0B", true)) Color.Black else Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
                     // Custom Instructions / System Prompt
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -242,13 +310,6 @@ fun ProjectDialog(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "When chatting in this project, these instructions strictly override the generic system prompt.",
-                        fontFamily = SpaceGrotesk,
-                        fontSize = 11.sp,
-                        color = TextMuted
-                    )
                     Spacer(modifier = Modifier.height(6.dp))
                     OutlinedTextField(
                         value = systemPrompt,
@@ -563,7 +624,7 @@ fun ProjectDialog(
                     Button(
                         onClick = {
                             if (name.isNotBlank()) {
-                                onSave(name.trim(), description.trim(), systemPrompt.trim(), stagedUris)
+                                onSave(name.trim(), description.trim(), systemPrompt.trim(), color.trim(), stagedUris)
                                 onDismiss()
                             }
                         },

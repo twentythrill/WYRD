@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
     name TEXT NOT NULL,
     description TEXT,
     system_prompt TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL DEFAULT '',
     is_pinned BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

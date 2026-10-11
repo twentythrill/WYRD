@@ -38,6 +38,7 @@ export interface Project {
   name: string
   description?: string | null
   system_prompt: string
+  color?: string | null
   is_pinned: boolean
   created_at: string
   updated_at: string
