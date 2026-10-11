@@ -41,7 +41,7 @@ export const EXA_SEARCH_TOOL = {
   function: {
     name: 'exa_search',
     description:
-      'Searches the web semantically for comprehensive articles, in-depth documentation, company profiles, academic/technical research, or concept discovery via Exa.',
+      'Searches the web semantically for forum discussions, Reddit threads, Glassdoor employee reviews, interview feedback, company culture, in-depth documentation, or deep research via Exa.',
     parameters: {
       type: 'object',
       properties: {
@@ -74,16 +74,20 @@ export const WEB_SEARCH_TOOL = {
   },
 }
 
-export function extractToolCall(text: string): ExtractedToolCall | null {
+export function extractToolCall(text: string, explicitToolName?: string): ExtractedToolCall | null {
   const trimmed = text.trim()
   if (!trimmed) return null
 
   // Determine tool function name if explicitly present
   let tool: SearchToolType = 'web_search'
-  if (/tavily_search|tavily/i.test(trimmed)) {
+  if (explicitToolName && /exa/i.test(explicitToolName)) {
+    tool = 'exa_search'
+  } else if (explicitToolName && /tavily/i.test(explicitToolName)) {
     tool = 'tavily_search'
   } else if (/exa_search|exa/i.test(trimmed)) {
     tool = 'exa_search'
+  } else if (/tavily_search|tavily/i.test(trimmed)) {
+    tool = 'tavily_search'
   }
 
   // 1. XML parameter syntax: <parameter=query>...</parameter> or <parameter name="query">...</parameter>
@@ -460,6 +464,7 @@ If the request does not require external search, answer directly without invokin
     let lastError = ''
     let roundContentAccumulator = ''
     let roundReasoningAccumulator = ''
+    let toolCallName = ''
     let toolCallArgs = ''
     let isStreamSuccess = false
 
@@ -534,6 +539,9 @@ If the request does not require external search, answer directly without invokin
                 // 1. Native OpenAI tool call streaming
                 if (delta.tool_calls) {
                   for (const tc of delta.tool_calls) {
+                    if (tc.function?.name) {
+                      toolCallName = tc.function.name
+                    }
                     if (tc.function?.arguments) {
                       toolCallArgs += tc.function.arguments
                     }
@@ -615,12 +623,12 @@ If the request does not require external search, answer directly without invokin
     }
 
     // Check if model autonomously invoked web search tool (either via native args, parser XML buffer, or content)
-    let extracted = extractToolCall(toolCallArgs)
+    let extracted = extractToolCall(toolCallArgs, toolCallName)
     if (!extracted && parserToolContent) {
-      extracted = extractToolCall(parserToolContent)
+      extracted = extractToolCall(parserToolContent, toolCallName)
     }
     if (!extracted) {
-      extracted = extractToolCall(roundContentAccumulator)
+      extracted = extractToolCall(roundContentAccumulator, toolCallName)
     }
 
     if (extracted && toolExecutionRounds < maxToolExecutionRounds) {

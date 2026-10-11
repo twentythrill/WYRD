@@ -284,7 +284,7 @@ class XiaomiMimoService(
                     append("\n- `tavily_search`: Real-time live web search engine. Use this when the user's question requires breaking news, current events, recent releases/updates (e.g. software versions, patch notes), live data (weather, sports scores, stock prices), or live web facts. Invoke with:\n<tool_call><function=tavily_search><parameter=query>your search query</parameter></function></tool_call>")
                 }
                 if (hasExa) {
-                    append("\n- `exa_search`: Semantic neural search engine. Use this when the user needs deep concept exploration, documentation, technical research, or academic literature. Invoke with:\n<tool_call><function=exa_search><parameter=query>your search query</parameter></function></tool_call>")
+                    append("\n- `exa_search`: Semantic neural search engine. Use this when the user needs forum discussions (e.g. Reddit), company employee reviews and interview feedback (e.g. Glassdoor), workplace culture sentiment, in-depth documentation, or deep research. Invoke with:\n<tool_call><function=exa_search><parameter=query>your search query</parameter></function></tool_call>")
                 }
                 append("\nIf the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]")
             }
@@ -645,14 +645,15 @@ class XiaomiMimoService(
 
             // Check if model autonomously invoked web search tool (via native tool calls, buffered tool call XML, or content)
             var toolCall: ExtractedToolCall? = null
+            val explicitTool = toolCallName.ifBlank { null }
             if (toolCallArgs.isNotBlank()) {
-                toolCall = extractToolInvocation(toolCallArgs.toString())
+                toolCall = extractToolInvocation(toolCallArgs.toString(), explicitToolName = explicitTool)
             }
             if (toolCall == null && activeParser != null) {
-                toolCall = extractToolInvocation(activeParser.getToolCallContent())
+                toolCall = extractToolInvocation(activeParser.getToolCallContent(), explicitToolName = explicitTool)
             }
             if (toolCall == null) {
-                toolCall = extractToolInvocation(streamedContentAccumulator.toString())
+                toolCall = extractToolInvocation(streamedContentAccumulator.toString(), explicitToolName = explicitTool)
             }
 
             if (toolCall != null && hasAnySearch && toolExecutionRounds < maxToolExecutionRounds) {
@@ -1057,7 +1058,7 @@ class XiaomiMimoService(
                     put("type", "function")
                     put("function", JSONObject().apply {
                         put("name", "exa_search")
-                        put("description", "Searches the web semantically for comprehensive articles, in-depth documentation, company profiles, academic/technical research, or concept discovery via Exa.")
+                        put("description", "Searches the web semantically for forum discussions, Reddit threads, Glassdoor employee reviews, interview feedback, company culture, in-depth documentation, or deep research via Exa.")
                         put("parameters", JSONObject().apply {
                             put("type", "object")
                             put("properties", JSONObject().apply {
@@ -1074,15 +1075,16 @@ class XiaomiMimoService(
         }
     }
 
-    fun extractToolInvocation(text: String): ExtractedToolCall? {
+    fun extractToolInvocation(text: String, explicitToolName: String? = null): ExtractedToolCall? {
         val trimmed = text.trim()
         if (trimmed.isBlank()) return null
 
-        var tool = "web_search"
-        if (trimmed.contains("tavily_search", ignoreCase = true) || trimmed.contains("tavily", ignoreCase = true)) {
-            tool = "tavily_search"
-        } else if (trimmed.contains("exa_search", ignoreCase = true) || trimmed.contains("exa", ignoreCase = true)) {
-            tool = "exa_search"
+        var tool = when {
+            explicitToolName?.equals("exa_search", ignoreCase = true) == true || explicitToolName?.equals("exa", ignoreCase = true) == true -> "exa_search"
+            explicitToolName?.equals("tavily_search", ignoreCase = true) == true || explicitToolName?.equals("tavily", ignoreCase = true) == true -> "tavily_search"
+            trimmed.contains("exa_search", ignoreCase = true) || trimmed.contains("exa", ignoreCase = true) -> "exa_search"
+            trimmed.contains("tavily_search", ignoreCase = true) || trimmed.contains("tavily", ignoreCase = true) -> "tavily_search"
+            else -> "web_search"
         }
 
         // 1. XML parameter syntax: <parameter=query>...</parameter> or <parameter name="query">...</parameter>
