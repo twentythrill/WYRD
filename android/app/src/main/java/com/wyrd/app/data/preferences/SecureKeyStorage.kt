@@ -125,12 +125,70 @@ class SecureKeyStorage(context: Context) {
         sharedPreferences.edit().putStringSet(KEY_SYNCED_PROJECT_IDS, HashSet(ids)).apply()
     }
 
+    fun addKnownSyncedProjectId(id: String) {
+        val current = getKnownSyncedProjectIds().toMutableSet()
+        if (current.add(id)) {
+            setKnownSyncedProjectIds(current)
+        }
+    }
+
+    fun removeKnownSyncedProjectId(id: String) {
+        val current = getKnownSyncedProjectIds().toMutableSet()
+        if (current.remove(id)) {
+            setKnownSyncedProjectIds(current)
+        }
+    }
+
     fun getKnownSyncedProjectFileIds(): Set<String> {
         return sharedPreferences.getStringSet(KEY_SYNCED_PROJECT_FILE_IDS, emptySet())?.toSet() ?: emptySet()
     }
 
     fun setKnownSyncedProjectFileIds(ids: Set<String>) {
         sharedPreferences.edit().putStringSet(KEY_SYNCED_PROJECT_FILE_IDS, HashSet(ids)).apply()
+    }
+
+    fun getPendingDeletedChatIds(): Set<String> {
+        return sharedPreferences.getStringSet(KEY_PENDING_DELETED_CHAT_IDS, emptySet())?.toSet() ?: emptySet()
+    }
+
+    fun setPendingDeletedChatIds(ids: Set<String>) {
+        sharedPreferences.edit().putStringSet(KEY_PENDING_DELETED_CHAT_IDS, HashSet(ids)).apply()
+    }
+
+    fun addPendingDeletedChatId(id: String) {
+        val current = getPendingDeletedChatIds().toMutableSet()
+        if (current.add(id)) {
+            setPendingDeletedChatIds(current)
+        }
+    }
+
+    fun removePendingDeletedChatId(id: String) {
+        val current = getPendingDeletedChatIds().toMutableSet()
+        if (current.remove(id)) {
+            setPendingDeletedChatIds(current)
+        }
+    }
+
+    fun getPendingDeletedProjectIds(): Set<String> {
+        return sharedPreferences.getStringSet(KEY_PENDING_DELETED_PROJECT_IDS, emptySet())?.toSet() ?: emptySet()
+    }
+
+    fun setPendingDeletedProjectIds(ids: Set<String>) {
+        sharedPreferences.edit().putStringSet(KEY_PENDING_DELETED_PROJECT_IDS, HashSet(ids)).apply()
+    }
+
+    fun addPendingDeletedProjectId(id: String) {
+        val current = getPendingDeletedProjectIds().toMutableSet()
+        if (current.add(id)) {
+            setPendingDeletedProjectIds(current)
+        }
+    }
+
+    fun removePendingDeletedProjectId(id: String) {
+        val current = getPendingDeletedProjectIds().toMutableSet()
+        if (current.remove(id)) {
+            setPendingDeletedProjectIds(current)
+        }
     }
 
     fun clearSupabaseAuth() {
@@ -142,6 +200,8 @@ class SecureKeyStorage(context: Context) {
             .remove(KEY_SYNCED_CHAT_IDS)
             .remove(KEY_SYNCED_PROJECT_IDS)
             .remove(KEY_SYNCED_PROJECT_FILE_IDS)
+            .remove(KEY_PENDING_DELETED_CHAT_IDS)
+            .remove(KEY_PENDING_DELETED_PROJECT_IDS)
             .apply()
     }
 
@@ -156,6 +216,8 @@ class SecureKeyStorage(context: Context) {
         private const val KEY_SYNCED_CHAT_IDS = "supabase_synced_chat_ids"
         private const val KEY_SYNCED_PROJECT_IDS = "supabase_synced_project_ids"
         private const val KEY_SYNCED_PROJECT_FILE_IDS = "supabase_synced_project_file_ids"
+        private const val KEY_PENDING_DELETED_CHAT_IDS = "supabase_pending_deleted_chat_ids"
+        private const val KEY_PENDING_DELETED_PROJECT_IDS = "supabase_pending_deleted_project_ids"
     }
 }
 

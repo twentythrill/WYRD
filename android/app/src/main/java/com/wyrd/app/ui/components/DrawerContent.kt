@@ -297,21 +297,33 @@ fun DrawerContent(
                                 .background(if (isProjectSelected) DarkCard else androidx.compose.ui.graphics.Color.Transparent)
                                 .clickable {
                                     hapticManager?.tick()
-                                    expandedProjectIds = if (isExpanded) {
-                                        expandedProjectIds - project.id
-                                    } else {
-                                        expandedProjectIds + project.id
-                                    }
+                                    expandedProjectIds = expandedProjectIds + project.id
+                                    onNewChatInProject(project.id)
                                 }
                                 .padding(horizontal = 8.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = TextMuted,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable {
+                                        hapticManager?.tick()
+                                        expandedProjectIds = if (isExpanded) {
+                                            expandedProjectIds - project.id
+                                        } else {
+                                            expandedProjectIds + project.id
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                                    tint = TextMuted,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                             Spacer(modifier = Modifier.width(4.dp))
                             Icon(
                                 imageVector = if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder,

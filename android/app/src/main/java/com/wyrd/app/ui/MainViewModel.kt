@@ -214,6 +214,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun refreshSync() {
+        if (supabaseSyncManager.isUserSignedIn() && !_isGenerating.value && !_isSyncing.value) {
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    _isSyncing.value = true
+                    supabaseSyncManager.syncAll()
+                } catch (_: Exception) {
+                } finally {
+                    _isSyncing.value = false
+                }
+            }
+        }
+    }
+
     // Attachment state (supports multiple attachments)
     private val _currentAttachments = MutableStateFlow<List<com.wyrd.app.util.AttachedItem>>(emptyList())
     val currentAttachments: StateFlow<List<com.wyrd.app.util.AttachedItem>> = _currentAttachments.asStateFlow()

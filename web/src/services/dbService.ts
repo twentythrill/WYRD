@@ -149,8 +149,43 @@ export const dbService = {
       }
 
       if (data) {
+        // Prune any local projects that were previously synced with UUIDs but deleted remotely
+        const localProjectsOnly = local.filter((p) => p.id.startsWith('local_'))
+        if (localProjectsOnly.length !== local.length) {
+          localStorage.setItem(LOCAL_PROJECTS_KEY, JSON.stringify(localProjectsOnly))
+        }
+
+        // Auto-migrate any local_ projects to Supabase now that connection/schema is active
+        for (const lp of localProjectsOnly) {
+          try {
+            const { data: created } = await supabase
+              .from('projects')
+              .insert({
+                user_id: userId,
+                name: lp.name,
+                system_prompt: lp.system_prompt,
+                description: lp.description,
+                is_pinned: lp.is_pinned,
+              })
+              .select()
+              .single()
+            if (created) {
+              deleteLocalProject(lp.id)
+              data.unshift(created)
+              // Update any chats that used this local project id
+              await supabase
+                .from('chats')
+                .update({ project_id: created.id })
+                .eq('project_id', lp.id)
+            }
+          } catch {
+            // Keep local project until next sync opportunity
+          }
+        }
+
+        const remainingLocal = getLocalProjects(userId).filter((p) => p.id.startsWith('local_'))
         const remoteIds = new Set(data.map((p) => p.id))
-        const unsynced = local.filter((p) => !remoteIds.has(p.id))
+        const unsynced = remainingLocal.filter((p) => !remoteIds.has(p.id))
         return [...unsynced, ...data]
       }
       return local
@@ -455,6 +490,10 @@ export const dbService = {
   },
 
   async deleteChat(chatId: string): Promise<boolean> {
+    if (chatId.startsWith('local_chat_')) {
+      return true
+    }
+
     try {
       // 1. Find and delete attachments in storage
       const { data: msgs } = await supabase
@@ -475,7 +514,7 @@ export const dbService = {
     }
 
     const { error } = await supabase.from('chats').delete().eq('id', chatId)
-    if (error) {
+    if (error && error.code !== 'PGRST116') {
       console.error('Error deleting chat:', error)
       return false
     }

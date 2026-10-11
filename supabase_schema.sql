@@ -59,9 +59,19 @@ CREATE TABLE IF NOT EXISTS public.chats (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Ensure project_id column and foreign key exist if chats was created previously
-ALTER TABLE public.chats 
-    ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL;
+-- Ensure project_id column exists if chats already existed without it
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'chats' 
+        AND column_name = 'project_id'
+    ) THEN
+        ALTER TABLE public.chats 
+            ADD COLUMN project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL;
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_chats_user_id ON public.chats(user_id);
 CREATE INDEX IF NOT EXISTS idx_chats_project_id ON public.chats(project_id);
@@ -133,6 +143,19 @@ BEGIN
 END $$;
 
 -- ==============================================================================
+-- CRITICAL FOR REALTIME DELETES WITH RLS: Replica Identity Full
+-- When tables have RLS enabled, Supabase Realtime requires REPLICA IDENTITY FULL
+-- so the WAL stream includes the user_id column on DELETE events.
+-- Without this, DELETE events are silently dropped for RLS subscribers!
+-- ==============================================================================
+
+ALTER TABLE public.profiles REPLICA IDENTITY FULL;
+ALTER TABLE public.projects REPLICA IDENTITY FULL;
+ALTER TABLE public.project_files REPLICA IDENTITY FULL;
+ALTER TABLE public.chats REPLICA IDENTITY FULL;
+ALTER TABLE public.messages REPLICA IDENTITY FULL;
+
+-- ==============================================================================
 -- Automatic User Profile Trigger (On Auth Signup)
 -- ==============================================================================
 
@@ -188,7 +211,6 @@ BEGIN
     VALUES ('attachments', 'attachments', true)
     ON CONFLICT (id) DO UPDATE SET public = true;
 EXCEPTION WHEN OTHERS THEN
-    -- If storage schema permissions are restricted in SQL Editor, continue without error
     NULL;
 END $$;
 

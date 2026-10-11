@@ -351,7 +351,11 @@ export function Sidebar({
                       <div key={project.id} className="space-y-0.5">
                         {/* Project Header Row */}
                         <div
-                          onClick={() => toggleProjectExpansion(project.id)}
+                          onClick={() => {
+                            setExpandedProjects((prev) => new Set(prev).add(project.id))
+                            onNewChatInProject(project.id)
+                            if (window.innerWidth < 768) onClose()
+                          }}
                           className={`group flex items-center justify-between px-2 py-2 rounded-xl cursor-pointer transition-colors ${
                             isProjectActive
                               ? 'bg-[#1A1A1A] text-[#CECDC4]'
@@ -359,7 +363,13 @@ export function Sidebar({
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0 pr-1.5">
-                            <span className="p-0.5 text-[#636366]">
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleProjectExpansion(project.id)
+                              }}
+                              className="p-0.5 text-[#636366] hover:text-[#CECDC4] rounded cursor-pointer"
+                            >
                               {isExpanded ? (
                                 <ChevronDown className="w-3.5 h-3.5" />
                               ) : (

@@ -453,17 +453,49 @@ class SupabaseSyncManager(
 
         // 2. Reconcile local projects
         val knownSyncedProjectIds = secureKeyStorage.getKnownSyncedProjectIds().toMutableSet()
+        val pendingDeletedProjectIds = secureKeyStorage.getPendingDeletedProjectIds().toMutableSet()
+
+        // Flush pending project deletions
+        val projDeletionsToRemove = mutableSetOf<String>()
+        for (delId in pendingDeletedProjectIds) {
+            try {
+                val req = Request.Builder()
+                    .url("$SUPABASE_URL/rest/v1/projects?id=eq.$delId")
+                    .addHeader("apikey", SUPABASE_KEY)
+                    .addHeader("Authorization", "Bearer $token")
+                    .delete()
+                    .build()
+                client.newCall(req).execute().use { resp ->
+                    if (resp.isSuccessful || resp.code == 404) {
+                        projDeletionsToRemove.add(delId)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to flush pending project deletion $delId", e)
+            }
+        }
+        for (delId in projDeletionsToRemove) {
+            secureKeyStorage.removePendingDeletedProjectId(delId)
+            knownSyncedProjectIds.remove(delId)
+        }
+        val currentPendingDeletedProj = secureKeyStorage.getPendingDeletedProjectIds()
+
         val localProjects = projectDao.getAllProjectsList()
         val uploadArr = JSONArray()
 
         for (localProj in localProjects) {
             val syncId = localProj.syncId
             if (syncId.isNotBlank()) {
+                if (currentPendingDeletedProj.contains(syncId)) {
+                    projectDao.deleteProjectById(localProj.id)
+                    projectFileDao.deleteFilesByProjectId(localProj.id)
+                    database.chatDao().detachChatsFromProject(localProj.id)
+                    continue
+                }
                 val rProj = remoteMap[syncId]
                 if (rProj == null) {
                     val wasSynced = knownSyncedProjectIds.contains(syncId)
-                    val isRecentlyCreated = (System.currentTimeMillis() - localProj.createdAt) < 120_000L
-                    if (wasSynced && !isRecentlyCreated) {
+                    if (wasSynced) {
                         Log.i(TAG, "syncProjects: Project '${localProj.name}' deleted remotely. Removing locally.")
                         projectDao.deleteProjectById(localProj.id)
                         projectFileDao.deleteFilesByProjectId(localProj.id)
@@ -521,6 +553,7 @@ class SupabaseSyncManager(
         // 3. Insert remote projects not present locally
         val localSyncIds = localProjects.mapNotNull { it.syncId.ifBlank { null } }.toSet()
         for ((remoteId, rProj) in remoteMap) {
+            if (currentPendingDeletedProj.contains(remoteId)) continue
             knownSyncedProjectIds.add(remoteId)
             if (!localSyncIds.contains(remoteId)) {
                 val name = rProj.optString("name", "Project")
@@ -687,14 +720,24 @@ class SupabaseSyncManager(
     }
 
     suspend fun deleteProjectRemotely(projectSyncId: String) = withContext(Dispatchers.IO) {
+        secureKeyStorage.addPendingDeletedProjectId(projectSyncId)
+        secureKeyStorage.removeKnownSyncedProjectId(projectSyncId)
         val token = getValidAccessToken() ?: return@withContext
-        val req = Request.Builder()
-            .url("$SUPABASE_URL/rest/v1/projects?id=eq.$projectSyncId")
-            .addHeader("apikey", SUPABASE_KEY)
-            .addHeader("Authorization", "Bearer $token")
-            .delete()
-            .build()
-        client.newCall(req).execute().close()
+        try {
+            val req = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/projects?id=eq.$projectSyncId")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .delete()
+                .build()
+            client.newCall(req).execute().use { resp ->
+                if (resp.isSuccessful || resp.code == 404) {
+                    secureKeyStorage.removePendingDeletedProjectId(projectSyncId)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "deleteProjectRemotely error", e)
+        }
     }
 
     suspend fun deleteProjectFileRemotely(fileSyncId: String, storagePath: String) = withContext(Dispatchers.IO) {
@@ -752,18 +795,51 @@ class SupabaseSyncManager(
 
         // 2. Reconcile local chats against remote
         val knownSyncedIds = secureKeyStorage.getKnownSyncedChatIds().toMutableSet()
+        val pendingDeletedChatIds = secureKeyStorage.getPendingDeletedChatIds().toMutableSet()
+
+        // Flush pending chat deletions to Supabase
+        val chatDeletionsToRemove = mutableSetOf<String>()
+        for (delId in pendingDeletedChatIds) {
+            try {
+                val req = Request.Builder()
+                    .url("$SUPABASE_URL/rest/v1/chats?id=eq.$delId")
+                    .addHeader("apikey", SUPABASE_KEY)
+                    .addHeader("Authorization", "Bearer $token")
+                    .delete()
+                    .build()
+                client.newCall(req).execute().use { resp ->
+                    if (resp.isSuccessful || resp.code == 404) {
+                        chatDeletionsToRemove.add(delId)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to flush pending chat deletion $delId", e)
+            }
+        }
+        for (delId in chatDeletionsToRemove) {
+            secureKeyStorage.removePendingDeletedChatId(delId)
+            knownSyncedIds.remove(delId)
+        }
+        val currentPendingDeletedChats = secureKeyStorage.getPendingDeletedChatIds()
+
         val localChats = chatDao.getAllChatsList()
         val uploadArr = JSONArray()
 
         for (localChat in localChats) {
             val syncId = localChat.syncId
             if (syncId.isNotBlank()) {
+                if (currentPendingDeletedChats.contains(syncId)) {
+                    val msgs = messageDao.getMessagesListForChat(localChat.id)
+                    com.wyrd.app.util.AttachmentHelper.cleanupAttachments(context, msgs)
+                    chatDao.deleteChatById(localChat.id)
+                    messageDao.deleteMessagesForChat(localChat.id)
+                    continue
+                }
                 val rChat = remoteMap[syncId]
                 if (rChat == null) {
                     val wasSyncedRemotely = knownSyncedIds.contains(syncId)
-                    val isRecentlyCreated = (System.currentTimeMillis() - localChat.createdAt) < 120_000L
 
-                    if (wasSyncedRemotely && !isRecentlyCreated) {
+                    if (wasSyncedRemotely) {
                         // Chat was previously synced to remote, and was deleted on remote!
                         // Remove locally so it does NOT resurrect!
                         Log.i(TAG, "syncChats: Chat '${localChat.title}' ($syncId) was deleted remotely. Removing locally.")
@@ -773,7 +849,7 @@ class SupabaseSyncManager(
                         messageDao.deleteMessagesForChat(localChat.id)
                         knownSyncedIds.remove(syncId)
                     } else {
-                        // Brand new local chat (or created recently) -> pending upload to remote!
+                        // Brand new local chat -> pending upload to remote!
                         Log.i(TAG, "syncChats: Local chat '${localChat.title}' ($syncId) pending upload.")
                         uploadArr.put(JSONObject().apply {
                             put("id", syncId)
@@ -798,8 +874,11 @@ class SupabaseSyncManager(
                     val remoteTitle = rChat.optString("title", localChat.title)
                     val remotePinned = rChat.optBoolean("is_pinned", localChat.isPinned)
                     val remoteProjectSyncId = if (rChat.isNull("project_id")) null else rChat.optString("project_id", "").ifEmpty { null }
-                    val localProjectId = if (!remoteProjectSyncId.isNullOrBlank()) {
-                        database.projectDao().getProjectBySyncId(remoteProjectSyncId)?.id
+                    
+                    // Keep local project association if remote is null but local had one
+                    val effectiveProjectSyncId = remoteProjectSyncId ?: localChat.projectSyncId
+                    val localProjectId = if (!effectiveProjectSyncId.isNullOrBlank()) {
+                        database.projectDao().getProjectBySyncId(effectiveProjectSyncId)?.id ?: localChat.projectId
                     } else null
 
                     if (localChat.updatedAt > remoteUpdatedAt) {
@@ -817,7 +896,7 @@ class SupabaseSyncManager(
                             put("created_at", formatIsoDate(localChat.createdAt))
                             put("updated_at", formatIsoDate(localChat.updatedAt))
                         })
-                    } else if (remoteUpdatedAt > localChat.updatedAt || localChat.title != remoteTitle || localChat.isPinned != remotePinned || localChat.projectSyncId != remoteProjectSyncId) {
+                    } else if (remoteUpdatedAt > localChat.updatedAt || localChat.title != remoteTitle || localChat.isPinned != remotePinned || (remoteProjectSyncId != null && localChat.projectSyncId != remoteProjectSyncId)) {
                         // Remote has newer updates -> update local SQLite
                         chatDao.updateChat(
                             localChat.copy(
@@ -825,7 +904,7 @@ class SupabaseSyncManager(
                                 isPinned = remotePinned,
                                 updatedAt = remoteUpdatedAt,
                                 projectId = localProjectId,
-                                projectSyncId = remoteProjectSyncId
+                                projectSyncId = effectiveProjectSyncId
                             )
                         )
                     }
@@ -853,6 +932,7 @@ class SupabaseSyncManager(
         // 3. Insert remote chats that do not exist locally
         val localSyncIds = localChats.mapNotNull { it.syncId.ifBlank { null } }.toSet()
         for ((remoteId, rChat) in remoteMap) {
+            if (currentPendingDeletedChats.contains(remoteId)) continue
             knownSyncedIds.add(remoteId)
             if (!localSyncIds.contains(remoteId)) {
                 val title = rChat.optString("title", "New Chat")
@@ -1141,6 +1221,7 @@ class SupabaseSyncManager(
 
     // --- Remote Deletion ---
     suspend fun deleteChat(chatSyncId: String) = withContext(Dispatchers.IO) {
+        secureKeyStorage.addPendingDeletedChatId(chatSyncId)
         secureKeyStorage.removeKnownSyncedChatId(chatSyncId)
         val token = getValidAccessToken() ?: return@withContext
         try {
@@ -1192,6 +1273,9 @@ class SupabaseSyncManager(
                 .build()
             client.newCall(req).execute().use { resp ->
                 Log.d(TAG, "deleteChat remote response: ${resp.code}")
+                if (resp.isSuccessful || resp.code == 404) {
+                    secureKeyStorage.removePendingDeletedChatId(chatSyncId)
+                }
             }
         } catch (e: Exception) {
             Log.w(TAG, "deleteChat remote error", e)

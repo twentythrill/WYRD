@@ -193,6 +193,12 @@ fun HomeScreen(
     val isImeOpen = imeBottom > 0
     var prevImeBottom by remember { mutableStateOf(0) }
 
+    LaunchedEffect(drawerState.isOpen) {
+        if (drawerState.isOpen) {
+            viewModel.refreshSync()
+        }
+    }
+
     val isScrolledUpFromBottom by remember {
         derivedStateOf {
             val targetIndex = messages.size + if (isGenerating) 1 else 0
