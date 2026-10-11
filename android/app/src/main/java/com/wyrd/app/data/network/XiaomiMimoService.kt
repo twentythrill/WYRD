@@ -286,6 +286,9 @@ class XiaomiMimoService(
                 if (hasExa) {
                     append("\n- `exa_search`: Semantic neural search engine. Use this when the user needs forum discussions (e.g. Reddit), company employee reviews and interview feedback (e.g. Glassdoor), workplace culture sentiment, in-depth documentation, or deep research. Invoke with:\n<tool_call><function=exa_search><parameter=query>your search query</parameter></function></tool_call>")
                 }
+                if (hasTavily && hasExa) {
+                    append("\n- Dual Tool Combination: You can invoke these search tools sequentially across rounds or combine them if the first search does not provide sufficient data (e.g. use Tavily for official company facts/news and Exa for employee sentiment/reviews).")
+                }
                 append("\nIf the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]")
             }
             when (reasoningEffort) {
@@ -363,7 +366,7 @@ class XiaomiMimoService(
 
         var currentMessages = messagesJsonArray
         var toolExecutionRounds = 0
-        val maxToolExecutionRounds = 1
+        val maxToolExecutionRounds = 2
 
         while (toolExecutionRounds <= maxToolExecutionRounds) {
             var lastErrorMsg = "Unable to connect to Xiaomi MiMo API"
@@ -375,9 +378,9 @@ class XiaomiMimoService(
             var isStreamSuccess = false
             var activeParser: ThinkAndToolParser? = null
 
-            // In Round 1, provide webTools if search is enabled (and no multimodal images in conversation); in Round 2+, suppress tools so model generates final answer
+            // Provide webTools while under maxToolExecutionRounds (and no multimodal images in conversation); in final round, suppress tools so model generates final answer
             val hasImagesInConversation = historyToInclude.any { it.imagesBase64.isNotEmpty() || !it.imageBase64.isNullOrBlank() }
-            val currentWebTools = if (toolExecutionRounds == 0 && hasAnySearch && !hasImagesInConversation) webTools else null
+            val currentWebTools = if (toolExecutionRounds < maxToolExecutionRounds && hasAnySearch && !hasImagesInConversation) webTools else null
 
             // Try streaming first across endpoints and models
             outerStream@ for (endpoint in candidateEndpoints) {
@@ -662,8 +665,9 @@ class XiaomiMimoService(
                 var engineName = if (isTavily) "Tavily" else "Exa"
                 val functionName = if (isTavily) "tavily_search" else "exa_search"
 
-                emit(StreamEvent.Status(if (isTavily) "Searching live web with Tavily..." else "Searching web with Exa..."))
-                Log.d(TAG, "Autonomous $engineName search requested for: ${toolCall.query}")
+                val statusPrefix = if (toolExecutionRounds > 1) "Gathering additional data with " else "Searching "
+                emit(StreamEvent.Status(if (isTavily) "${statusPrefix}live web with Tavily..." else "${statusPrefix}web with Exa..."))
+                Log.d(TAG, "Autonomous $engineName search (round $toolExecutionRounds) requested for: ${toolCall.query}")
 
                 val searchResult: String = if (isTavily && tavilySearchService != null) {
                     val tavilyRes = tavilySearchService.searchWeb(toolCall.query, apiKey = tavilyApiKey)
@@ -717,8 +721,12 @@ class XiaomiMimoService(
                     put("content", "<tool_call><function=$functionName><parameter=query>${toolCall.query}</parameter></function></tool_call>")
                 })
 
-                val nextInstruction =
-                    "[INSTRUCTION: Web search via $engineName is now COMPLETE. Do NOT invoke $functionName or emit any <tool_call> tags. Directly, accurately, and thoroughly answer the user's question using the search results above and your knowledge.]"
+                val nextInstruction = if (toolExecutionRounds < maxToolExecutionRounds) {
+                    val altTool = if (isTavily) "exa_search for forum/review discussions (e.g. Reddit, Glassdoor)" else "tavily_search for live corporate news or official records"
+                    "[INSTRUCTION: Review the search results above. If they are sufficient to answer the user thoroughly, provide your final response now without calling further tools. If crucial data is missing or incomplete (such as employee reviews, community discussions, or live facts), you may invoke another tool (such as $altTool) to gather the remaining evidence.]"
+                } else {
+                    "[INSTRUCTION: Web search is now COMPLETE. Do NOT invoke any further tools or emit <tool_call> tags. Directly, accurately, and thoroughly answer the user's question using all gathered search results and your knowledge.]"
+                }
 
                 // Append search results context as user message to avoid provider HTTP 400 rejection on 'tool' role
                 updatedMessages.put(JSONObject().apply {

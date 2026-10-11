@@ -362,10 +362,11 @@ export async function* streamLlmCompletion({
   }
   effectiveSystemPrompt += `[Context: ${temporalContext}]`
   effectiveSystemPrompt += `\n[Autonomous Web Search Tools: You have access to external search engines to ground your answers in verified external facts. You are in charge of deciding autonomously whether to use web search.
-- \`tavily_search\`: Real-time live web search engine. Use this when the user's question requires breaking news, current events, recent releases/updates (e.g. software versions, patch notes), live data (weather, sports scores, stock prices), or live web facts. Invoke with:
+- \`tavily_search\`: Real-time live web search engine. Use this when the user's question requires breaking news, current events, recent releases/updates, company homepage/official records, or live web facts. Invoke with:
 <tool_call><function=tavily_search><parameter=query>your search query</parameter></function></tool_call>
-- \`exa_search\`: Semantic neural search engine. Use this when the user needs deep concept exploration, documentation, technical research, or academic literature. Invoke with:
+- \`exa_search\`: Semantic neural search engine. Use this when the user needs forum discussions (e.g. Reddit), company employee reviews and interview feedback (e.g. Glassdoor), workplace culture sentiment, in-depth documentation, or deep research. Invoke with:
 <tool_call><function=exa_search><parameter=query>your search query</parameter></function></tool_call>
+- Dual Tool Combination: You can invoke these search tools sequentially across rounds or combine them if the first search does not provide sufficient data (e.g., use Tavily for official company facts/news and Exa for employee sentiment/reviews).
 If the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]`
 
   if (reasoningEffort === 'low') {
@@ -425,7 +426,7 @@ If the request does not require external search, answer directly without invokin
   }
 
   let toolExecutionRounds = 0
-  const maxToolExecutionRounds = 1
+  const maxToolExecutionRounds = 2
 
   while (toolExecutionRounds <= maxToolExecutionRounds) {
     if (signal?.aborted) return
@@ -438,7 +439,7 @@ If the request does not require external search, answer directly without invokin
       max_completion_tokens: maxTokensMap[reasoningEffort] || 16384,
     }
 
-    if (toolExecutionRounds === 0 && !hasImagesInConversation) {
+    if (toolExecutionRounds < maxToolExecutionRounds && !hasImagesInConversation) {
       bodyPayload.tools = [TAVILY_SEARCH_TOOL, EXA_SEARCH_TOOL]
       bodyPayload.tool_choice = 'auto'
     }
@@ -641,7 +642,8 @@ If the request does not require external search, answer directly without invokin
 
       // Clear any partial content from round 1 so XML or preamble never leaks
       yield { clearContent: true }
-      yield { status: `Searching ${isTavily ? 'live web with Tavily' : 'web with Exa'} for: "${query}"...` }
+      const statusPrefix = toolExecutionRounds > 1 ? 'Gathering additional data with ' : 'Searching '
+      yield { status: `${statusPrefix}${isTavily ? 'live web with Tavily' : 'web with Exa'} for: "${query}"...` }
 
       let searchOutput: string
       if (isTavily) {
@@ -682,6 +684,11 @@ If the request does not require external search, answer directly without invokin
 
       yield { status: 'Synthesizing answer...' }
 
+      const nextInstruction =
+        toolExecutionRounds < maxToolExecutionRounds
+          ? `[INSTRUCTION: Review the search results above. If they are sufficient to answer the user thoroughly, provide your final response now without calling further tools. If crucial data is missing or incomplete (such as employee reviews, community discussions, or live facts), you may invoke another tool (such as ${isTavily ? 'exa_search for forum/review discussions (e.g. Reddit, Glassdoor)' : 'tavily_search for live corporate news or official records'}) to gather the remaining evidence.]`
+          : `[INSTRUCTION: Web search is now COMPLETE. Do NOT invoke any further tools or emit <tool_call> tags. Directly, accurately, and thoroughly answer the user's question using all gathered search results and your knowledge.]`
+
       // Append assistant's tool call and search context for direct answer synthesis
       currentMessages = [
         ...currentMessages,
@@ -691,7 +698,7 @@ If the request does not require external search, answer directly without invokin
         },
         {
           role: 'user',
-          content: `[Web Search Results (via ${engineName}) for "${query}"]:\n${searchOutput}\n\n[INSTRUCTION: Web search is now COMPLETE. Do NOT invoke ${toolFunctionName} or emit any <tool_call> tags. Directly, accurately, and thoroughly answer the user's question using the search results above and your knowledge.]`,
+          content: `[Web Search Results (via ${engineName}) for "${query}"]:\n${searchOutput}\n\n${nextInstruction}`,
         },
       ]
 
