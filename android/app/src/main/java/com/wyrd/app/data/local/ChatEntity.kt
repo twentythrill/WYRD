@@ -12,5 +12,7 @@ data class ChatEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val isPinned: Boolean = false,
-    val syncId: String = UUID.randomUUID().toString()
+    val syncId: String = UUID.randomUUID().toString(),
+    val projectId: Long? = null,
+    val projectSyncId: String? = null
 )

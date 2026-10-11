@@ -43,7 +43,7 @@ WYRD/
 ### 3. Voice & Audio Pipelines
 * **Speech Synthesis (TTS)**:
   * **Android**: Native `android.speech.tts.TextToSpeech` with real-time streaming playback (speaks from first tokens), word-by-word brutalist highlighting, upper-third viewport snapping, tap-to-seek, and floating Play/Pause controls.
-  * **Web**: Native Web Speech API (`window.speechSynthesis`) with double-click word-seek and bilingual voice detection.
+  * **Web**: Native Web Speech API (`window.speechSynthesis`) with word-by-word brutalist highlighting, double-click word-seek, upper/lower viewport auto-scrolling, and bilingual voice detection.
 * **Speech-to-Text (STT)**: Spring-loaded pull-to-record interface powered by OpenAI Whisper (`whisper-1`) with mid-speech model and reasoning level selection.
 
 ### 4. Cloud Synchronization (Supabase)
@@ -51,12 +51,20 @@ WYRD/
 * **Supabase Object Storage (`attachments`)**: Uploaded images and documents are stored in the public `attachments` bucket; database records only lightweight public URLs.
 * **Automated Storage Cleanup**: Deleting conversations or editing turns proactively purges orphaned remote files and local caches.
 
+### 5. Projects & Knowledge Base Spaces (Web & Android)
+* **Custom System Prompt Override**: Dedicated project spaces with custom system prompts that strictly override the generic global system prompt for focused domain tasks.
+* **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any project. The text content is extracted client-side and injected as contextual knowledge base memory during LLM completions.
+* **Folder-Like Organization**: Folders in the sidebar (Web) and drawer (Android) grouping nested conversation threads. Conversations created within a project stay inside its folder; chats outside live in the generic HISTORY section.
+* **Breadcrumb Navigation**: Dynamic folder indicator displaying the active project name directly in the top navigation bar.
+* **Full Cloud & Offline Sync**: Full Room database support (v7 migration) and Supabase tables (`projects`, `project_files`, `chats.project_id`) with real-time bidirectional synchronization across Android and Web.
+
 ---
 
 ## Versioning
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.2.0** | 2026-10-11 | Added Projects feature across Web and Android: custom system prompt overrides, knowledge base source file attachments (.md, .txt, .pdf, code), folder-based sidebar and drawer organization, and real-time Supabase sync. |
 | **v1.1.0** | 2026-10-09 | Added mid-speech model and reasoning selector in Android STT overlay, reasoning token budget enforcement guardrails, and condensed typography parity across Android (23sp) and Web. |
 | **v1.0.0** | 2026-10-09 | Initial unified release of the WYRD ecosystem (Native Android Client + Desktop Web Companion) with synchronized Supabase backend, Exa search grounding, and dual brutalist themes. |
 

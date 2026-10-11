@@ -18,8 +18,6 @@ import {
   Paperclip,
   Lightbulb,
 } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import { type Chat, type Message, type Profile, type MessageAttachment } from '@/lib/supabase'
 import {
   AudioRecorder,
@@ -28,6 +26,7 @@ import {
 } from '@/services/audioService'
 import { ttsService, type TtsPlaybackState } from '@/services/ttsService'
 import { OpenAiKeyModal } from '@/components/OpenAiKeyModal'
+import { FormattedMessage } from '@/components/FormattedMessage'
 
 interface ChatAreaProps {
   chat: Chat | null
@@ -117,7 +116,7 @@ async function extractTextFromFile(file: File): Promise<string | undefined> {
       return undefined
     }
     return text.trim() ? text : undefined
-  } catch (_e) {
+  } catch {
     return undefined
   }
 }
@@ -183,13 +182,6 @@ export function ChatArea({
 
   const recorderRef = useRef<AudioRecorder | null>(null)
   const timerRef = useRef<number | null>(null)
-
-  const checkIfAtBottom = () => {
-    const container = scrollContainerRef.current
-    if (!container) return true
-    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight
-    return distanceToBottom < 100
-  }
 
   const handleScroll = () => {
     const container = scrollContainerRef.current
@@ -394,57 +386,6 @@ export function ChatArea({
     ttsService.stop()
   }, [chat?.id])
 
-  const handleDoubleClickText = (e: React.MouseEvent<HTMLDivElement>, message: Message) => {
-    e.stopPropagation()
-
-    let textToSpeak = ''
-    const currentTarget = e.currentTarget
-
-    if ((document as any).caretRangeFromPoint) {
-      const range = (document as any).caretRangeFromPoint(e.clientX, e.clientY)
-      if (range && currentTarget.contains(range.startContainer)) {
-        const preCaretRange = document.createRange()
-        preCaretRange.selectNodeContents(currentTarget)
-        preCaretRange.setEnd(range.startContainer, range.startOffset)
-        const offset = preCaretRange.toString().length
-        const fullText = currentTarget.innerText || currentTarget.textContent || ''
-        let safeOffset = Math.max(0, Math.min(offset, fullText.length))
-        while (safeOffset > 0 && /\S/.test(fullText[safeOffset - 1])) {
-          safeOffset--
-        }
-        textToSpeak = fullText.slice(safeOffset).trim()
-      }
-    }
-
-    if (!textToSpeak) {
-      const sel = window.getSelection()
-      if (sel && sel.rangeCount > 0 && currentTarget.contains(sel.getRangeAt(0).startContainer)) {
-        const range = sel.getRangeAt(0)
-        const preCaretRange = document.createRange()
-        preCaretRange.selectNodeContents(currentTarget)
-        preCaretRange.setEnd(range.startContainer, range.startOffset)
-        const offset = preCaretRange.toString().length
-        const fullText = currentTarget.innerText || currentTarget.textContent || ''
-        let safeOffset = Math.max(0, Math.min(offset, fullText.length))
-        while (safeOffset > 0 && /\S/.test(fullText[safeOffset - 1])) {
-          safeOffset--
-        }
-        textToSpeak = fullText.slice(safeOffset).trim()
-      }
-    }
-
-    if (!textToSpeak) {
-      textToSpeak = currentTarget.innerText || currentTarget.textContent || message.content
-    }
-
-    // Clear any text selection caused by the browser's double click event
-    window.getSelection()?.removeAllRanges()
-
-    if (textToSpeak.trim()) {
-      ttsService.speakFromText(message.id, textToSpeak)
-    }
-  }
-
   const handleToggleFloatingTts = () => {
     if (ttsState.isPlaying) {
       ttsService.pause()
@@ -453,7 +394,7 @@ export function ChatArea({
     } else {
       const latestAssistant = [...displayedMessages].reverse().find((m) => m.role === 'assistant')
       if (latestAssistant) {
-        ttsService.speak(latestAssistant.id, latestAssistant.content)
+        ttsService.speak(latestAssistant.id, latestAssistant.content, 0)
       }
     }
   }
@@ -752,8 +693,10 @@ export function ChatArea({
                 key={msg.id}
                 message={msg}
                 isCopied={copiedId === msg.id}
+                ttsPlaybackState={ttsState}
+                isDark={isDark}
                 onCopy={() => copyToClipboard(msg.content, msg.id)}
-                onDoubleClickText={handleDoubleClickText}
+                onSeek={(plainText, offset) => ttsService.speak(msg.id, plainText, offset)}
                 onEdit={() => onEditMessage?.(msg)}
                 onBranch={() => onBranchMessage?.(msg)}
                 onRedo={() => onRedoMessage?.(msg)}
@@ -767,6 +710,7 @@ export function ChatArea({
                   <ReasoningBlock
                     reasoning={currentStreamingReasoning}
                     isStreaming={currentStreamingContent.length === 0}
+                    isDark={isDark}
                   />
                 )}
 
@@ -778,7 +722,15 @@ export function ChatArea({
                 )}
 
                 {currentStreamingContent && (
-                  <MarkdownMessage content={currentStreamingContent} />
+                  <FormattedMessage
+                    content={currentStreamingContent}
+                    messageId="streaming"
+                    activeHighlightRange={
+                      ttsState.activeMessageId === 'streaming' ? ttsState.currentRange : null
+                    }
+                    isDark={isDark}
+                    onSeek={(plainText, offset) => ttsService.speak('streaming', plainText, offset)}
+                  />
                 )}
               </div>
             )}
@@ -1071,16 +1023,20 @@ export function ChatArea({
 function MessageItem({
   message,
   isCopied,
+  ttsPlaybackState,
+  isDark = true,
   onCopy,
-  onDoubleClickText,
+  onSeek,
   onEdit,
   onBranch,
   onRedo,
 }: {
   message: Message
   isCopied: boolean
+  ttsPlaybackState?: TtsPlaybackState
+  isDark?: boolean
   onCopy: () => void
-  onDoubleClickText?: (e: React.MouseEvent<HTMLDivElement>, message: Message) => void
+  onSeek?: (plainText: string, charOffset: number) => void
   onEdit?: () => void
   onBranch?: () => void
   onRedo?: () => void
@@ -1240,18 +1196,29 @@ function MessageItem({
   }
 
   // Assistant Message (Clean, NO avatar, NO title label, single copy button at bottom matching Android)
+  const isCurrentMessage = ttsPlaybackState?.activeMessageId === message.id
+  const activeHighlightRange = isCurrentMessage ? ttsPlaybackState?.currentRange : null
+
   return (
     <div className="flex flex-col items-start space-y-2 w-full">
       {/* Reasoning Thought Block */}
-      {message.reasoning && <ReasoningBlock reasoning={message.reasoning} isStreaming={false} />}
+      {message.reasoning && (
+        <ReasoningBlock
+          reasoning={message.reasoning}
+          isStreaming={false}
+          isDark={isDark}
+        />
+      )}
 
-      {/* Assistant Content: Double click on any word to read via TTS */}
-      <div
-        onDoubleClick={(e) => onDoubleClickText?.(e, message)}
-        className="w-full select-text cursor-text"
-        title="Double click on any word to hear from there"
-      >
-        <MarkdownMessage content={message.content} />
+      {/* Assistant Content: Word-by-word synchronized TTS highlight & double-click seek */}
+      <div className="w-full select-text cursor-text">
+        <FormattedMessage
+          content={message.content}
+          messageId={message.id}
+          activeHighlightRange={activeHighlightRange}
+          isDark={isDark}
+          onSeek={onSeek}
+        />
       </div>
 
       {/* Action buttons matching Android: Single copy button */}
@@ -1259,68 +1226,19 @@ function MessageItem({
         <button
           onClick={onCopy}
           title="Copy message"
-          className="w-10 h-10 rounded-full bg-[#141414] border border-[#262626] flex items-center justify-center text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#1A1A1A] transition-colors cursor-pointer"
+          className={`w-10 h-10 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
+            isDark
+              ? 'bg-[#141414] border-[#262626] text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#1A1A1A]'
+              : 'bg-[#EFEFEA] border-[#DCDBCF] text-[#636366] hover:text-[#141414] hover:bg-[#E5E4DC]'
+          }`}
         >
-          {isCopied ? <Check className="w-5 h-5 text-[#CECDC4]" /> : <Copy className="w-5 h-5" />}
+          {isCopied ? (
+            <Check className={`w-5 h-5 ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
+          ) : (
+            <Copy className="w-5 h-5" />
+          )}
         </button>
       </div>
-    </div>
-  )
-}
-
-function MarkdownMessage({ content }: { content: string }) {
-  return (
-    <div className="text-[17px] leading-[24px] font-sans text-[#CECDC4] select-text w-full">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          p: ({ children }) => <p className="mb-3.5 last:mb-0 leading-[24px]">{children}</p>,
-          h1: ({ children }) => <h1 className="text-xl font-bold mt-5 mb-2.5 text-[#CECDC4] leading-snug">{children}</h1>,
-          h2: ({ children }) => <h2 className="text-lg font-bold mt-4.5 mb-2 text-[#CECDC4] leading-snug">{children}</h2>,
-          h3: ({ children }) => <h3 className="text-base font-semibold mt-4 mb-2 text-[#CECDC4] leading-snug">{children}</h3>,
-          ul: ({ children }) => <ul className="list-disc pl-5 my-3 space-y-1.5 leading-[24px]">{children}</ul>,
-          ol: ({ children }) => <ol className="list-decimal pl-5 my-3 space-y-1.5 leading-[24px]">{children}</ol>,
-          li: ({ children }) => <li className="leading-[24px] pl-1">{children}</li>,
-          blockquote: ({ children }) => (
-            <blockquote className="border-l-2 border-[#8E8E93] pl-3.5 my-3 italic text-[#8E8E93] leading-[22px]">
-              {children}
-            </blockquote>
-          ),
-          code: ({ node, inline, className, children, ...props }: any) => {
-            const match = /language-(\w+)/.exec(className || '')
-            return !inline ? (
-              <div className="my-3.5 rounded-xl overflow-hidden border border-[#262626] bg-[#0A0A0A]">
-                <div className="bg-[#141414] px-3.5 py-1.5 flex items-center justify-between border-b border-[#262626] text-[10px] font-mono text-[#8E8E93]">
-                  <span>{match ? match[1] : 'code'}</span>
-                  <button
-                    onClick={() =>
-                      navigator.clipboard.writeText(String(children).replace(/\n$/, ''))
-                    }
-                    className="hover:text-[#CECDC4] transition-colors flex items-center gap-1"
-                  >
-                    <Copy className="w-3 h-3" />
-                    Copy
-                  </button>
-                </div>
-                <pre className="p-3.5 text-xs overflow-x-auto font-mono text-[#CECDC4] leading-[22px]">
-                  <code className={className} {...props}>
-                    {children}
-                  </code>
-                </pre>
-              </div>
-            ) : (
-              <code
-                className="px-1.5 py-0.5 rounded bg-[#141414] text-[#CECDC4] font-mono text-xs border border-[#262626]"
-                {...props}
-              >
-                {children}
-              </code>
-            )
-          },
-        }}
-      >
-        {content}
-      </ReactMarkdown>
     </div>
   )
 }
@@ -1328,44 +1246,60 @@ function MarkdownMessage({ content }: { content: string }) {
 function ReasoningBlock({
   reasoning,
   isStreaming,
+  isDark = true,
 }: {
   reasoning: string
   isStreaming: boolean
+  isDark?: boolean
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
 
+  const borderClass = isDark ? 'border-[#262626]' : 'border-[#DCDBCF]'
+  const bgClass = isDark ? 'bg-[#141414]' : 'bg-[#EFEFEA]'
+  const hoverTextClass = isDark ? 'hover:text-[#CECDC4]' : 'hover:text-[#141414]'
+  const activeColor = isDark ? 'text-[#CECDC4]' : 'text-[#141414]'
+  const mutedColor = isDark ? 'text-[#8E8E93]' : 'text-[#636366]'
+
   return (
-    <div className="w-full rounded-xl border border-[#262626] bg-[#141414] overflow-hidden mt-1 mb-3 select-none transition-all">
+    <div
+      className={`w-full rounded-xl border ${borderClass} ${bgClass} overflow-hidden mt-1 mb-3 select-none transition-all`}
+    >
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-3.5 py-2.5 flex items-center justify-between text-left text-xs text-[#8E8E93] hover:text-[#CECDC4] transition-colors bg-[#141414]"
+        className={`w-full px-3.5 py-2.5 flex items-center justify-between text-left text-xs ${mutedColor} ${hoverTextClass} transition-colors ${bgClass}`}
       >
         <div className="flex items-center gap-2">
           <Lightbulb
             className={`w-3.5 h-3.5 ${
-              isStreaming ? 'text-white animate-pulse' : 'text-[#8E8E93]'
+              isStreaming ? `${activeColor} animate-pulse` : mutedColor
             }`}
           />
           <span
             className={`font-sans font-medium text-xs ${
-              isStreaming ? 'text-white' : 'text-[#8E8E93]'
+              isStreaming ? activeColor : mutedColor
             }`}
           >
             Thinking
           </span>
           {isStreaming && (
-            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                isDark ? 'bg-[#CECDC4]' : 'bg-[#141414]'
+              } animate-ping`}
+            />
           )}
         </div>
         {isExpanded ? (
-          <ChevronUp className="w-4 h-4 text-[#8E8E93]" />
+          <ChevronUp className={`w-4 h-4 ${mutedColor}`} />
         ) : (
-          <ChevronDown className="w-4 h-4 text-[#8E8E93]" />
+          <ChevronDown className={`w-4 h-4 ${mutedColor}`} />
         )}
       </button>
 
       {isExpanded && (
-        <div className="p-3.5 text-xs text-[#8E8E93] font-mono leading-[18px] whitespace-pre-wrap border-t border-[#262626] max-h-60 overflow-y-auto select-text">
+        <div
+          className={`p-3.5 text-xs ${mutedColor} font-mono leading-[18px] whitespace-pre-wrap border-t ${borderClass} max-h-60 overflow-y-auto select-text`}
+        >
           {reasoning}
         </div>
       )}

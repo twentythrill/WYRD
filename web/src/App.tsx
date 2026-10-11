@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { supabase, type Chat, type Message, type Profile, type MessageAttachment } from '@/lib/supabase'
+import { supabase, type Chat, type Message, type Profile, type MessageAttachment, type Project } from '@/lib/supabase'
 import { dbService, dataUriToBlob } from '@/services/dbService'
 import { streamLlmCompletion, sanitizeStreamedContent, sanitizeReasoning } from '@/services/llmService'
 import { TopBar } from '@/components/TopBar'
@@ -7,11 +7,17 @@ import { Sidebar } from '@/components/Sidebar'
 import { ChatArea } from '@/components/ChatArea'
 import { SettingsModal } from '@/components/SettingsModal'
 import { AuthModal } from '@/components/AuthModal'
+import { ProjectModal } from '@/components/ProjectModal'
 
 export function App() {
   const [session, setSession] = useState<any>(null)
   const [loadingAuth, setLoadingAuth] = useState(true)
   const [profile, setProfile] = useState<Profile | null>(null)
+
+  const [projects, setProjects] = useState<Project[]>([])
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false)
 
   const [chats, setChats] = useState<Chat[]>([])
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
@@ -139,6 +145,11 @@ export function App() {
       }
     }
 
+    const loadProjects = async () => {
+      const projectList = await dbService.getProjects(userId)
+      setProjects(projectList)
+    }
+
     const loadChats = async () => {
       const chatList = await dbService.getChats(userId)
       const seen = new Set<string>()
@@ -155,7 +166,8 @@ export function App() {
               c.id === uniqueChats[i].id &&
               c.updated_at === uniqueChats[i].updated_at &&
               c.title === uniqueChats[i].title &&
-              c.is_pinned === uniqueChats[i].is_pinned
+              c.is_pinned === uniqueChats[i].is_pinned &&
+              c.project_id === uniqueChats[i].project_id
           )
         ) {
           return prev
@@ -165,6 +177,7 @@ export function App() {
     }
 
     loadProfile()
+    loadProjects()
     loadChats()
     dbService.cleanOrphanedStorageAttachments(userId).then((deleted) => {
       if (deleted && deleted.length > 0) {
@@ -172,13 +185,17 @@ export function App() {
       }
     })
 
-    // Realtime chat sync
+    // Realtime chat & project sync
     const unsubscribeChats = dbService.subscribeToChats(userId, () => {
       loadChats()
+    })
+    const unsubscribeProjects = dbService.subscribeToProjects(userId, () => {
+      loadProjects()
     })
 
     return () => {
       unsubscribeChats()
+      unsubscribeProjects()
     }
   }, [session?.user?.id])
 
@@ -253,7 +270,12 @@ export function App() {
 
     const handleSync = async () => {
       try {
-        const chatList = await dbService.getChats(session.user.id)
+        const [projectList, chatList] = await Promise.all([
+          dbService.getProjects(session.user.id),
+          dbService.getChats(session.user.id),
+        ])
+        setProjects(projectList)
+
         const seenChats = new Set<string>()
         const uniqueChats = chatList.filter((c) => {
           if (seenChats.has(c.id)) return false
@@ -268,7 +290,8 @@ export function App() {
                 c.id === uniqueChats[i].id &&
                 c.updated_at === uniqueChats[i].updated_at &&
                 c.title === uniqueChats[i].title &&
-                c.is_pinned === uniqueChats[i].is_pinned
+                c.is_pinned === uniqueChats[i].is_pinned &&
+                c.project_id === uniqueChats[i].project_id
             )
           ) {
             return prev
@@ -315,8 +338,80 @@ export function App() {
   // --- Handlers ---
   const handleNewChat = () => {
     setActiveChatId(null)
+    setActiveProjectId(null)
     setMessages([])
     setIsGenerating(false)
+  }
+
+  const handleNewChatInProject = (projectId: string) => {
+    setActiveChatId(null)
+    setActiveProjectId(projectId)
+    setMessages([])
+    setIsGenerating(false)
+  }
+
+  const handleCreateProject = () => {
+    setEditingProject(null)
+    setIsProjectModalOpen(true)
+  }
+
+  const handleEditProject = (project: Project) => {
+    setEditingProject(project)
+    setIsProjectModalOpen(true)
+  }
+
+  const handleSaveProject = async (
+    name: string,
+    description: string,
+    systemPrompt: string
+  ): Promise<Project | null> => {
+    const userId = session?.user?.id || 'local_user'
+    if (editingProject) {
+      const updated = await dbService.updateProject(editingProject.id, {
+        name,
+        description,
+        system_prompt: systemPrompt,
+      })
+      if (updated) {
+        setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
+        return updated
+      }
+    } else {
+      const created = await dbService.createProject(
+        userId,
+        name,
+        systemPrompt,
+        description
+      )
+      if (created) {
+        setProjects((prev) => {
+          const exists = prev.some((p) => p.id === created.id)
+          return exists ? prev.map((p) => (p.id === created.id ? created : p)) : [created, ...prev]
+        })
+        setActiveProjectId(created.id)
+        setActiveChatId(null)
+        setMessages([])
+        return created
+      }
+    }
+    return null
+  }
+
+  const handleDeleteProject = async (projectId: string): Promise<boolean> => {
+    const success = await dbService.deleteProject(projectId)
+    if (success) {
+      setProjects((prev) => prev.filter((p) => p.id !== projectId))
+      if (activeProjectId === projectId) {
+        setActiveProjectId(null)
+        setActiveChatId(null)
+        setMessages([])
+      }
+      setChats((prev) =>
+        prev.map((c) => (c.project_id === projectId ? { ...c, project_id: null } : c))
+      )
+      return true
+    }
+    return false
   }
 
   const handleTogglePin = async (chatToToggle?: Chat) => {
@@ -451,13 +546,39 @@ export function App() {
     let fullReasoning = ''
     let fullContent = ''
 
+    // Determine system prompt: if in project, strictly override global system prompt with project instructions & knowledge files
+    const currentChat = chats.find((c) => c.id === chatId)
+    const effectiveProjectId = currentChat?.project_id || activeProjectId
+    const currentProject = effectiveProjectId ? projects.find((p) => p.id === effectiveProjectId) : null
+
+    let effectiveSystemPrompt = profile?.system_prompt || ''
+
+    if (currentProject) {
+      let promptText = currentProject.system_prompt || ''
+      try {
+        const pFiles = await dbService.getProjectFiles(currentProject.id)
+        const textFiles = pFiles.filter((f) => f.text_content && f.text_content.trim().length > 0)
+        if (textFiles.length > 0) {
+          const filesContent = textFiles
+            .map((f) => `--- File: ${f.name} ---\n${f.text_content}`)
+            .join('\n\n')
+          promptText = promptText
+            ? `${promptText}\n\n[Project Knowledge Base]:\n${filesContent}`
+            : `[Project Knowledge Base]:\n${filesContent}`
+        }
+      } catch (err) {
+        console.warn('Error loading project files for prompt context:', err)
+      }
+      effectiveSystemPrompt = promptText
+    }
+
     try {
       const stream = streamLlmCompletion({
         apiKey,
         baseUrl,
         model: profile?.active_model || 'mimo-v2.6-pro',
         reasoningEffort: profile?.reasoning_effort || 'medium',
-        systemPrompt: profile?.system_prompt || '',
+        systemPrompt: effectiveSystemPrompt,
         messages: conversationHistory,
         signal: controller.signal,
       })
@@ -503,22 +624,29 @@ export function App() {
       const finalContent = sanitizeStreamedContent(rawContent)
       const finalReasoning = rawReasoning ? sanitizeReasoning(rawReasoning) : null
 
-      if ((finalContent || finalReasoning) && !controller.signal.aborted && session?.user?.id) {
-        const assistantMsg = await dbService.createMessage({
+      if ((finalContent || finalReasoning) && !controller.signal.aborted) {
+        const assistantMsg = (await dbService.createMessage({
           chat_id: chatId,
-          user_id: session.user.id,
+          user_id: session?.user?.id || 'guest',
           role: 'assistant',
           content: finalContent || '...',
           reasoning: finalReasoning,
           model_name: profile?.active_model || 'mimo-v2.6-pro',
-        })
-
-        if (assistantMsg) {
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === assistantMsg.id)) return prev
-            return [...prev, assistantMsg]
-          })
+        })) || {
+          id: `local_asst_${Date.now()}`,
+          chat_id: chatId,
+          user_id: session?.user?.id || 'guest',
+          role: 'assistant' as const,
+          content: finalContent || '...',
+          reasoning: finalReasoning,
+          model_name: profile?.active_model || 'mimo-v2.6-pro',
+          created_at: new Date().toISOString(),
         }
+
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === assistantMsg.id)) return prev
+          return [...prev, assistantMsg]
+        })
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
@@ -560,8 +688,15 @@ export function App() {
         const titleSource = text.trim() || attachments[0]?.name || 'New Chat'
         const initialWords = titleSource.split(/\s+/).filter(Boolean).slice(0, 4).join(' ')
         const initialTitle = initialWords || 'New Chat'
-        const newChat = await dbService.createChat(session.user.id, initialTitle)
-        if (!newChat) return
+        const newChat = (await dbService.createChat(session?.user?.id || 'guest', initialTitle, activeProjectId)) || {
+          id: `local_chat_${Date.now()}`,
+          user_id: session?.user?.id || 'guest',
+          title: initialTitle,
+          is_pinned: false,
+          project_id: activeProjectId || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
         setChats((prev) => {
           if (prev.some((c) => c.id === newChat.id)) return prev
           return [newChat, ...prev]
@@ -600,13 +735,13 @@ export function App() {
           if (att.uri && att.uri.startsWith('data:')) {
             try {
               const blob = dataUriToBlob(att.uri)
-              publicUrl = await dbService.uploadAttachment(session.user.id, blob, att.name || 'image.jpg')
+              publicUrl = await dbService.uploadAttachment(session?.user?.id || 'guest', blob, att.name || 'image.jpg')
             } catch (err) {
               console.warn('Failed to upload dataUri attachment to Supabase Storage:', err)
             }
           } else if (att.file) {
             try {
-              publicUrl = await dbService.uploadAttachment(session.user.id, att.file, att.name || 'file')
+              publicUrl = await dbService.uploadAttachment(session?.user?.id || 'guest', att.file, att.name || 'file')
             } catch (err) {
               console.warn('Failed to upload File attachment to Supabase Storage:', err)
             }
@@ -623,18 +758,24 @@ export function App() {
       }
 
       // 1. Insert User Message with attachments
-      const userMsg = await dbService.createMessage({
+      const userMsg = (await dbService.createMessage({
         chat_id: currentChatId,
-        user_id: session.user.id,
+        user_id: session?.user?.id || 'guest',
         role: 'user',
         content: trimmed,
         attachments: processedAttachments,
-      })
-
-      if (userMsg) {
-        updatedMessages = [...updatedMessages, userMsg]
-        setMessages(updatedMessages)
+      })) || {
+        id: `local_msg_${Date.now()}`,
+        chat_id: currentChatId,
+        user_id: session?.user?.id || 'guest',
+        role: 'user' as const,
+        content: trimmed,
+        attachments: processedAttachments,
+        created_at: new Date().toISOString(),
       }
+
+      updatedMessages = [...updatedMessages, userMsg]
+      setMessages(updatedMessages)
 
       // 2. Prepare for Assistant Generation
       await executeAssistantStream(currentChatId, updatedMessages)
@@ -662,7 +803,11 @@ export function App() {
       branchSlice.push(messages[targetIdx + 1])
     }
 
-    const newChat = await dbService.createChat(session.user.id, branchTitle)
+    const newChat = await dbService.createChat(
+      session.user.id,
+      branchTitle,
+      currentChat?.project_id || null
+    )
     if (!newChat) return
 
     const newMessagesPayload = branchSlice.map((m) => ({
@@ -710,6 +855,8 @@ export function App() {
   }
 
   const activeChat = chats.find((c) => c.id === activeChatId) || null
+  const activeProject =
+    projects.find((p) => p.id === (activeChat?.project_id || activeProjectId)) || null
 
   return (
     <div className="w-screen h-screen flex bg-black overflow-hidden select-none font-sans text-[#CECDC4]">
@@ -717,10 +864,14 @@ export function App() {
       <Sidebar
         isOpen={isSidebarOpen}
         chats={chats}
+        projects={projects}
         activeChatId={activeChatId}
+        activeProjectId={activeProjectId}
         isDark={isDark}
         onClose={() => setIsSidebarOpen(false)}
         onSelectChat={(id) => {
+          const selected = chats.find((c) => c.id === id)
+          setActiveProjectId(selected?.project_id || null)
           if (id !== activeChatId) {
             setMessages([])
             setIsLoadingMessages(true)
@@ -729,9 +880,12 @@ export function App() {
           setChatSelectTrigger(Date.now())
         }}
         onNewChat={handleNewChat}
+        onNewChatInProject={handleNewChatInProject}
         onTogglePin={(c) => handleTogglePin(c)}
         onRenameChat={handleRenameChat}
         onDeleteChat={(id) => handleDeleteChat(id)}
+        onCreateProject={handleCreateProject}
+        onEditProject={handleEditProject}
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
@@ -743,6 +897,7 @@ export function App() {
             activeModelId={profile?.active_model || 'mimo-v2.6-pro'}
             reasoningEffortId={profile?.reasoning_effort || 'medium'}
             activeChatTitle={activeChat?.title}
+            activeProjectName={activeProject?.name}
             isSidebarOpen={isSidebarOpen}
             isDark={isDark}
             onSelectModel={handleModelSelected}
@@ -785,6 +940,19 @@ export function App() {
         onDeleteUnpinnedChats={handleDeleteUnpinnedChats}
         onSignOut={handleSignOut}
         onThemeChange={handleThemeChange}
+      />
+
+      {/* Project Settings / Create Dialog */}
+      <ProjectModal
+        isOpen={isProjectModalOpen}
+        project={editingProject}
+        userId={session?.user?.id || 'local_user'}
+        onClose={() => {
+          setIsProjectModalOpen(false)
+          setEditingProject(null)
+        }}
+        onSave={handleSaveProject}
+        onDelete={handleDeleteProject}
       />
     </div>
   )

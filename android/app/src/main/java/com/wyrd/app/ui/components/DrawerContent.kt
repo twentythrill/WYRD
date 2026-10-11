@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,10 +31,15 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.PushPin
+import com.wyrd.app.data.local.ProjectEntity
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -77,10 +83,15 @@ import com.wyrd.app.ui.theme.White
 @Composable
 fun DrawerContent(
     chatList: List<ChatEntity>,
+    projectList: List<ProjectEntity> = emptyList(),
     activeChatId: Long?,
+    activeProjectId: Long? = null,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     onNewChat: () -> Unit,
+    onNewChatInProject: (Long) -> Unit = {},
+    onCreateProject: () -> Unit = {},
+    onEditProject: (ProjectEntity) -> Unit = {},
     onChatSelected: (Long) -> Unit,
     onTogglePinChat: (ChatEntity) -> Unit,
     onRenameChat: (ChatEntity, String) -> Unit,
@@ -92,6 +103,17 @@ fun DrawerContent(
     val hapticManager = remember { (context.applicationContext as? com.wyrd.app.WyrdApp)?.hapticManager }
     var isSearchExpanded by remember { mutableStateOf(false) }
     var chatToRename by remember { mutableStateOf<ChatEntity?>(null) }
+    var expandedProjectIds by remember { mutableStateOf(setOf<Long>()) }
+
+    androidx.compose.runtime.LaunchedEffect(activeProjectId, activeChatId) {
+        if (activeProjectId != null) {
+            expandedProjectIds = expandedProjectIds + activeProjectId
+        }
+        val activeChat = chatList.firstOrNull { it.id == activeChatId }
+        if (activeChat?.projectId != null) {
+            expandedProjectIds = expandedProjectIds + activeChat.projectId
+        }
+    }
 
     Column(
         modifier = modifier
@@ -201,30 +223,230 @@ fun DrawerContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         HorizontalDivider(color = DarkBorder, thickness = 0.8.dp)
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // History Section Header
-        Text(
-            text = "HISTORY",
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontFamily = SpaceGrotesk,
-                fontWeight = FontWeight.Bold,
-                color = TextMuted,
-                letterSpacing = 1.2.sp
-            ),
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-        )
+        val genericChats = chatList.filter { it.projectId == null }
 
-        // Scrollable past chats
+        // Scrollable past chats & projects
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
                 .padding(horizontal = 8.dp)
         ) {
-            if (chatList.isEmpty()) {
+            // --- PROJECTS SECTION ---
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "PROJECTS",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily = SpaceGrotesk,
+                            fontWeight = FontWeight.Bold,
+                            color = TextMuted,
+                            letterSpacing = 1.2.sp
+                        )
+                    )
+                    IconButton(
+                        onClick = {
+                            hapticManager?.tick()
+                            onCreateProject()
+                        },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "New Project",
+                            tint = TextGray,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
+            if (projectList.isEmpty()) {
+                item {
+                    Text(
+                        text = "No projects yet. Tap + to create.",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = TextMuted,
+                            fontFamily = SpaceGrotesk,
+                            fontSize = 12.sp
+                        ),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
+                    )
+                }
+            } else {
+                projectList.forEach { project ->
+                    val isExpanded = expandedProjectIds.contains(project.id)
+                    val projectChats = chatList.filter { it.projectId == project.id }
+                    val isProjectSelected = (activeProjectId == project.id && activeChatId == null)
+
+                    item(key = "proj_${project.id}") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isProjectSelected) DarkCard else androidx.compose.ui.graphics.Color.Transparent)
+                                .clickable {
+                                    hapticManager?.tick()
+                                    expandedProjectIds = if (isExpanded) {
+                                        expandedProjectIds - project.id
+                                    } else {
+                                        expandedProjectIds + project.id
+                                    }
+                                }
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = TextMuted,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder,
+                                contentDescription = null,
+                                tint = if (isExpanded || isProjectSelected) TextWhite else TextGray,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = project.name,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = if (isExpanded || isProjectSelected) TextWhite else TextGray,
+                                    fontFamily = SpaceGrotesk,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(DarkSurfaceElevated)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = projectChats.size.toString(),
+                                    color = TextMuted,
+                                    fontSize = 10.sp,
+                                    fontFamily = SpaceGrotesk
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    hapticManager?.tick()
+                                    onNewChatInProject(project.id)
+                                },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "New Chat in Project",
+                                    tint = TextMuted,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    hapticManager?.tick()
+                                    onEditProject(project)
+                                },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "Project Settings",
+                                    tint = TextMuted,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    if (isExpanded) {
+                        if (projectChats.isEmpty()) {
+                            item(key = "proj_${project.id}_empty") {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            hapticManager?.tick()
+                                            onNewChatInProject(project.id)
+                                        }
+                                        .padding(start = 36.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = null,
+                                        tint = TextMuted,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Start new chat",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = TextMuted,
+                                            fontFamily = SpaceGrotesk,
+                                            fontSize = 12.sp
+                                        )
+                                    )
+                                }
+                            }
+                        } else {
+                            items(projectChats, key = { "proj_${project.id}_${it.id}" }) { chat ->
+                                ChatItemRow(
+                                    chat = chat,
+                                    isSelected = chat.id == activeChatId,
+                                    isNested = true,
+                                    onClick = { onChatSelected(chat.id) },
+                                    onTogglePin = { onTogglePinChat(chat) },
+                                    onRename = { chatToRename = chat },
+                                    onDelete = { onDeleteChat(chat) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Divider
+            item {
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = DarkBorder, thickness = 0.8.dp)
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+
+            // --- HISTORY SECTION (Generic Chats) ---
+            item {
+                Text(
+                    text = "HISTORY",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontFamily = SpaceGrotesk,
+                        fontWeight = FontWeight.Bold,
+                        color = TextMuted,
+                        letterSpacing = 1.2.sp
+                    ),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                )
+            }
+
+            if (genericChats.isEmpty()) {
                 item {
                     Text(
                         text = if (searchQuery.isBlank()) "No conversation history yet" else "No matching conversations",
@@ -233,20 +455,21 @@ fun DrawerContent(
                             fontFamily = SpaceGrotesk,
                             fontSize = 13.sp
                         ),
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                     )
                 }
-            }
-
-            items(chatList, key = { it.id }) { chat ->
-                ChatItemRow(
-                    chat = chat,
-                    isSelected = chat.id == activeChatId,
-                    onClick = { onChatSelected(chat.id) },
-                    onTogglePin = { onTogglePinChat(chat) },
-                    onRename = { chatToRename = chat },
-                    onDelete = { onDeleteChat(chat) }
-                )
+            } else {
+                items(genericChats, key = { it.id }) { chat ->
+                    ChatItemRow(
+                        chat = chat,
+                        isSelected = chat.id == activeChatId,
+                        isNested = false,
+                        onClick = { onChatSelected(chat.id) },
+                        onTogglePin = { onTogglePinChat(chat) },
+                        onRename = { chatToRename = chat },
+                        onDelete = { onDeleteChat(chat) }
+                    )
+                }
             }
         }
     }
@@ -301,6 +524,7 @@ private fun DrawerActionItem(
 private fun ChatItemRow(
     chat: ChatEntity,
     isSelected: Boolean,
+    isNested: Boolean = false,
     onClick: () -> Unit,
     onTogglePin: () -> Unit,
     onRename: () -> Unit,
@@ -333,7 +557,12 @@ private fun ChatItemRow(
                         menuExpanded = true
                     }
                 )
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(
+                    start = if (isNested) 28.dp else 12.dp,
+                    end = 12.dp,
+                    top = if (isNested) 8.dp else 10.dp,
+                    bottom = if (isNested) 8.dp else 10.dp
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -342,7 +571,7 @@ private fun ChatItemRow(
                     color = if (isSelected) TextWhite else TextGray,
                     fontFamily = SpaceGrotesk,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                    fontSize = 14.sp
+                    fontSize = if (isNested) 13.sp else 14.sp
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

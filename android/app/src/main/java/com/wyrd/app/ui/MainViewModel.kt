@@ -8,9 +8,12 @@ import android.os.SystemClock
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import android.net.Uri
 import com.wyrd.app.WyrdApp
 import com.wyrd.app.data.local.ChatEntity
 import com.wyrd.app.data.local.MessageEntity
+import com.wyrd.app.data.local.ProjectEntity
+import com.wyrd.app.data.local.ProjectFileEntity
 import com.wyrd.app.data.network.ChatMessagePayload
 import com.wyrd.app.data.preferences.AppTheme
 import com.wyrd.app.data.preferences.PreferencesManager
@@ -32,6 +35,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -40,6 +45,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.wyrd.app.data.tts.TtsPlaybackState
 import com.wyrd.app.ui.components.formatMarkdownForReading
+import com.wyrd.app.util.AttachmentHelper
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -47,6 +53,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val database = app.database
     private val chatDao = database.chatDao()
     private val messageDao = database.messageDao()
+    private val projectDao = database.projectDao()
+    private val projectFileDao = database.projectFileDao()
     private val preferencesManager = app.preferencesManager
     private val secureKeyStorage = app.secureKeyStorage
     private val mimoService = app.mimoService
@@ -62,6 +70,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+
+    // Projects state
+    val projectList: StateFlow<List<ProjectEntity>> = projectDao.getAllProjects()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _activeProjectId = MutableStateFlow<Long?>(null)
+    val activeProjectId: StateFlow<Long?> = _activeProjectId.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val activeProject: StateFlow<ProjectEntity?> = _activeProjectId.flatMapLatest { id ->
+        if (id == null) flowOf<ProjectEntity?>(null) else flow { emit(projectDao.getProjectById(id)) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     // Chat session state
     private val _activeChatId = MutableStateFlow<Long?>(null)
@@ -272,6 +292,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         generationJob = null
         autoReadNextAssistantMessage = false
         _editingMessage.value = null
+        _activeProjectId.value = null
+        _activeChatId.value = null
+        _currentAttachments.value = emptyList()
+        inputPrompt.value = TextFieldValue("")
+        _streamingContent.value = ""
+        _streamingReasoning.value = ""
+        _streamingStatus.value = null
+        _isGenerating.value = false
+        nativeTtsManager.stop()
+    }
+
+    fun startNewChatInProject(projectId: Long) {
+        hapticManager.click()
+        generationJob?.cancel()
+        generationJob = null
+        autoReadNextAssistantMessage = false
+        _editingMessage.value = null
+        _activeProjectId.value = projectId
         _activeChatId.value = null
         _currentAttachments.value = emptyList()
         inputPrompt.value = TextFieldValue("")
@@ -289,7 +327,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         generationJob = null
         autoReadNextAssistantMessage = false
         _editingMessage.value = null
-        _activeChatId.value = chatId
+        viewModelScope.launch {
+            val chat = chatDao.getChatById(chatId)
+            _activeProjectId.value = chat?.projectId
+            _activeChatId.value = chatId
+        }
         _currentAttachments.value = emptyList()
         inputPrompt.value = TextFieldValue("")
         _streamingContent.value = ""
@@ -297,6 +339,104 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _streamingStatus.value = null
         _isGenerating.value = false
         nativeTtsManager.stop()
+    }
+
+    fun createProject(name: String, description: String = "", systemPrompt: String = "", onCreated: (Long) -> Unit = {}) {
+        hapticManager.click()
+        viewModelScope.launch(Dispatchers.IO) {
+            val entity = ProjectEntity(
+                name = name.trim(),
+                description = description.trim(),
+                systemPrompt = systemPrompt.trim()
+            )
+            val newId = projectDao.insertProject(entity)
+            _activeProjectId.value = newId
+            _activeChatId.value = null
+            if (supabaseSyncManager.isUserSignedIn()) {
+                try { supabaseSyncManager.syncAll() } catch (_: Exception) {}
+            }
+            withContext(Dispatchers.Main) {
+                onCreated(newId)
+            }
+        }
+    }
+
+    fun updateProject(project: ProjectEntity) {
+        hapticManager.click()
+        viewModelScope.launch(Dispatchers.IO) {
+            projectDao.updateProject(project.copy(updatedAt = System.currentTimeMillis()))
+            if (supabaseSyncManager.isUserSignedIn()) {
+                try { supabaseSyncManager.syncAll() } catch (_: Exception) {}
+            }
+        }
+    }
+
+    fun deleteProject(project: ProjectEntity) {
+        deleteProject(project.id)
+    }
+
+    fun deleteProject(projectId: Long) {
+        hapticManager.click()
+        viewModelScope.launch(Dispatchers.IO) {
+            val proj = projectDao.getProjectById(projectId)
+            if (proj != null) {
+                projectDao.deleteProjectById(projectId)
+                projectFileDao.deleteFilesByProjectId(projectId)
+                chatDao.detachChatsFromProject(projectId)
+                if (_activeProjectId.value == projectId) {
+                    _activeProjectId.value = null
+                    _activeChatId.value = null
+                }
+                if (supabaseSyncManager.isUserSignedIn() && proj.syncId.isNotBlank()) {
+                    try { supabaseSyncManager.deleteProjectRemotely(proj.syncId) } catch (_: Exception) {}
+                    try { supabaseSyncManager.syncAll() } catch (_: Exception) {}
+                }
+            }
+        }
+    }
+
+    fun getProjectFiles(projectId: Long): Flow<List<ProjectFileEntity>> {
+        return projectFileDao.getFilesByProject(projectId)
+    }
+
+    fun addProjectFile(projectId: Long, uri: Uri) {
+        hapticManager.click()
+        viewModelScope.launch(Dispatchers.IO) {
+            val proj = projectDao.getProjectById(projectId) ?: return@launch
+            val item = AttachmentHelper.processUri(app, uri) ?: return@launch
+            var storagePath = item.uriString
+            if (supabaseSyncManager.isUserSignedIn()) {
+                val publicUrl = supabaseSyncManager.uploadAttachmentToStorage(item.uriString, item.name)
+                if (publicUrl != null) {
+                    storagePath = publicUrl
+                }
+            }
+
+            val fileEntity = ProjectFileEntity(
+                projectId = projectId,
+                projectSyncId = proj.syncId,
+                name = item.name,
+                size = item.sizeBytes,
+                mimeType = item.mimeType,
+                storagePath = storagePath,
+                textContent = item.textContent
+            )
+            projectFileDao.insertFile(fileEntity)
+            if (supabaseSyncManager.isUserSignedIn()) {
+                try { supabaseSyncManager.syncAll() } catch (_: Exception) {}
+            }
+        }
+    }
+
+    fun deleteProjectFile(file: ProjectFileEntity) {
+        hapticManager.click()
+        viewModelScope.launch(Dispatchers.IO) {
+            projectFileDao.deleteFileById(file.id)
+            if (supabaseSyncManager.isUserSignedIn() && file.syncId.isNotBlank()) {
+                try { supabaseSyncManager.deleteProjectFileRemotely(file.syncId, file.storagePath) } catch (_: Exception) {}
+                try { supabaseSyncManager.syncAll() } catch (_: Exception) {}
+            }
+        }
     }
 
     fun togglePinChat(chat: ChatEntity) {
@@ -425,7 +565,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val titleSource = if (prompt.isNotBlank()) prompt else (attachments.firstOrNull()?.name ?: "New Chat")
                 val initialWords = titleSource.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }.take(4).joinToString(" ")
                 val initialTitle = if (initialWords.isNotBlank()) initialWords else "New Chat"
-                val newChat = ChatEntity(title = initialTitle)
+                val projId = _activeProjectId.value
+                val proj = if (projId != null) projectDao.getProjectById(projId) else null
+                val newChat = ChatEntity(
+                    title = initialTitle,
+                    projectId = proj?.id,
+                    projectSyncId = proj?.syncId
+                )
                 currentChatId = chatDao.insertChat(newChat)
                 _activeChatId.value = currentChatId
             } else if (editingMsg != null) {
@@ -529,6 +675,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val newChat = ChatEntity(
                 title = branchTitle,
                 isPinned = false,
+                projectId = originalChat?.projectId,
+                projectSyncId = originalChat?.projectSyncId,
                 createdAt = System.currentTimeMillis(),
                 updatedAt = System.currentTimeMillis()
             )
@@ -626,7 +774,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         // Guarantee custom system prompt & base url are read live from DataStore
-        val liveSystemPrompt = preferencesManager.systemPromptFlow.first()
+        // If chat belongs to a project, strictly override with project instructions + knowledge base files
+        val currentChat = chatDao.getChatById(chatId)
+        val projId = currentChat?.projectId ?: _activeProjectId.value
+        val project = if (projId != null) projectDao.getProjectById(projId) else null
+
+        val effectiveSystemPrompt: String
+        if (project != null) {
+            val pFiles = projectFileDao.getFilesByProjectList(project.id)
+            val textFiles = pFiles.filter { !it.textContent.isNullOrBlank() }
+            val filesContext = if (textFiles.isNotEmpty()) {
+                val blocks = textFiles.joinToString("\n\n") { file ->
+                    "--- File: ${file.name} ---\n${file.textContent}"
+                }
+                "\n\n[Project Knowledge Base]:\nThe following source files are attached to this project for context:\n$blocks"
+            } else ""
+            effectiveSystemPrompt = "${project.systemPrompt}$filesContext"
+        } else {
+            effectiveSystemPrompt = preferencesManager.systemPromptFlow.first()
+        }
         val liveCustomBaseUrl = preferencesManager.customBaseUrlFlow.first()
 
         val contentBuilder = StringBuilder()
@@ -693,7 +859,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 apiKey = apiKey,
                 model = activeModel.value,
                 reasoningEffort = reasoningEffort.value,
-                systemPrompt = liveSystemPrompt,
+                systemPrompt = effectiveSystemPrompt,
                 messages = payloadList,
                 exaSearchService = if (isSearchEnabled) exaSearchService else null,
                 exaApiKey = liveExaApiKey,

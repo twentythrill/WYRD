@@ -19,9 +19,10 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
    * Exact parity with Android `LightWyrdColors` and `DarkWyrdColors`: warm parchment `#F9F9F7`, surfaces `#F0EFEA` / `#E8E7E1`, cards `#DFDED8`, border `#CECDC4`, deep black `#141414`.
    * Dynamic eye logo & favicon switching: crisp white starburst (`/app_logo.png`) in dark mode, deep black starburst (`/app_icon_trans_black.png`) in light mode. Browser favicon automatically adapts to system color scheme (`(prefers-color-scheme: light)`) and in-app theme selection to ensure high contrast against browser tabs.
    * Theme controls: quick toggle icon in top bar and three-way preference (`System`, `Dark`, `Light`) in Settings.
-3. **Audio Experience (STT & Tap/Double-Click to Hear TTS)**:
+3. **Audio Experience (STT, Tap/Double-Click to Hear TTS & Word-by-Word Highlighting)**:
    * **Voice Input (STT)**: Microphone button in prompt capsule records audio via `MediaRecorder` with live recording timer and waveforms, then transcribes into text using OpenAI Whisper API (`whisper-1`).
-   * **Double-Click Word to Hear (TTS Word-Seek)**: Parity with Android's tap-to-read feature. Double-clicking any word in an assistant response initiates browser speech synthesis from that exact word onwards. Includes smart bilingual detection (Italian vs English) and natural voice selection.
+   * **Word-by-Word Highlighting (Android Parity)**: Synchronous ElevenReader-style brutalist pill highlighting as `window.speechSynthesis` speaks assistant responses. In Dark Mode, spoken words are wrapped in a high-contrast `#CECDC4` pill with black text; in Light Mode, an inverted `#141414` pill with `#F9F9F7` text. Metric-stable design (`rounded-[3px] px-0.5 -mx-0.5`) ensures zero text jitter or line wrapping shifts. Automatically auto-scrolls with smooth center-snap positioning whenever the reading cursor or scrolling moves out of the comfortable reading zone.
+   * **Double-Click Word to Hear (TTS Word-Seek)**: Parity with Android's tap-to-read feature. Double-clicking any word in an assistant response initiates browser speech synthesis directly from that exact word onwards with 1:1 character index accuracy and clean audio buffer reset, instantly centering the active word on screen. Includes smart bilingual detection (Italian vs English) and natural voice selection.
    * **Floating Play/Pause Controller**: Brutalist 50px circular button anchored above the send button on the right (matching Android's 54dp circle). Smoothly toggles Play and Pause states without textual clutter or pill badges.
 4. **Cross-Device Cloud Sync**:
    * Synchronizes `chats`, `messages`, and user `profiles` in real-time with the WYRD Android app.
@@ -73,6 +74,11 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
      * **Clean Grounding & Synthesis**: Executes Exa search in Round 1 with animated status ("Searching web with Exa for: '...'..."), transitions smoothly to "Synthesizing answer...", suppresses tools in Round 2, and guides the model to produce a verified answer without hesitation, looping, or failed synthesis.
      * Configurable with personal Exa API key or public tier fallback in Settings.
    * **30-Turn Context Window Clamping**: Clamps message payload to the most recent 30 conversation turns to preserve token budgets and avoid gateway limits.
+9. **Projects & Knowledge Base Spaces**:
+   * **Custom System Prompt Override**: Dedicated projects with custom instructions that strictly override the generic profile system prompt.
+   * **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code files. Text is extracted client-side (using `pdfjs-dist` for PDFs) and injected into the LLM context for all chats within that project.
+   * **Folder Structure & Nested Chats**: Collapsible `PROJECTS` section in the sidebar with nested chat lists, project creation modal, file manager, and active project breadcrumb in the top navigation bar. Generic chats reside in the `HISTORY` section.
+   * **Two-Way Supabase Sync**: Real-time bidirectional replication of projects, attached project files, and chat assignments across Web and Android.
 
 ## Local Development & Spin-Up
 

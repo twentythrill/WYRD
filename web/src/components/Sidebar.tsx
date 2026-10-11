@@ -1,17 +1,37 @@
-import React, { useState } from 'react'
-import { Plus, Search, Settings, Pin, PinOff, Trash2, Edit3, X, PanelLeftClose } from 'lucide-react'
-import { type Chat } from '@/lib/supabase'
+import React, { useState, useEffect } from 'react'
+import {
+  Plus,
+  Search,
+  Settings,
+  Pin,
+  PinOff,
+  Trash2,
+  Edit3,
+  X,
+  PanelLeftClose,
+  Folder,
+  FolderOpen,
+  ChevronRight,
+  ChevronDown,
+  Settings2,
+} from 'lucide-react'
+import { type Chat, type Project } from '@/lib/supabase'
 
 interface SidebarProps {
   isOpen: boolean
   chats: Chat[]
+  projects: Project[]
   activeChatId: string | null
+  activeProjectId: string | null
   onClose: () => void
   onSelectChat: (chatId: string) => void
   onNewChat: () => void
+  onNewChatInProject: (projectId: string) => void
   onTogglePin: (chat: Chat) => void
   onRenameChat: (chat: Chat, newTitle: string) => void
   onDeleteChat: (chatId: string) => void
+  onCreateProject: () => void
+  onEditProject: (project: Project) => void
   onOpenSettings: () => void
   isDark?: boolean
 }
@@ -19,13 +39,18 @@ interface SidebarProps {
 export function Sidebar({
   isOpen,
   chats,
+  projects,
   activeChatId,
+  activeProjectId,
   onClose,
   onSelectChat,
   onNewChat,
+  onNewChatInProject,
   onTogglePin,
   onRenameChat,
   onDeleteChat,
+  onCreateProject,
+  onEditProject,
   onOpenSettings,
   isDark = true,
 }: SidebarProps) {
@@ -34,8 +59,33 @@ export function Sidebar({
   const [chatToRename, setChatToRename] = useState<Chat | null>(null)
   const [renameText, setRenameText] = useState('')
   const [chatToDelete, setChatToDelete] = useState<Chat | null>(null)
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set())
 
-  React.useEffect(() => {
+  // Automatically expand project if active chat belongs to it or if activeProjectId is set
+  useEffect(() => {
+    if (activeProjectId) {
+      setExpandedProjects((prev) => {
+        const next = new Set(prev)
+        next.add(activeProjectId)
+        return next
+      })
+    }
+  }, [activeProjectId])
+
+  useEffect(() => {
+    if (activeChatId) {
+      const activeChat = chats.find((c) => c.id === activeChatId)
+      if (activeChat?.project_id) {
+        setExpandedProjects((prev) => {
+          const next = new Set(prev)
+          next.add(activeChat.project_id!)
+          return next
+        })
+      }
+    }
+  }, [activeChatId, chats])
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (chatToDelete) setChatToDelete(null)
@@ -75,6 +125,20 @@ export function Sidebar({
     return b.id.localeCompare(a.id)
   })
 
+  const genericChats = sortedChats.filter((c) => !c.project_id)
+
+  const toggleProjectExpansion = (projectId: string) => {
+    setExpandedProjects((prev) => {
+      const next = new Set(prev)
+      if (next.has(projectId)) {
+        next.delete(projectId)
+      } else {
+        next.add(projectId)
+      }
+      return next
+    })
+  }
+
   const handleStartRename = (e: React.MouseEvent, chat: Chat) => {
     e.stopPropagation()
     setChatToRename(chat)
@@ -86,6 +150,68 @@ export function Sidebar({
       onRenameChat(chatToRename, renameText.trim())
     }
     setChatToRename(null)
+  }
+
+  const renderChatItem = (chat: Chat, isNested = false) => {
+    const isSelected = chat.id === activeChatId
+    return (
+      <div
+        key={chat.id}
+        onClick={() => {
+          onSelectChat(chat.id)
+          if (window.innerWidth < 768) onClose()
+        }}
+        className={`group relative flex items-center justify-between py-2 rounded-xl cursor-pointer transition-colors ${
+          isNested ? 'pl-7 pr-2.5' : 'px-3'
+        } ${
+          isSelected
+            ? 'bg-[#1A1A1A] text-[#CECDC4]'
+            : 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#141414]'
+        }`}
+      >
+        <div className="flex items-center gap-2 min-w-0 pr-1.5">
+          {chat.is_pinned && (
+            <Pin className="w-3 h-3 text-[#CECDC4] shrink-0 fill-current" />
+          )}
+          <span className="text-[13px] font-sans truncate">{chat.title}</span>
+        </div>
+
+        {/* Context Actions on Hover */}
+        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity shrink-0">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onTogglePin(chat)
+            }}
+            title={chat.is_pinned ? 'Unpin' : 'Pin'}
+            className="p-1 rounded text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626] cursor-pointer"
+          >
+            {chat.is_pinned ? (
+              <PinOff className="w-3 h-3" />
+            ) : (
+              <Pin className="w-3 h-3" />
+            )}
+          </button>
+          <button
+            onClick={(e) => handleStartRename(e, chat)}
+            title="Rename"
+            className="p-1 rounded text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626] cursor-pointer"
+          >
+            <Edit3 className="w-3 h-3" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setChatToDelete(chat)
+            }}
+            title="Delete"
+            className="p-1 rounded text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#262626] cursor-pointer"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -121,154 +247,212 @@ export function Sidebar({
             <button
               onClick={onClose}
               title="Collapse sidebar"
-              className="p-2 text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#141414] rounded-lg transition-colors flex items-center justify-center"
+              className="p-2 text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#141414] rounded-lg transition-colors flex items-center justify-center cursor-pointer"
             >
               <PanelLeftClose className="w-5 h-5 stroke-[2]" />
             </button>
           </div>
 
-        {/* Top Static Actions */}
-        <div className="px-3 space-y-0.5">
-          {/* New Chat */}
-          <button
-            onClick={() => {
-              onNewChat()
-              if (window.innerWidth < 768) onClose()
-            }}
-            className={`w-full h-11 px-3 flex items-center rounded-xl transition-colors ${
-              activeChatId === null
-                ? 'bg-[#1A1A1A] text-[#CECDC4]'
-                : 'hover:bg-[#141414] text-[#CECDC4]'
-            }`}
-          >
-            <Plus className="w-5 h-5 text-[#CECDC4] stroke-[2]" />
-            <span className="ml-3 font-sans text-sm font-medium">New Chat</span>
-          </button>
+          {/* Top Static Actions */}
+          <div className="px-3 space-y-0.5 shrink-0">
+            {/* New Chat */}
+            <button
+              onClick={() => {
+                onNewChat()
+                if (window.innerWidth < 768) onClose()
+              }}
+              className={`w-full h-11 px-3 flex items-center rounded-xl transition-colors cursor-pointer ${
+                activeChatId === null && activeProjectId === null
+                  ? 'bg-[#1A1A1A] text-[#CECDC4]'
+                  : 'hover:bg-[#141414] text-[#CECDC4]'
+              }`}
+            >
+              <Plus className="w-5 h-5 text-[#CECDC4] stroke-[2]" />
+              <span className="ml-3 font-sans text-sm font-medium">New Chat</span>
+            </button>
 
-          {/* Search Chats */}
-          <button
-            onClick={() => setIsSearchExpanded(!isSearchExpanded)}
-            className="w-full h-11 px-3 flex items-center rounded-xl hover:bg-[#141414] text-[#CECDC4] transition-colors"
-          >
-            <Search className="w-5 h-5 text-[#CECDC4] stroke-[2]" />
-            <span className="ml-3 font-sans text-sm font-medium">Search Chats</span>
-          </button>
+            {/* Search Chats */}
+            <button
+              onClick={() => setIsSearchExpanded(!isSearchExpanded)}
+              className="w-full h-11 px-3 flex items-center rounded-xl hover:bg-[#141414] text-[#CECDC4] transition-colors cursor-pointer"
+            >
+              <Search className="w-5 h-5 text-[#CECDC4] stroke-[2]" />
+              <span className="ml-3 font-sans text-sm font-medium">Search Chats</span>
+            </button>
 
-          {/* Filter input */}
-          {isSearchExpanded && (
-            <div className="px-1 py-1">
-              <div className="relative flex items-center">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter conversations..."
-                  autoFocus
-                  className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded-xl text-xs text-[#CECDC4] placeholder-[#636366] font-sans focus:outline-none focus:border-[#CECDC4]"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 text-[#8E8E93] hover:text-[#CECDC4]"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+            {/* Filter input */}
+            {isSearchExpanded && (
+              <div className="px-1 py-1">
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Filter conversations..."
+                    autoFocus
+                    className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded-xl text-xs text-[#CECDC4] placeholder-[#636366] font-sans focus:outline-none focus:border-[#CECDC4]"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 text-[#8E8E93] hover:text-[#CECDC4] cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Settings */}
+            <button
+              onClick={() => {
+                onOpenSettings()
+                if (window.innerWidth < 768) onClose()
+              }}
+              className="w-full h-11 px-3 flex items-center rounded-xl hover:bg-[#141414] text-[#CECDC4] transition-colors cursor-pointer"
+            >
+              <Settings className="w-5 h-5 text-[#CECDC4] stroke-[2]" />
+              <span className="ml-3 font-sans text-sm font-medium">Settings</span>
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div className="my-2.5 mx-3 border-t border-[#262626] shrink-0" />
+
+          {/* Scrollable area for Projects & History */}
+          <div className="flex-1 overflow-y-auto px-2 py-1 space-y-3">
+            {/* PROJECTS SECTION */}
+            <div>
+              <div className="px-3 py-1 flex items-center justify-between text-[10px] font-sans font-bold tracking-[1.2px] text-[#636366] uppercase">
+                <span>PROJECTS</span>
+                <button
+                  onClick={onCreateProject}
+                  title="Create new project"
+                  className="p-1 rounded hover:bg-[#141414] text-[#8E8E93] hover:text-[#CECDC4] transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                </button>
+              </div>
+
+              {projects.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-[#636366] font-sans">
+                  No projects yet. Click + to create one.
+                </div>
+              ) : (
+                <div className="space-y-1 mt-1">
+                  {projects.map((project) => {
+                    const isExpanded = expandedProjects.has(project.id)
+                    const projectChatList = sortedChats.filter((c) => c.project_id === project.id)
+                    const isProjectActive =
+                      activeProjectId === project.id && activeChatId === null
+
+                    return (
+                      <div key={project.id} className="space-y-0.5">
+                        {/* Project Header Row */}
+                        <div
+                          onClick={() => toggleProjectExpansion(project.id)}
+                          className={`group flex items-center justify-between px-2 py-2 rounded-xl cursor-pointer transition-colors ${
+                            isProjectActive
+                              ? 'bg-[#1A1A1A] text-[#CECDC4]'
+                              : 'text-[#A1A1A6] hover:text-[#CECDC4] hover:bg-[#141414]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0 pr-1.5">
+                            <span className="p-0.5 text-[#636366]">
+                              {isExpanded ? (
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              )}
+                            </span>
+                            {isExpanded ? (
+                              <FolderOpen className="w-4 h-4 text-[#CECDC4] shrink-0" />
+                            ) : (
+                              <Folder className="w-4 h-4 text-[#8E8E93] shrink-0" />
+                            )}
+                            <span className="text-xs font-semibold font-sans truncate">
+                              {project.name}
+                            </span>
+                            <span className="text-[10px] text-[#636366] font-mono px-1.5 py-0.2 bg-[#1A1A1A] rounded-full border border-[#262626]">
+                              {projectChatList.length}
+                            </span>
+                          </div>
+
+                          {/* Hover Action Buttons */}
+                          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity shrink-0">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onNewChatInProject(project.id)
+                                if (window.innerWidth < 768) onClose()
+                              }}
+                              title="New Chat in Project"
+                              className="p-1 rounded text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626] cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onEditProject(project)
+                              }}
+                              title="Project Settings"
+                              className="p-1 rounded text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626] cursor-pointer"
+                            >
+                              <Settings2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Expanded Project Chats */}
+                        {isExpanded && (
+                          <div className="space-y-0.5">
+                            {projectChatList.length === 0 ? (
+                              <div
+                                onClick={() => {
+                                  onNewChatInProject(project.id)
+                                  if (window.innerWidth < 768) onClose()
+                                }}
+                                className="pl-8 pr-3 py-1.5 text-xs text-[#636366] hover:text-[#CECDC4] cursor-pointer font-sans flex items-center gap-1.5"
+                              >
+                                <Plus className="w-3 h-3" />
+                                <span>Start new chat</span>
+                              </div>
+                            ) : (
+                              projectChatList.map((chat) => renderChatItem(chat, true))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="my-2 border-t border-[#262626]" />
+
+            {/* HISTORY SECTION (Generic Chats) */}
+            <div>
+              <div className="px-3 py-1 text-[10px] font-sans font-bold tracking-[1.2px] text-[#636366] uppercase">
+                HISTORY
+              </div>
+
+              <div className="space-y-0.5 mt-1">
+                {genericChats.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-[#636366] font-sans">
+                    {searchQuery ? 'No matching generic chats' : 'No chats yet'}
+                  </div>
+                ) : (
+                  genericChats.map((chat) => renderChatItem(chat, false))
                 )}
               </div>
             </div>
-          )}
-
-          {/* Settings */}
-          <button
-            onClick={() => {
-              onOpenSettings()
-              if (window.innerWidth < 768) onClose()
-            }}
-            className="w-full h-11 px-3 flex items-center rounded-xl hover:bg-[#141414] text-[#CECDC4] transition-colors"
-          >
-            <Settings className="w-5 h-5 text-[#CECDC4] stroke-[2]" />
-            <span className="ml-3 font-sans text-sm font-medium">Settings</span>
-          </button>
-        </div>
-
-        {/* Divider */}
-        <div className="my-3.5 mx-3 border-t border-[#262626]" />
-
-        {/* History Header */}
-        <div className="px-5 py-1 text-[10px] font-sans font-bold tracking-[1.2px] text-[#636366] uppercase">
-          HISTORY
-        </div>
-
-        {/* Past Chats List */}
-        <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
-          {sortedChats.length === 0 ? (
-            <div className="px-4 py-3 text-xs text-[#636366] font-sans">
-              {searchQuery ? 'No matching conversations' : 'No conversation history yet'}
-            </div>
-          ) : (
-            sortedChats.map((chat) => {
-              const isSelected = chat.id === activeChatId
-              return (
-                <div
-                  key={chat.id}
-                  onClick={() => {
-                    onSelectChat(chat.id)
-                    if (window.innerWidth < 768) onClose()
-                  }}
-                  className={`group relative flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${
-                    isSelected
-                      ? 'bg-[#1A1A1A] text-[#CECDC4]'
-                      : 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#141414]'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                    {chat.is_pinned && (
-                      <Pin className="w-3.5 h-3.5 text-[#CECDC4] shrink-0 fill-current" />
-                    )}
-                    <span className="text-sm font-sans truncate">{chat.title}</span>
-                  </div>
-
-                  {/* Context Actions on Hover */}
-                  <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onTogglePin(chat)
-                      }}
-                      title={chat.is_pinned ? 'Unpin' : 'Pin'}
-                      className="p-1 rounded text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626]"
-                    >
-                      {chat.is_pinned ? (
-                        <PinOff className="w-3.5 h-3.5" />
-                      ) : (
-                        <Pin className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                    <button
-                      onClick={(e) => handleStartRename(e, chat)}
-                      title="Rename"
-                      className="p-1 rounded text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626]"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setChatToDelete(chat)
-                      }}
-                      title="Delete"
-                      className="p-1 rounded text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#262626]"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )
-            })
-          )}
-            </div>
           </div>
-        </aside>
+        </div>
+      </aside>
 
       {/* Rename Chat Modal */}
       {chatToRename && (
@@ -291,13 +475,13 @@ export function Sidebar({
             <div className="mt-4 flex items-center justify-end gap-2">
               <button
                 onClick={() => setChatToRename(null)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#8E8E93] hover:text-[#CECDC4]"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#8E8E93] hover:text-[#CECDC4] cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmRename}
-                className="px-3.5 py-1.5 rounded-lg bg-[#CECDC4] text-black text-xs font-semibold hover:bg-white"
+                className="px-3.5 py-1.5 rounded-lg bg-[#CECDC4] text-black text-xs font-semibold hover:bg-white cursor-pointer"
               >
                 Save
               </button>
@@ -325,7 +509,7 @@ export function Sidebar({
             <div className="flex items-center justify-end gap-3">
               <button
                 onClick={() => setChatToDelete(null)}
-                className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-[#2C2C2E] hover:bg-[#3A3A3C] transition-colors font-sans"
+                className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-[#2C2C2E] hover:bg-[#3A3A3C] transition-colors font-sans cursor-pointer"
               >
                 Cancel
               </button>
@@ -335,7 +519,7 @@ export function Sidebar({
                   setChatToDelete(null)
                   onDeleteChat(id)
                 }}
-                className="px-4 py-2 rounded-xl bg-[#E53935] hover:bg-[#D32F2F] text-white text-sm font-semibold border border-[#FF5252]/70 shadow-sm transition-colors font-sans"
+                className="px-4 py-2 rounded-xl bg-[#E53935] hover:bg-[#D32F2F] text-white text-sm font-semibold border border-[#FF5252]/70 shadow-sm transition-colors font-sans cursor-pointer"
               >
                 Delete
               </button>

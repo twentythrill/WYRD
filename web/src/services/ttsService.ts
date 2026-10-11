@@ -3,11 +3,15 @@
  * Completely client-side, zero latency, zero external API keys needed.
  */
 
+import { formatMarkdownForReading } from '@/utils/readingFormatter'
+
 export interface TtsPlaybackState {
   isPlaying: boolean
   isPaused: boolean
   activeMessageId: string | null
   currentText: string
+  currentRange: [number, number] | null
+  startOffset: number
 }
 
 type TtsListener = (state: TtsPlaybackState) => void
@@ -51,11 +55,16 @@ class NativeTtsService {
     isPaused: false,
     activeMessageId: null,
     currentText: '',
+    currentRange: null,
+    startOffset: 0,
   }
 
   private listeners = new Set<TtsListener>()
   private chromeKeepAliveTimer: number | null = null
   private voices: SpeechSynthesisVoice[] = []
+  private currentUtterance: SpeechSynthesisUtterance | null = null
+  private currentSessionId: number = 0
+  private speakTimeoutTimer: number | null = null
 
   constructor() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -156,14 +165,18 @@ class NativeTtsService {
     return defaultVoice || this.voices[0] || null
   }
 
-  public speak(messageId: string, markdownText: string) {
+  public speak(messageId: string, textOrMarkdown: string, startOffset: number = 0) {
     if (!this.isSupported()) {
       console.warn('SpeechSynthesis is not supported in this browser.')
       return
     }
 
-    // If already playing this message, toggle pause/resume
-    if (this.state.activeMessageId === messageId) {
+    // If already playing this message and at the exact same non-zero offset, toggle pause/resume
+    if (
+      this.state.activeMessageId === messageId &&
+      this.state.startOffset === startOffset &&
+      startOffset > 0
+    ) {
       if (this.state.isPlaying) {
         this.pause()
         return
@@ -173,13 +186,19 @@ class NativeTtsService {
       }
     }
 
-    const plainText = stripMarkdownForSpeech(markdownText)
-    if (!plainText.trim()) return
+    // If seeking from FormattedMessage (startOffset > 0), textOrMarkdown is ALREADY the exact plainText!
+    // Do not re-run formatMarkdownForReading on plainText as it may alter character offsets.
+    let fullText = textOrMarkdown
+    if (startOffset === 0) {
+      const formatted = formatMarkdownForReading(textOrMarkdown)
+      fullText = formatted.plainText.trim() ? formatted.plainText : textOrMarkdown.trim()
+    }
+    if (!fullText) return
 
-    this.speakUtterance(messageId, plainText)
+    this.speakUtterance(messageId, fullText, startOffset)
   }
 
-  public speakFromText(messageId: string, textToSpeak: string) {
+  public speakFromText(messageId: string, textToSpeak: string, startOffset: number = 0) {
     if (!this.isSupported()) {
       console.warn('SpeechSynthesis is not supported in this browser.')
       return
@@ -188,15 +207,23 @@ class NativeTtsService {
     const cleanText = textToSpeak.trim()
     if (!cleanText) return
 
-    this.speakUtterance(messageId, cleanText)
+    this.speakUtterance(messageId, cleanText, startOffset)
   }
 
-  private speakUtterance(messageId: string, text: string) {
-    // Stop any existing speech
+  private speakUtterance(messageId: string, fullText: string, startOffset: number = 0) {
+    // Cleanly cancel any existing utterance and detach listeners to avoid stale boundary events
     this.stop()
+    const sessionId = this.currentSessionId
 
-    const targetLang = this.detectLanguage(text)
-    const utterance = new SpeechSynthesisUtterance(text)
+    const safeOffset = Math.max(0, Math.min(startOffset, fullText.length))
+    const textToSpeak = safeOffset > 0 ? fullText.slice(safeOffset) : fullText
+
+    if (!textToSpeak.trim()) {
+      return
+    }
+
+    const targetLang = this.detectLanguage(textToSpeak)
+    const utterance = new SpeechSynthesisUtterance(textToSpeak)
     utterance.lang = targetLang
 
     const voice = this.getBestVoice(targetLang)
@@ -206,18 +233,62 @@ class NativeTtsService {
     utterance.rate = 1.0
     utterance.pitch = 1.0
 
+    this.currentUtterance = utterance
+
+    // Immediate optimistic state update with initial highlight position
+    this.state = {
+      isPlaying: true,
+      isPaused: false,
+      activeMessageId: messageId,
+      currentText: fullText,
+      currentRange: [safeOffset, safeOffset],
+      startOffset: safeOffset,
+    }
+    this.notify()
+
     utterance.onstart = () => {
+      if (this.currentSessionId !== sessionId) return
       this.state = {
         isPlaying: true,
         isPaused: false,
         activeMessageId: messageId,
-        currentText: text,
+        currentText: fullText,
+        currentRange: [safeOffset, safeOffset],
+        startOffset: safeOffset,
       }
       this.notify()
       this.startChromeKeepAlive()
     }
 
+    utterance.onboundary = (event: SpeechSynthesisEvent) => {
+      if (this.currentSessionId !== sessionId) return
+      if (event.name === 'word') {
+        const charIndex = event.charIndex
+        let charLength = event.charLength || 0
+
+        if (!charLength || charLength <= 0) {
+          // Fallback: detect word length up to next whitespace or punctuation
+          const slice = textToSpeak.slice(charIndex)
+          const match = slice.match(/^[\p{L}\p{N}'’\-_]+/u) || slice.match(/^\S+/)
+          charLength = match ? match[0].length : 1
+        }
+
+        const globalStart = safeOffset + charIndex
+        const globalEnd = globalStart + charLength
+
+        this.state = {
+          ...this.state,
+          isPlaying: true,
+          isPaused: false,
+          activeMessageId: messageId,
+          currentRange: [globalStart, globalEnd],
+        }
+        this.notify()
+      }
+    }
+
     utterance.onpause = () => {
+      if (this.currentSessionId !== sessionId) return
       this.state.isPlaying = false
       this.state.isPaused = true
       this.notify()
@@ -225,6 +296,7 @@ class NativeTtsService {
     }
 
     utterance.onresume = () => {
+      if (this.currentSessionId !== sessionId) return
       this.state.isPlaying = true
       this.state.isPaused = false
       this.notify()
@@ -232,37 +304,49 @@ class NativeTtsService {
     }
 
     utterance.onend = () => {
+      if (this.currentSessionId !== sessionId) return
+      this.currentUtterance = null
       this.state = {
         isPlaying: false,
         isPaused: false,
         activeMessageId: null,
         currentText: '',
+        currentRange: null,
+        startOffset: 0,
       }
       this.notify()
       this.stopChromeKeepAlive()
     }
 
     utterance.onerror = (e) => {
-      // 'canceled' or 'interrupted' is normal when switching or stopping
+      if (this.currentSessionId !== sessionId) return
       if (e.error !== 'canceled' && e.error !== 'interrupted') {
         console.warn('SpeechSynthesis error:', e)
       }
+      this.currentUtterance = null
       this.state = {
         isPlaying: false,
         isPaused: false,
         activeMessageId: null,
         currentText: '',
+        currentRange: null,
+        startOffset: 0,
       }
       this.notify()
       this.stopChromeKeepAlive()
     }
 
-    try {
-      window.speechSynthesis.speak(utterance)
-    } catch (err) {
-      console.error('Failed to invoke speech synthesis:', err)
-      this.stop()
-    }
+    // Small delay (50ms) ensures browser audio buffers are cleanly cleared after cancel()
+    // and eliminates the Chromium/Safari audio queue desync on rapid seeks.
+    this.speakTimeoutTimer = window.setTimeout(() => {
+      if (this.currentSessionId !== sessionId) return
+      try {
+        window.speechSynthesis.speak(utterance)
+      } catch (err) {
+        console.error('Failed to invoke speech synthesis:', err)
+        this.stop()
+      }
+    }, 50)
   }
 
   public pause() {
@@ -288,15 +372,32 @@ class NativeTtsService {
   }
 
   public stop() {
-    if (!this.isSupported()) return
-    try {
-      window.speechSynthesis.cancel()
-    } catch {}
+    this.currentSessionId++
+    if (this.speakTimeoutTimer !== null) {
+      clearTimeout(this.speakTimeoutTimer)
+      this.speakTimeoutTimer = null
+    }
+    if (this.currentUtterance) {
+      this.currentUtterance.onstart = null
+      this.currentUtterance.onboundary = null
+      this.currentUtterance.onpause = null
+      this.currentUtterance.onresume = null
+      this.currentUtterance.onend = null
+      this.currentUtterance.onerror = null
+      this.currentUtterance = null
+    }
+    if (this.isSupported()) {
+      try {
+        window.speechSynthesis.cancel()
+      } catch {}
+    }
     this.state = {
       isPlaying: false,
       isPaused: false,
       activeMessageId: null,
       currentText: '',
+      currentRange: null,
+      startOffset: 0,
     }
     this.notify()
     this.stopChromeKeepAlive()

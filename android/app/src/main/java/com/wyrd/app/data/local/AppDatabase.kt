@@ -8,13 +8,15 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [ChatEntity::class, MessageEntity::class],
-    version = 6,
+    entities = [ChatEntity::class, MessageEntity::class, ProjectEntity::class, ProjectFileEntity::class],
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
     abstract fun messageDao(): MessageDao
+    abstract fun projectDao(): ProjectDao
+    abstract fun projectFileDao(): ProjectFileDao
 
     companion object {
         @Volatile
@@ -32,7 +34,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     dbName
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
@@ -69,6 +71,43 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE messages ADD COLUMN syncId TEXT NOT NULL DEFAULT ''")
                 database.execSQL("UPDATE chats SET syncId = lower(hex(randomblob(16))) WHERE syncId = ''")
                 database.execSQL("UPDATE messages SET syncId = lower(hex(randomblob(16))) WHERE syncId = ''")
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS projects (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        syncId TEXT NOT NULL DEFAULT '',
+                        name TEXT NOT NULL,
+                        description TEXT NOT NULL DEFAULT '',
+                        systemPrompt TEXT NOT NULL DEFAULT '',
+                        isPinned INTEGER NOT NULL DEFAULT 0,
+                        createdAt INTEGER NOT NULL DEFAULT 0,
+                        updatedAt INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent()
+                )
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS project_files (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        syncId TEXT NOT NULL DEFAULT '',
+                        projectId INTEGER NOT NULL,
+                        projectSyncId TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        size INTEGER NOT NULL,
+                        mimeType TEXT NOT NULL,
+                        storagePath TEXT NOT NULL,
+                        textContent TEXT,
+                        createdAt INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent()
+                )
+                database.execSQL("ALTER TABLE chats ADD COLUMN projectId INTEGER")
+                database.execSQL("ALTER TABLE chats ADD COLUMN projectSyncId TEXT")
             }
         }
     }

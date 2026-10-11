@@ -15,6 +15,12 @@ interface ChatDao {
     @Query("SELECT * FROM chats WHERE title LIKE '%' || :query || '%' ORDER BY isPinned DESC, updatedAt DESC, id DESC")
     fun searchChats(query: String): Flow<List<ChatEntity>>
 
+    @Query("SELECT * FROM chats WHERE projectId = :projectId ORDER BY isPinned DESC, updatedAt DESC, id DESC")
+    fun getChatsByProject(projectId: Long): Flow<List<ChatEntity>>
+
+    @Query("SELECT * FROM chats WHERE projectId IS NULL ORDER BY isPinned DESC, updatedAt DESC, id DESC")
+    fun getGenericChats(): Flow<List<ChatEntity>>
+
     @Query("SELECT * FROM chats WHERE id = :chatId")
     suspend fun getChatById(chatId: Long): ChatEntity?
 
@@ -35,6 +41,12 @@ interface ChatDao {
 
     @Query("UPDATE chats SET title = :title, updatedAt = :updatedAt WHERE id = :chatId")
     suspend fun updateTitle(chatId: Long, title: String, updatedAt: Long = System.currentTimeMillis())
+
+    @Query("UPDATE chats SET projectId = :projectId, projectSyncId = :projectSyncId, updatedAt = :updatedAt WHERE id = :chatId")
+    suspend fun updateProject(chatId: Long, projectId: Long?, projectSyncId: String?, updatedAt: Long = System.currentTimeMillis())
+
+    @Query("UPDATE chats SET projectId = NULL, projectSyncId = NULL WHERE projectId = :projectId")
+    suspend fun detachChatsFromProject(projectId: Long)
 
     @Query("DELETE FROM chats WHERE id = :chatId")
     suspend fun deleteChatById(chatId: Long)

@@ -157,6 +157,13 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
   - Graceful session recovery: automatically clears revoked sessions and prompts clean re-authentication if credentials are permanently invalidated.
   - Seamless Sign In / Sign Up dialog embedded natively in Settings under **CLOUD SYNC**.
 
+### 8. Projects & Knowledge Base Spaces
+- **Custom System Prompt Override**: Dedicated projects with custom instructions that strictly override the generic profile system prompt.
+- **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any project. The text is extracted client-side via `AttachmentHelper` and formatted into contextual knowledge base memory before prompt dispatch.
+- **Collapsible Folder Organization**: The Material 3 navigation drawer features a collapsible `PROJECTS` section with nested chat threads, chat counts, quick `+` chat creation, and project settings dialog. Generic chats reside in the `HISTORY` section.
+- **TopBar Breadcrumb**: Subtle folder indicator in the top bar displaying the active project name.
+- **Room SQLite Migration (v7)**: Added `ProjectEntity`, `ProjectFileEntity`, foreign keys, and indices with `MIGRATION_6_7`.
+- **Bidirectional Cloud Sync**: Full two-way sync with Supabase tables `projects`, `project_files`, and `chats.project_id`.
 
 ---
 

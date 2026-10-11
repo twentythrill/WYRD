@@ -1,4 +1,105 @@
-import { supabase, type Chat, type Message, type Profile } from '@/lib/supabase'
+import {
+  supabase,
+  type Chat,
+  type Message,
+  type Profile,
+  type Project,
+  type ProjectFile,
+} from '@/lib/supabase'
+
+const LOCAL_PROJECTS_KEY = 'wyrd_local_projects'
+const LOCAL_PROJECT_FILES_KEY = 'wyrd_local_project_files'
+
+function getLocalProjects(userId?: string): Project[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_PROJECTS_KEY)
+    const list: Project[] = raw ? JSON.parse(raw) : []
+    return userId ? list.filter((p) => p.user_id === userId || !p.user_id) : list
+  } catch {
+    return []
+  }
+}
+
+function saveLocalProject(project: Project): void {
+  try {
+    const raw = localStorage.getItem(LOCAL_PROJECTS_KEY)
+    const list: Project[] = raw ? JSON.parse(raw) : []
+    const index = list.findIndex((p) => p.id === project.id)
+    if (index >= 0) {
+      list[index] = project
+    } else {
+      list.unshift(project)
+    }
+    localStorage.setItem(LOCAL_PROJECTS_KEY, JSON.stringify(list))
+  } catch (e) {
+    console.warn('Failed to save local project:', e)
+  }
+}
+
+function updateLocalProject(projectId: string, updates: Partial<Project>): Project | null {
+  try {
+    const raw = localStorage.getItem(LOCAL_PROJECTS_KEY)
+    const list: Project[] = raw ? JSON.parse(raw) : []
+    const index = list.findIndex((p) => p.id === projectId)
+    if (index >= 0) {
+      const updated = { ...list[index], ...updates, updated_at: new Date().toISOString() }
+      list[index] = updated
+      localStorage.setItem(LOCAL_PROJECTS_KEY, JSON.stringify(list))
+      return updated
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function deleteLocalProject(projectId: string): void {
+  try {
+    const raw = localStorage.getItem(LOCAL_PROJECTS_KEY)
+    const list: Project[] = raw ? JSON.parse(raw) : []
+    const filtered = list.filter((p) => p.id !== projectId)
+    localStorage.setItem(LOCAL_PROJECTS_KEY, JSON.stringify(filtered))
+  } catch (e) {
+    console.warn('Failed to delete local project:', e)
+  }
+}
+
+function getLocalProjectFiles(projectId: string): ProjectFile[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_PROJECT_FILES_KEY)
+    const all: ProjectFile[] = raw ? JSON.parse(raw) : []
+    return all.filter((f) => f.project_id === projectId)
+  } catch {
+    return []
+  }
+}
+
+function saveLocalProjectFile(file: ProjectFile): void {
+  try {
+    const raw = localStorage.getItem(LOCAL_PROJECT_FILES_KEY)
+    const all: ProjectFile[] = raw ? JSON.parse(raw) : []
+    const index = all.findIndex((f) => f.id === file.id)
+    if (index >= 0) {
+      all[index] = file
+    } else {
+      all.push(file)
+    }
+    localStorage.setItem(LOCAL_PROJECT_FILES_KEY, JSON.stringify(all))
+  } catch (e) {
+    console.warn('Failed to save local project file:', e)
+  }
+}
+
+function deleteLocalProjectFile(fileId: string): void {
+  try {
+    const raw = localStorage.getItem(LOCAL_PROJECT_FILES_KEY)
+    const all: ProjectFile[] = raw ? JSON.parse(raw) : []
+    const filtered = all.filter((f) => f.id !== fileId)
+    localStorage.setItem(LOCAL_PROJECT_FILES_KEY, JSON.stringify(filtered))
+  } catch (e) {
+    console.warn('Failed to delete local project file:', e)
+  }
+}
 
 export const dbService = {
   // --- Profile Operations ---
@@ -30,6 +131,232 @@ export const dbService = {
     return data
   },
 
+  // --- Project Operations with Resilient Local Fallback ---
+  async getProjects(userId: string): Promise<Project[]> {
+    const local = getLocalProjects(userId)
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('user_id', userId)
+        .order('is_pinned', { ascending: false })
+        .order('updated_at', { ascending: false })
+        .order('id', { ascending: false })
+
+      if (error) {
+        console.warn('Supabase projects query returned error (using local storage fallback):', error.message)
+        return local
+      }
+
+      if (data) {
+        const remoteIds = new Set(data.map((p) => p.id))
+        const unsynced = local.filter((p) => !remoteIds.has(p.id))
+        return [...unsynced, ...data]
+      }
+      return local
+    } catch (e) {
+      console.warn('Network error fetching projects, using local storage fallback:', e)
+      return local
+    }
+  },
+
+  async createProject(
+    userId: string,
+    name: string,
+    systemPrompt: string = '',
+    description?: string
+  ): Promise<Project | null> {
+    const localProj: Project = {
+      id: `local_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      user_id: userId,
+      name,
+      description: description || null,
+      system_prompt: systemPrompt,
+      is_pinned: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .insert({
+          user_id: userId,
+          name,
+          system_prompt: systemPrompt,
+          description: description || null,
+          is_pinned: false,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.warn('Supabase projects table unavailable or error, saving locally:', error.message)
+        saveLocalProject(localProj)
+        return localProj
+      }
+      return data
+    } catch (err) {
+      console.warn('Network exception while saving project, saving locally:', err)
+      saveLocalProject(localProj)
+      return localProj
+    }
+  },
+
+  async updateProject(projectId: string, updates: Partial<Project>): Promise<Project | null> {
+    if (projectId.startsWith('local_')) {
+      return updateLocalProject(projectId, updates)
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', projectId)
+        .select()
+        .single()
+
+      if (error) {
+        console.warn('Supabase update failed, saving locally:', error.message)
+        return updateLocalProject(projectId, updates)
+      }
+      return data
+    } catch (err) {
+      console.warn('Network exception while updating project:', err)
+      return updateLocalProject(projectId, updates)
+    }
+  },
+
+  async deleteProject(projectId: string): Promise<boolean> {
+    deleteLocalProject(projectId)
+    if (projectId.startsWith('local_')) {
+      return true
+    }
+    try {
+      // 1. Delete all project files in storage
+      const { data: files } = await supabase
+        .from('project_files')
+        .select('storage_path')
+        .eq('project_id', projectId)
+
+      if (files && files.length > 0) {
+        const paths = files.map((f) => f.storage_path).filter(Boolean)
+        if (paths.length > 0) {
+          await deleteStorageAttachments(paths)
+        }
+      }
+
+      await supabase.from('chats').update({ project_id: null }).eq('project_id', projectId)
+      await supabase.from('projects').delete().eq('id', projectId)
+      return true
+    } catch (e) {
+      console.warn('Error during project deletion:', e)
+      return true
+    }
+  },
+
+  // --- Project Files Operations with Resilient Local Fallback ---
+  async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
+    const local = getLocalProjectFiles(projectId)
+    if (projectId.startsWith('local_')) {
+      return local
+    }
+    try {
+      const { data, error } = await supabase
+        .from('project_files')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        return local
+      }
+      if (data) {
+        const remoteIds = new Set(data.map((f) => f.id))
+        const unsynced = local.filter((f) => !remoteIds.has(f.id))
+        return [...unsynced, ...data]
+      }
+      return local
+    } catch {
+      return local
+    }
+  },
+
+  async createProjectFile(
+    userId: string,
+    projectId: string,
+    fileInfo: {
+      name: string
+      size: number
+      mimeType: string
+      storagePath: string
+      textContent?: string
+    }
+  ): Promise<ProjectFile | null> {
+    const localFile: ProjectFile = {
+      id: `local_f_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      project_id: projectId,
+      user_id: userId,
+      name: fileInfo.name,
+      size: fileInfo.size,
+      mime_type: fileInfo.mimeType,
+      storage_path: fileInfo.storagePath,
+      text_content: fileInfo.textContent || null,
+      created_at: new Date().toISOString(),
+    }
+
+    if (projectId.startsWith('local_')) {
+      saveLocalProjectFile(localFile)
+      return localFile
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('project_files')
+        .insert({
+          user_id: userId,
+          project_id: projectId,
+          name: fileInfo.name,
+          size: fileInfo.size,
+          mime_type: fileInfo.mimeType,
+          storage_path: fileInfo.storagePath,
+          text_content: fileInfo.textContent || null,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.warn('Failed to insert project file to Supabase, saving locally:', error.message)
+        saveLocalProjectFile(localFile)
+        return localFile
+      }
+      return data
+    } catch {
+      saveLocalProjectFile(localFile)
+      return localFile
+    }
+  },
+
+  async deleteProjectFile(fileId: string, storagePath?: string): Promise<boolean> {
+    deleteLocalProjectFile(fileId)
+    if (storagePath) {
+      try {
+        await deleteStorageAttachments([storagePath])
+      } catch (e) {
+        console.warn('Error deleting project file from storage:', e)
+      }
+    }
+    if (fileId.startsWith('local_')) {
+      return true
+    }
+    try {
+      await supabase.from('project_files').delete().eq('id', fileId)
+      return true
+    } catch {
+      return true
+    }
+  },
+
   // --- Chat Operations ---
   async getChats(userId: string): Promise<Chat[]> {
     const { data, error } = await supabase
@@ -47,22 +374,69 @@ export const dbService = {
     return data || []
   },
 
-  async createChat(userId: string, title: string = 'New Chat'): Promise<Chat | null> {
-    const { data, error } = await supabase
-      .from('chats')
-      .insert({
+  async createChat(
+    userId: string,
+    title: string = 'New Chat',
+    projectId?: string | null
+  ): Promise<Chat | null> {
+    const isValidUuid = projectId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId)
+    const remoteProjectId = isValidUuid ? projectId : null
+
+    const localChat: Chat = {
+      id: `local_chat_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      user_id: userId,
+      title,
+      is_pinned: false,
+      project_id: projectId || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    try {
+      const insertPayload: Record<string, any> = {
         user_id: userId,
         title,
         is_pinned: false,
-      })
-      .select()
-      .single()
+      }
+      if (remoteProjectId) {
+        insertPayload.project_id = remoteProjectId
+      }
 
-    if (error) {
-      console.error('Error creating chat:', error)
-      return null
+      let { data, error } = await supabase
+        .from('chats')
+        .insert(insertPayload)
+        .select()
+        .single()
+
+      // If inserting with project_id failed (e.g. column doesn't exist yet on chats table), retry without project_id
+      if (error && remoteProjectId) {
+        console.warn('createChat with project_id failed, retrying without project_id:', error.message)
+        const retry = await supabase
+          .from('chats')
+          .insert({
+            user_id: userId,
+            title,
+            is_pinned: false,
+          })
+          .select()
+          .single()
+        data = retry.data
+        error = retry.error
+      }
+
+      if (error) {
+        console.error('Error creating chat in Supabase, using local chat fallback:', error)
+        return localChat
+      }
+
+      return {
+        ...data,
+        project_id: projectId || data?.project_id || null,
+      }
+    } catch (e) {
+      console.warn('Exception creating chat, using local chat fallback:', e)
+      return localChat
     }
-    return data
   },
 
   async updateChat(chatId: string, updates: Partial<Chat>): Promise<Chat | null> {
@@ -167,32 +541,55 @@ export const dbService = {
   },
 
   async createMessage(msg: Omit<Message, 'id' | 'created_at'>): Promise<Message | null> {
-    const { data, error } = await supabase
-      .from('messages')
-      .insert({
-        chat_id: msg.chat_id,
-        user_id: msg.user_id,
-        role: msg.role,
-        content: msg.content,
-        reasoning: msg.reasoning || null,
-        model_name: msg.model_name || null,
-        attachments: msg.attachments || [],
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error creating message:', error)
-      return null
+    const fallbackMsg: Message = {
+      id: `local_msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      chat_id: msg.chat_id,
+      user_id: msg.user_id,
+      role: msg.role,
+      content: msg.content,
+      reasoning: msg.reasoning || null,
+      model_name: msg.model_name || null,
+      attachments: msg.attachments || [],
+      created_at: new Date().toISOString(),
     }
 
-    // Touch chat updated_at
-    await supabase
-      .from('chats')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', msg.chat_id)
+    if (msg.chat_id.startsWith('local_')) {
+      return fallbackMsg
+    }
 
-    return data
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          chat_id: msg.chat_id,
+          user_id: msg.user_id,
+          role: msg.role,
+          content: msg.content,
+          reasoning: msg.reasoning || null,
+          model_name: msg.model_name || null,
+          attachments: msg.attachments || [],
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error creating message in Supabase, using fallback:', error)
+        return fallbackMsg
+      }
+
+      // Touch chat updated_at
+      try {
+        await supabase
+          .from('chats')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('id', msg.chat_id)
+      } catch {}
+
+      return data
+    } catch (e) {
+      console.warn('Exception creating message, using fallback:', e)
+      return fallbackMsg
+    }
   },
 
   async createMessagesBatch(msgs: Array<Omit<Message, 'id' | 'created_at'>>): Promise<Message[]> {
@@ -298,6 +695,21 @@ export const dbService = {
   },
 
   // --- Real-time Subscriptions ---
+  subscribeToProjects(_userId: string, onUpdate: () => void) {
+    const channel = supabase
+      .channel('public-projects-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'projects' },
+        () => onUpdate()
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  },
+
   subscribeToChats(_userId: string, onUpdate: () => void) {
     const channel = supabase
       .channel('public-chats-changes')

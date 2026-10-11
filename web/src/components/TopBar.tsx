@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { ChevronDown, Check, PanelLeftOpen, Sun, Moon } from 'lucide-react'
+import { ChevronDown, Check, PanelLeftOpen, Sun, Moon, Folder } from 'lucide-react'
 
 interface ModelOption {
   id: string
@@ -22,6 +22,7 @@ interface TopBarProps {
   activeModelId: string
   reasoningEffortId: string
   activeChatTitle?: string
+  activeProjectName?: string
   isSidebarOpen?: boolean
   isDark?: boolean
   onSelectModel: (modelId: string) => void
@@ -34,6 +35,7 @@ export function TopBar({
   activeModelId,
   reasoningEffortId,
   activeChatTitle,
+  activeProjectName,
   isSidebarOpen,
   isDark = true,
   onSelectModel,
@@ -155,14 +157,29 @@ export function TopBar({
         )}
       </div>
 
-      {/* Active Conversation Breadcrumb */}
-      {activeChatTitle && (
+      {/* Active Conversation / Project Breadcrumb */}
+      {activeProjectName ? (
+        <div className="ml-2.5 pl-3 border-l border-[#262626] h-5 hidden sm:flex items-center min-w-0 gap-1.5 text-xs text-[#8E8E93]">
+          <Folder className="w-3.5 h-3.5 text-[#CECDC4] shrink-0" />
+          <span className="font-semibold text-[#CECDC4] truncate max-w-[140px] font-sans">
+            {activeProjectName}
+          </span>
+          {activeChatTitle && (
+            <>
+              <span className="text-[#636366]">/</span>
+              <span className="truncate max-w-[200px] lg:max-w-[320px] font-sans">
+                {activeChatTitle}
+              </span>
+            </>
+          )}
+        </div>
+      ) : activeChatTitle ? (
         <div className="ml-2.5 pl-3 border-l border-[#262626] h-5 hidden sm:flex items-center min-w-0">
           <span className="text-xs text-[#8E8E93] truncate font-sans max-w-[280px] lg:max-w-[420px]">
             {activeChatTitle}
           </span>
         </div>
-      )}
+      ) : null}
 
       {/* Right Action: Theme Switcher */}
       {onToggleTheme && (

@@ -117,6 +117,22 @@ class SecureKeyStorage(context: Context) {
         }
     }
 
+    fun getKnownSyncedProjectIds(): Set<String> {
+        return sharedPreferences.getStringSet(KEY_SYNCED_PROJECT_IDS, emptySet())?.toSet() ?: emptySet()
+    }
+
+    fun setKnownSyncedProjectIds(ids: Set<String>) {
+        sharedPreferences.edit().putStringSet(KEY_SYNCED_PROJECT_IDS, HashSet(ids)).apply()
+    }
+
+    fun getKnownSyncedProjectFileIds(): Set<String> {
+        return sharedPreferences.getStringSet(KEY_SYNCED_PROJECT_FILE_IDS, emptySet())?.toSet() ?: emptySet()
+    }
+
+    fun setKnownSyncedProjectFileIds(ids: Set<String>) {
+        sharedPreferences.edit().putStringSet(KEY_SYNCED_PROJECT_FILE_IDS, HashSet(ids)).apply()
+    }
+
     fun clearSupabaseAuth() {
         sharedPreferences.edit()
             .remove(KEY_SUPABASE_ACCESS_TOKEN)
@@ -124,6 +140,8 @@ class SecureKeyStorage(context: Context) {
             .remove(KEY_SUPABASE_USER_EMAIL)
             .remove(KEY_SUPABASE_USER_ID)
             .remove(KEY_SYNCED_CHAT_IDS)
+            .remove(KEY_SYNCED_PROJECT_IDS)
+            .remove(KEY_SYNCED_PROJECT_FILE_IDS)
             .apply()
     }
 
@@ -136,6 +154,8 @@ class SecureKeyStorage(context: Context) {
         private const val KEY_SUPABASE_USER_EMAIL = "supabase_user_email"
         private const val KEY_SUPABASE_USER_ID = "supabase_user_id"
         private const val KEY_SYNCED_CHAT_IDS = "supabase_synced_chat_ids"
+        private const val KEY_SYNCED_PROJECT_IDS = "supabase_synced_project_ids"
+        private const val KEY_SYNCED_PROJECT_FILE_IDS = "supabase_synced_project_file_ids"
     }
 }
 

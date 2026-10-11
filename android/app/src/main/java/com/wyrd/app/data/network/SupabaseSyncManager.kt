@@ -5,6 +5,8 @@ import android.util.Log
 import com.wyrd.app.data.local.AppDatabase
 import com.wyrd.app.data.local.ChatEntity
 import com.wyrd.app.data.local.MessageEntity
+import com.wyrd.app.data.local.ProjectEntity
+import com.wyrd.app.data.local.ProjectFileEntity
 import com.wyrd.app.data.preferences.PreferencesManager
 import com.wyrd.app.data.preferences.SecureKeyStorage
 import kotlinx.coroutines.Dispatchers
@@ -318,7 +320,10 @@ class SupabaseSyncManager(
             // 1. Sync Profile
             syncProfile(token, userId)
 
-            // 2. Sync Chats
+            // 2. Sync Projects & Project Files
+            syncProjects(token, userId)
+
+            // 3. Sync Chats
             syncChats(token, userId)
 
             // 3. Sync Messages
@@ -408,6 +413,304 @@ class SupabaseSyncManager(
         } catch (_: Exception) {}
     }
 
+    private suspend fun syncProjects(token: String, userId: String) {
+        val projectDao = database.projectDao()
+        val projectFileDao = database.projectFileDao()
+
+        // 1. Download remote projects
+        val getReq = Request.Builder()
+            .url("$SUPABASE_URL/rest/v1/projects?select=*&order=is_pinned.desc,updated_at.desc,id.desc")
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .get()
+            .build()
+
+        val remoteArr: JSONArray
+        try {
+            val resp = client.newCall(getReq).execute()
+            resp.use {
+                if (!it.isSuccessful) {
+                    val err = it.body?.string() ?: ""
+                    Log.e(TAG, "syncProjects download failed: ${it.code} $err")
+                    return
+                }
+                val body = it.body?.string() ?: "[]"
+                remoteArr = JSONArray(body)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "syncProjects network error", e)
+            return
+        }
+
+        val remoteMap = mutableMapOf<String, JSONObject>()
+        for (i in 0 until remoteArr.length()) {
+            val rObj = remoteArr.getJSONObject(i)
+            val rId = rObj.optString("id", "")
+            if (rId.isNotBlank()) {
+                remoteMap[rId] = rObj
+            }
+        }
+
+        // 2. Reconcile local projects
+        val knownSyncedProjectIds = secureKeyStorage.getKnownSyncedProjectIds().toMutableSet()
+        val localProjects = projectDao.getAllProjectsList()
+        val uploadArr = JSONArray()
+
+        for (localProj in localProjects) {
+            val syncId = localProj.syncId
+            if (syncId.isNotBlank()) {
+                val rProj = remoteMap[syncId]
+                if (rProj == null) {
+                    val wasSynced = knownSyncedProjectIds.contains(syncId)
+                    val isRecentlyCreated = (System.currentTimeMillis() - localProj.createdAt) < 120_000L
+                    if (wasSynced && !isRecentlyCreated) {
+                        Log.i(TAG, "syncProjects: Project '${localProj.name}' deleted remotely. Removing locally.")
+                        projectDao.deleteProjectById(localProj.id)
+                        projectFileDao.deleteFilesByProjectId(localProj.id)
+                        database.chatDao().detachChatsFromProject(localProj.id)
+                        knownSyncedProjectIds.remove(syncId)
+                    } else {
+                        Log.i(TAG, "syncProjects: Local project '${localProj.name}' pending upload.")
+                        uploadArr.put(JSONObject().apply {
+                            put("id", syncId)
+                            put("user_id", userId)
+                            put("name", localProj.name)
+                            put("description", localProj.description)
+                            put("system_prompt", localProj.systemPrompt)
+                            put("is_pinned", localProj.isPinned)
+                            put("created_at", formatIsoDate(localProj.createdAt))
+                            put("updated_at", formatIsoDate(localProj.updatedAt))
+                        })
+                        knownSyncedProjectIds.add(syncId)
+                    }
+                } else {
+                    knownSyncedProjectIds.add(syncId)
+                    val rawUpdatedAt = parseIsoDate(rProj.optString("updated_at"))
+                    val remoteUpdatedAt = if (rawUpdatedAt > 0L) rawUpdatedAt else localProj.updatedAt
+                    val remoteName = rProj.optString("name", localProj.name)
+                    val remoteDesc = rProj.optString("description", localProj.description)
+                    val remotePrompt = rProj.optString("system_prompt", localProj.systemPrompt)
+                    val remotePinned = rProj.optBoolean("is_pinned", localProj.isPinned)
+
+                    if (localProj.updatedAt > remoteUpdatedAt) {
+                        uploadArr.put(JSONObject().apply {
+                            put("id", localProj.syncId)
+                            put("user_id", userId)
+                            put("name", localProj.name)
+                            put("description", localProj.description)
+                            put("system_prompt", localProj.systemPrompt)
+                            put("is_pinned", localProj.isPinned)
+                            put("created_at", formatIsoDate(localProj.createdAt))
+                            put("updated_at", formatIsoDate(localProj.updatedAt))
+                        })
+                    } else if (remoteUpdatedAt > localProj.updatedAt || localProj.name != remoteName || localProj.description != remoteDesc || localProj.systemPrompt != remotePrompt || localProj.isPinned != remotePinned) {
+                        projectDao.updateProject(
+                            localProj.copy(
+                                name = remoteName,
+                                description = remoteDesc,
+                                systemPrompt = remotePrompt,
+                                isPinned = remotePinned,
+                                updatedAt = remoteUpdatedAt
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        // 3. Insert remote projects not present locally
+        val localSyncIds = localProjects.mapNotNull { it.syncId.ifBlank { null } }.toSet()
+        for ((remoteId, rProj) in remoteMap) {
+            knownSyncedProjectIds.add(remoteId)
+            if (!localSyncIds.contains(remoteId)) {
+                val name = rProj.optString("name", "Project")
+                val description = rProj.optString("description", "")
+                val systemPrompt = rProj.optString("system_prompt", "")
+                val isPinned = rProj.optBoolean("is_pinned", false)
+                val rawCreatedAt = parseIsoDate(rProj.optString("created_at"))
+                val rawUpdatedAt = parseIsoDate(rProj.optString("updated_at"))
+                val createdAt = if (rawCreatedAt > 0L) rawCreatedAt else System.currentTimeMillis()
+                val updatedAt = if (rawUpdatedAt > 0L) rawUpdatedAt else createdAt
+
+                projectDao.insertProject(
+                    ProjectEntity(
+                        name = name,
+                        description = description,
+                        systemPrompt = systemPrompt,
+                        isPinned = isPinned,
+                        createdAt = createdAt,
+                        updatedAt = updatedAt,
+                        syncId = remoteId
+                    )
+                )
+            }
+        }
+        secureKeyStorage.setKnownSyncedProjectIds(knownSyncedProjectIds)
+
+        // 4. Upload pending local project creations/updates
+        if (uploadArr.length() > 0) {
+            val uploadReq = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/projects?on_conflict=id")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Prefer", "resolution=merge-duplicates")
+                .post(uploadArr.toString().toRequestBody(jsonMediaType))
+                .build()
+            client.newCall(uploadReq).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    val err = resp.body?.string() ?: ""
+                    Log.e(TAG, "syncProjects upload failed: ${resp.code} $err")
+                } else {
+                    Log.d(TAG, "syncProjects uploaded ${uploadArr.length()} projects")
+                }
+            }
+        }
+
+        // 5. Sync Project Files
+        syncProjectFiles(token, userId)
+    }
+
+    private suspend fun syncProjectFiles(token: String, userId: String) {
+        val projectDao = database.projectDao()
+        val projectFileDao = database.projectFileDao()
+
+        val getReq = Request.Builder()
+            .url("$SUPABASE_URL/rest/v1/project_files?select=*&order=created_at.asc")
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .get()
+            .build()
+
+        val remoteArr: JSONArray
+        try {
+            val resp = client.newCall(getReq).execute()
+            resp.use {
+                if (!it.isSuccessful) return
+                val body = it.body?.string() ?: "[]"
+                remoteArr = JSONArray(body)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "syncProjectFiles download failed", e)
+            return
+        }
+
+        val remoteMap = mutableMapOf<String, JSONObject>()
+        for (i in 0 until remoteArr.length()) {
+            val rObj = remoteArr.getJSONObject(i)
+            val rId = rObj.optString("id", "")
+            if (rId.isNotBlank()) remoteMap[rId] = rObj
+        }
+
+        val knownSyncedFileIds = secureKeyStorage.getKnownSyncedProjectFileIds().toMutableSet()
+        val allLocalProjects = projectDao.getAllProjectsList()
+
+        for (proj in allLocalProjects) {
+            val localFiles = projectFileDao.getFilesByProjectList(proj.id)
+            val uploadArr = JSONArray()
+
+            for (lFile in localFiles) {
+                val syncId = lFile.syncId
+                if (syncId.isNotBlank()) {
+                    val rFile = remoteMap[syncId]
+                    if (rFile == null) {
+                        val wasSynced = knownSyncedFileIds.contains(syncId)
+                        val isRecentlyCreated = (System.currentTimeMillis() - lFile.createdAt) < 120_000L
+                        if (wasSynced && !isRecentlyCreated) {
+                            projectFileDao.deleteFileById(lFile.id)
+                            knownSyncedFileIds.remove(syncId)
+                        } else {
+                            uploadArr.put(JSONObject().apply {
+                                put("id", syncId)
+                                put("project_id", proj.syncId)
+                                put("user_id", userId)
+                                put("name", lFile.name)
+                                put("size", lFile.size)
+                                put("mime_type", lFile.mimeType)
+                                put("storage_path", lFile.storagePath)
+                                put("text_content", lFile.textContent ?: JSONObject.NULL)
+                                put("created_at", formatIsoDate(lFile.createdAt))
+                            })
+                            knownSyncedFileIds.add(syncId)
+                        }
+                    } else {
+                        knownSyncedFileIds.add(syncId)
+                    }
+                }
+            }
+
+            if (uploadArr.length() > 0) {
+                val uploadReq = Request.Builder()
+                    .url("$SUPABASE_URL/rest/v1/project_files?on_conflict=id")
+                    .addHeader("apikey", SUPABASE_KEY)
+                    .addHeader("Authorization", "Bearer $token")
+                    .addHeader("Prefer", "resolution=merge-duplicates")
+                    .post(uploadArr.toString().toRequestBody(jsonMediaType))
+                    .build()
+                client.newCall(uploadReq).execute().close()
+            }
+        }
+
+        // Insert remote files that do not exist locally
+        for ((remoteId, rFile) in remoteMap) {
+            knownSyncedFileIds.add(remoteId)
+            val existing = projectFileDao.getFileBySyncId(remoteId)
+            if (existing == null) {
+                val projSyncId = rFile.optString("project_id", "")
+                val localProj = projectDao.getProjectBySyncId(projSyncId)
+                if (localProj != null) {
+                    val name = rFile.optString("name", "file")
+                    val size = rFile.optLong("size", 0L)
+                    val mimeType = rFile.optString("mime_type", "application/octet-stream")
+                    val storagePath = rFile.optString("storage_path", "")
+                    val textContent = if (rFile.isNull("text_content")) null else rFile.optString("text_content", "")
+                    val rawCreatedAt = parseIsoDate(rFile.optString("created_at"))
+                    val createdAt = if (rawCreatedAt > 0L) rawCreatedAt else System.currentTimeMillis()
+
+                    projectFileDao.insertFile(
+                        ProjectFileEntity(
+                            syncId = remoteId,
+                            projectId = localProj.id,
+                            projectSyncId = projSyncId,
+                            name = name,
+                            size = size,
+                            mimeType = mimeType,
+                            storagePath = storagePath,
+                            textContent = textContent,
+                            createdAt = createdAt
+                        )
+                    )
+                }
+            }
+        }
+
+        secureKeyStorage.setKnownSyncedProjectFileIds(knownSyncedFileIds)
+    }
+
+    suspend fun deleteProjectRemotely(projectSyncId: String) = withContext(Dispatchers.IO) {
+        val token = getValidAccessToken() ?: return@withContext
+        val req = Request.Builder()
+            .url("$SUPABASE_URL/rest/v1/projects?id=eq.$projectSyncId")
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .delete()
+            .build()
+        client.newCall(req).execute().close()
+    }
+
+    suspend fun deleteProjectFileRemotely(fileSyncId: String, storagePath: String) = withContext(Dispatchers.IO) {
+        val token = getValidAccessToken() ?: return@withContext
+        val req = Request.Builder()
+            .url("$SUPABASE_URL/rest/v1/project_files?id=eq.$fileSyncId")
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .delete()
+            .build()
+        client.newCall(req).execute().close()
+        if (storagePath.isNotBlank()) {
+            deleteStorageAttachments(listOf(storagePath))
+        }
+    }
+
     private suspend fun syncChats(token: String, userId: String) {
         val chatDao = database.chatDao()
         val messageDao = database.messageDao()
@@ -477,6 +780,11 @@ class SupabaseSyncManager(
                             put("user_id", userId)
                             put("title", localChat.title)
                             put("is_pinned", localChat.isPinned)
+                            if (localChat.projectSyncId.isNullOrBlank()) {
+                                put("project_id", JSONObject.NULL)
+                            } else {
+                                put("project_id", localChat.projectSyncId)
+                            }
                             put("created_at", formatIsoDate(localChat.createdAt))
                             put("updated_at", formatIsoDate(localChat.updatedAt))
                         })
@@ -489,6 +797,10 @@ class SupabaseSyncManager(
                     val remoteUpdatedAt = if (rawUpdatedAt > 0L) rawUpdatedAt else localChat.updatedAt
                     val remoteTitle = rChat.optString("title", localChat.title)
                     val remotePinned = rChat.optBoolean("is_pinned", localChat.isPinned)
+                    val remoteProjectSyncId = if (rChat.isNull("project_id")) null else rChat.optString("project_id", "").ifEmpty { null }
+                    val localProjectId = if (!remoteProjectSyncId.isNullOrBlank()) {
+                        database.projectDao().getProjectBySyncId(remoteProjectSyncId)?.id
+                    } else null
 
                     if (localChat.updatedAt > remoteUpdatedAt) {
                         // Local has newer updates -> stage for upload
@@ -497,16 +809,23 @@ class SupabaseSyncManager(
                             put("user_id", userId)
                             put("title", localChat.title)
                             put("is_pinned", localChat.isPinned)
+                            if (localChat.projectSyncId.isNullOrBlank()) {
+                                put("project_id", JSONObject.NULL)
+                            } else {
+                                put("project_id", localChat.projectSyncId)
+                            }
                             put("created_at", formatIsoDate(localChat.createdAt))
                             put("updated_at", formatIsoDate(localChat.updatedAt))
                         })
-                    } else if (remoteUpdatedAt > localChat.updatedAt || localChat.title != remoteTitle || localChat.isPinned != remotePinned) {
+                    } else if (remoteUpdatedAt > localChat.updatedAt || localChat.title != remoteTitle || localChat.isPinned != remotePinned || localChat.projectSyncId != remoteProjectSyncId) {
                         // Remote has newer updates -> update local SQLite
                         chatDao.updateChat(
                             localChat.copy(
                                 title = remoteTitle,
                                 isPinned = remotePinned,
-                                updatedAt = remoteUpdatedAt
+                                updatedAt = remoteUpdatedAt,
+                                projectId = localProjectId,
+                                projectSyncId = remoteProjectSyncId
                             )
                         )
                     }
@@ -519,6 +838,11 @@ class SupabaseSyncManager(
                     put("user_id", userId)
                     put("title", localChat.title)
                     put("is_pinned", localChat.isPinned)
+                    if (localChat.projectSyncId.isNullOrBlank()) {
+                        put("project_id", JSONObject.NULL)
+                    } else {
+                        put("project_id", localChat.projectSyncId)
+                    }
                     put("created_at", formatIsoDate(localChat.createdAt))
                     put("updated_at", formatIsoDate(localChat.updatedAt))
                 })
@@ -537,6 +861,10 @@ class SupabaseSyncManager(
                 val rawUpdatedAt = parseIsoDate(rChat.optString("updated_at"))
                 val createdAt = if (rawCreatedAt > 0L) rawCreatedAt else System.currentTimeMillis()
                 val updatedAt = if (rawUpdatedAt > 0L) rawUpdatedAt else createdAt
+                val remoteProjectSyncId = if (rChat.isNull("project_id")) null else rChat.optString("project_id", "").ifEmpty { null }
+                val localProjectId = if (!remoteProjectSyncId.isNullOrBlank()) {
+                    database.projectDao().getProjectBySyncId(remoteProjectSyncId)?.id
+                } else null
 
                 chatDao.insertChat(
                     ChatEntity(
@@ -544,7 +872,9 @@ class SupabaseSyncManager(
                         isPinned = isPinned,
                         createdAt = createdAt,
                         updatedAt = updatedAt,
-                        syncId = remoteId
+                        syncId = remoteId,
+                        projectId = localProjectId,
+                        projectSyncId = remoteProjectSyncId
                     )
                 )
             }

@@ -128,6 +128,8 @@ import com.wyrd.app.ui.components.DrawerContent
 import com.wyrd.app.ui.components.SpringLoadedPullIndicator
 import com.wyrd.app.ui.components.StreamingAssistantMessageItem
 import com.wyrd.app.ui.components.formatMarkdownForReading
+import com.wyrd.app.data.local.ProjectEntity
+import com.wyrd.app.ui.components.ProjectDialog
 import com.wyrd.app.ui.components.TopBar
 import com.wyrd.app.ui.components.UserMessageBubble
 import kotlin.math.roundToInt
@@ -174,6 +176,12 @@ fun HomeScreen(
 
     val chatList by viewModel.chatList.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+
+    val projectList by viewModel.projectList.collectAsState()
+    val activeProjectId by viewModel.activeProjectId.collectAsState()
+    val activeProject by viewModel.activeProject.collectAsState()
+    var showProjectDialog by remember { mutableStateOf(false) }
+    var projectToEdit by remember { mutableStateOf<ProjectEntity?>(null) }
 
     val listState = rememberLazyListState()
     val isListDragged by listState.interactionSource.collectIsDraggedAsState()
@@ -469,11 +477,27 @@ fun HomeScreen(
                 ) {
                     DrawerContent(
                         chatList = chatList,
+                        projectList = projectList,
                         activeChatId = activeChatId,
+                        activeProjectId = activeProjectId,
                         searchQuery = searchQuery,
                         onSearchQueryChange = { viewModel.updateSearchQuery(it) },
                         onNewChat = {
                             viewModel.startNewChat()
+                            coroutineScope.launch { drawerState.close() }
+                        },
+                        onNewChatInProject = { projId ->
+                            viewModel.startNewChatInProject(projId)
+                            coroutineScope.launch { drawerState.close() }
+                        },
+                        onCreateProject = {
+                            projectToEdit = null
+                            showProjectDialog = true
+                            coroutineScope.launch { drawerState.close() }
+                        },
+                        onEditProject = { proj ->
+                            projectToEdit = proj
+                            showProjectDialog = true
                             coroutineScope.launch { drawerState.close() }
                         },
                         onChatSelected = { id ->
@@ -1108,6 +1132,7 @@ fun HomeScreen(
                                 if (drawerState.isClosed) drawerState.open() else drawerState.close()
                             }
                         },
+                        activeProjectName = activeProject?.name,
                         modifier = Modifier.align(Alignment.TopCenter)
                     )
 
@@ -1184,6 +1209,38 @@ fun HomeScreen(
             onStopToEdit = { viewModel.stopRecording(autoSend = false) },
             onCancel = { viewModel.cancelRecording() }
         )
+
+        if (showProjectDialog) {
+            ProjectDialog(
+                project = projectToEdit,
+                viewModel = viewModel,
+                onDismiss = {
+                    showProjectDialog = false
+                    projectToEdit = null
+                },
+                onSave = { name, description, systemPrompt ->
+                    val currentProject = projectToEdit
+                    if (currentProject != null) {
+                        viewModel.updateProject(
+                            currentProject.copy(
+                                name = name,
+                                description = description,
+                                systemPrompt = systemPrompt
+                            )
+                        )
+                    } else {
+                        viewModel.createProject(name, description, systemPrompt)
+                    }
+                    showProjectDialog = false
+                    projectToEdit = null
+                },
+                onDelete = { proj ->
+                    viewModel.deleteProject(proj)
+                    showProjectDialog = false
+                    projectToEdit = null
+                }
+            )
+        }
     }
 }
 

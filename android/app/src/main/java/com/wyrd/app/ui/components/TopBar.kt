@@ -41,6 +41,12 @@ import com.wyrd.app.ui.theme.TextGray
 import com.wyrd.app.ui.theme.TextMuted
 import com.wyrd.app.ui.theme.TextWhite
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
+import com.wyrd.app.ui.theme.SpaceGrotesk
+
 @Composable
 fun TopBar(
     activeModel: SupportedModel,
@@ -48,6 +54,7 @@ fun TopBar(
     onModelSelected: (SupportedModel) -> Unit,
     onReasoningEffortSelected: (ReasoningEffort) -> Unit,
     onMenuClick: () -> Unit,
+    activeProjectName: String? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -74,6 +81,34 @@ fun TopBar(
             onModelSelected = onModelSelected,
             onReasoningEffortSelected = onReasoningEffortSelected
         )
+
+        if (!activeProjectName.isNullOrBlank()) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(DarkCard)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Folder,
+                    contentDescription = null,
+                    tint = TextMuted,
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = activeProjectName,
+                    color = TextGray,
+                    fontFamily = SpaceGrotesk,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }
 

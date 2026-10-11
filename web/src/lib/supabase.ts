@@ -32,9 +32,33 @@ export interface Profile {
   updated_at?: string
 }
 
+export interface Project {
+  id: string
+  user_id: string
+  name: string
+  description?: string | null
+  system_prompt: string
+  is_pinned: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectFile {
+  id: string
+  project_id: string
+  user_id: string
+  name: string
+  size: number
+  mime_type: string
+  storage_path: string
+  text_content?: string | null
+  created_at: string
+}
+
 export interface Chat {
   id: string
   user_id: string
+  project_id?: string | null
   title: string
   is_pinned: boolean
   created_at: string
