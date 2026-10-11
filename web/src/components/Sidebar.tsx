@@ -418,20 +418,21 @@ export function Sidebar({
                         {/* Expanded Project Chats */}
                         {isExpanded && (
                           <div className="space-y-0.5">
-                            {projectChatList.length === 0 ? (
-                              <div
-                                onClick={() => {
-                                  onNewChatInProject(project.id)
-                                  if (window.innerWidth < 768) onClose()
-                                }}
-                                className="pl-8 pr-3 py-1.5 text-xs text-[#636366] hover:text-[#CECDC4] cursor-pointer font-sans flex items-center gap-1.5"
-                              >
-                                <Plus className="w-3 h-3" />
-                                <span>Start new chat</span>
-                              </div>
-                            ) : (
-                              projectChatList.map((chat) => renderChatItem(chat, true))
-                            )}
+                            <div
+                              onClick={() => {
+                                onNewChatInProject(project.id)
+                                if (window.innerWidth < 768) onClose()
+                              }}
+                              className={`pl-8 pr-3 py-1.5 text-xs rounded-xl cursor-pointer font-sans flex items-center gap-1.5 transition-colors ${
+                                isProjectActive
+                                  ? 'bg-[#1A1A1A] text-[#CECDC4]'
+                                  : 'text-[#636366] hover:text-[#CECDC4] hover:bg-[#141414]'
+                              }`}
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>New Chat in {project.name}</span>
+                            </div>
+                            {projectChatList.map((chat) => renderChatItem(chat, true))}
                           </div>
                         )}
                       </div>

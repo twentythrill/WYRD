@@ -879,7 +879,7 @@ class SupabaseSyncManager(
                     val effectiveProjectSyncId = remoteProjectSyncId ?: localChat.projectSyncId
                     val localProjectId = if (!effectiveProjectSyncId.isNullOrBlank()) {
                         database.projectDao().getProjectBySyncId(effectiveProjectSyncId)?.id ?: localChat.projectId
-                    } else null
+                    } else localChat.projectId
 
                     if (localChat.updatedAt > remoteUpdatedAt) {
                         // Local has newer updates -> stage for upload

@@ -390,48 +390,47 @@ fun DrawerContent(
                     }
 
                     if (isExpanded) {
-                        if (projectChats.isEmpty()) {
-                            item(key = "proj_${project.id}_empty") {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable {
-                                            hapticManager?.tick()
-                                            onNewChatInProject(project.id)
-                                        }
-                                        .padding(start = 36.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Add,
-                                        contentDescription = null,
-                                        tint = TextMuted,
-                                        modifier = Modifier.size(12.dp)
+                        item(key = "proj_${project.id}_new_chat") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isProjectSelected) DarkCard else androidx.compose.ui.graphics.Color.Transparent)
+                                    .clickable {
+                                        hapticManager?.tick()
+                                        onNewChatInProject(project.id)
+                                    }
+                                    .padding(start = 36.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = null,
+                                    tint = if (isProjectSelected) TextWhite else TextMuted,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "New chat in ${project.name}",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = if (isProjectSelected) TextWhite else TextMuted,
+                                        fontFamily = SpaceGrotesk,
+                                        fontSize = 12.sp
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Start new chat",
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            color = TextMuted,
-                                            fontFamily = SpaceGrotesk,
-                                            fontSize = 12.sp
-                                        )
-                                    )
-                                }
-                            }
-                        } else {
-                            items(projectChats, key = { "proj_${project.id}_${it.id}" }) { chat ->
-                                ChatItemRow(
-                                    chat = chat,
-                                    isSelected = chat.id == activeChatId,
-                                    isNested = true,
-                                    onClick = { onChatSelected(chat.id) },
-                                    onTogglePin = { onTogglePinChat(chat) },
-                                    onRename = { chatToRename = chat },
-                                    onDelete = { onDeleteChat(chat) }
                                 )
                             }
+                        }
+
+                        items(projectChats, key = { "proj_${project.id}_${it.id}" }) { chat ->
+                            ChatItemRow(
+                                chat = chat,
+                                isSelected = chat.id == activeChatId,
+                                isNested = true,
+                                onClick = { onChatSelected(chat.id) },
+                                onTogglePin = { onTogglePinChat(chat) },
+                                onRename = { chatToRename = chat },
+                                onDelete = { onDeleteChat(chat) }
+                            )
                         }
                     }
                 }

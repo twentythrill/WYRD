@@ -1,8 +1,6 @@
 -- ==============================================================================
--- WYRD: Projects Feature Migration Script
--- Run this in Supabase SQL Editor if you already have profiles, chats, and messages.
--- It safely adds projects, project_files, and the project_id column to chats,
--- and enables REPLICA IDENTITY FULL for real-time deletes.
+-- WYRD: Complete Projects Migration Script (Fail-Safe & Idempotent)
+-- Run this in Supabase SQL Editor (Dashboard -> SQL Editor -> New Query)
 -- ==============================================================================
 
 -- 1. Create Projects Table if not exists
@@ -59,6 +57,8 @@ BEGIN
         ALTER TABLE public.chats 
             ADD COLUMN project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL;
     END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_chats_project_id ON public.chats(project_id);
@@ -87,34 +87,42 @@ BEGIN
         ON public.chats FOR ALL
         USING (auth.uid() = user_id)
         WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN OTHERS THEN
+    NULL;
 END $$;
 
--- 5. CRITICAL: Replica Identity Full for Realtime Deletes
-ALTER TABLE public.projects REPLICA IDENTITY FULL;
-ALTER TABLE public.project_files REPLICA IDENTITY FULL;
-ALTER TABLE public.chats REPLICA IDENTITY FULL;
+-- 5. Replica Identity Full for Realtime Deletes
 DO $$
 BEGIN
+    ALTER TABLE public.projects REPLICA IDENTITY FULL;
+    ALTER TABLE public.project_files REPLICA IDENTITY FULL;
+    ALTER TABLE public.chats REPLICA IDENTITY FULL;
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'messages') THEN
         ALTER TABLE public.messages REPLICA IDENTITY FULL;
     END IF;
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') THEN
         ALTER TABLE public.profiles REPLICA IDENTITY FULL;
     END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
 END $$;
 
--- 6. Add to Realtime Publication
+-- 6. Add to Realtime Publication (Safe against FOR ALL TABLES)
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'projects') THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.projects;
-    END IF;
+    IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime' AND puballtables = false) THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'projects') THEN
+            ALTER PUBLICATION supabase_realtime ADD TABLE public.projects;
+        END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'project_files') THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.project_files;
-    END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'project_files') THEN
+            ALTER PUBLICATION supabase_realtime ADD TABLE public.project_files;
+        END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'chats') THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.chats;
+        IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'chats') THEN
+            ALTER PUBLICATION supabase_realtime ADD TABLE public.chats;
+        END IF;
     END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
 END $$;

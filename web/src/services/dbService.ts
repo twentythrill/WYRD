@@ -9,6 +9,48 @@ import {
 
 const LOCAL_PROJECTS_KEY = 'wyrd_local_projects'
 const LOCAL_PROJECT_FILES_KEY = 'wyrd_local_project_files'
+const LOCAL_CHAT_PROJECT_MAP_KEY = 'wyrd_chat_project_map'
+
+export function getChatProjectMap(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(LOCAL_CHAT_PROJECT_MAP_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function setChatProjectAssociation(chatId: string, projectId: string | null): void {
+  try {
+    const map = getChatProjectMap()
+    if (projectId) {
+      map[chatId] = projectId
+    } else {
+      delete map[chatId]
+    }
+    localStorage.setItem(LOCAL_CHAT_PROJECT_MAP_KEY, JSON.stringify(map))
+  } catch (e) {
+    console.warn('Failed to update chat project map:', e)
+  }
+}
+
+export function reassignChatProjectAssociation(oldProjectId: string, newProjectId: string): void {
+  try {
+    const map = getChatProjectMap()
+    let changed = false
+    for (const [chatId, pId] of Object.entries(map)) {
+      if (pId === oldProjectId) {
+        map[chatId] = newProjectId
+        changed = true
+      }
+    }
+    if (changed) {
+      localStorage.setItem(LOCAL_CHAT_PROJECT_MAP_KEY, JSON.stringify(map))
+    }
+  } catch (e) {
+    console.warn('Failed to reassign chat project map:', e)
+  }
+}
 
 function getLocalProjects(userId?: string): Project[] {
   try {
@@ -172,11 +214,14 @@ export const dbService = {
             if (created) {
               deleteLocalProject(lp.id)
               data.unshift(created)
+              reassignChatProjectAssociation(lp.id, created.id)
               // Update any chats that used this local project id
-              await supabase
-                .from('chats')
-                .update({ project_id: created.id })
-                .eq('project_id', lp.id)
+              try {
+                await supabase
+                  .from('chats')
+                  .update({ project_id: created.id })
+                  .eq('project_id', lp.id)
+              } catch {}
             }
           } catch {
             // Keep local project until next sync opportunity
@@ -402,11 +447,16 @@ export const dbService = {
       .order('updated_at', { ascending: false })
       .order('id', { ascending: false })
 
+    const localMap = getChatProjectMap()
     if (error) {
       console.error('Error fetching chats:', error)
       return []
     }
-    return data || []
+    const list = data || []
+    return list.map((chat) => ({
+      ...chat,
+      project_id: chat.project_id || localMap[chat.id] || null,
+    }))
   },
 
   async createChat(
@@ -417,14 +467,19 @@ export const dbService = {
     const isValidUuid = projectId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId)
     const remoteProjectId = isValidUuid ? projectId : null
 
+    const localChatId = `local_chat_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
     const localChat: Chat = {
-      id: `local_chat_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      id: localChatId,
       user_id: userId,
       title,
       is_pinned: false,
       project_id: projectId || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+    }
+
+    if (projectId) {
+      setChatProjectAssociation(localChatId, projectId)
     }
 
     try {
@@ -464,9 +519,14 @@ export const dbService = {
         return localChat
       }
 
+      const assignedProjectId = projectId || data?.project_id || null
+      if (data?.id && assignedProjectId) {
+        setChatProjectAssociation(data.id, assignedProjectId)
+      }
+
       return {
         ...data,
-        project_id: projectId || data?.project_id || null,
+        project_id: assignedProjectId,
       }
     } catch (e) {
       console.warn('Exception creating chat, using local chat fallback:', e)
@@ -475,6 +535,9 @@ export const dbService = {
   },
 
   async updateChat(chatId: string, updates: Partial<Chat>): Promise<Chat | null> {
+    if (updates.project_id !== undefined) {
+      setChatProjectAssociation(chatId, updates.project_id)
+    }
     const { data, error } = await supabase
       .from('chats')
       .update({ ...updates, updated_at: new Date().toISOString() })
@@ -490,6 +553,7 @@ export const dbService = {
   },
 
   async deleteChat(chatId: string): Promise<boolean> {
+    setChatProjectAssociation(chatId, null)
     if (chatId.startsWith('local_chat_')) {
       return true
     }

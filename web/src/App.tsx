@@ -688,17 +688,21 @@ export function App() {
         const titleSource = text.trim() || attachments[0]?.name || 'New Chat'
         const initialWords = titleSource.split(/\s+/).filter(Boolean).slice(0, 4).join(' ')
         const initialTitle = initialWords || 'New Chat'
-        const newChat = (await dbService.createChat(session?.user?.id || 'guest', initialTitle, activeProjectId)) || {
-          id: `local_chat_${Date.now()}`,
+        const targetProjectId = activeProjectId || null
+        const createdChat = await dbService.createChat(session?.user?.id || 'guest', initialTitle, targetProjectId)
+        const newChat: Chat = {
+          id: createdChat?.id || `local_chat_${Date.now()}`,
           user_id: session?.user?.id || 'guest',
-          title: initialTitle,
-          is_pinned: false,
-          project_id: activeProjectId || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          title: createdChat?.title || initialTitle,
+          is_pinned: createdChat?.is_pinned || false,
+          project_id: createdChat?.project_id || targetProjectId,
+          created_at: createdChat?.created_at || new Date().toISOString(),
+          updated_at: createdChat?.updated_at || new Date().toISOString(),
         }
         setChats((prev) => {
-          if (prev.some((c) => c.id === newChat.id)) return prev
+          if (prev.some((c) => c.id === newChat.id)) {
+            return prev.map((c) => (c.id === newChat.id ? newChat : c))
+          }
           return [newChat, ...prev]
         })
         setActiveChatId(newChat.id)
