@@ -115,6 +115,9 @@ export async function searchExaWeb(
             numResults: 5,
             contents: {
               highlights: true,
+              text: {
+                maxCharacters: 1000,
+              },
             },
           }),
         })
@@ -135,6 +138,12 @@ export async function searchExaWeb(
               )
             } else if (typeof res.highlight === 'string' && res.highlight.trim().length > 0) {
               highlights = [res.highlight.trim()]
+            }
+            if (highlights.length === 0) {
+              const textSnippet = typeof res.text === 'string' && res.text.trim() ? res.text.trim() : (typeof res.summary === 'string' ? res.summary.trim() : '')
+              if (textSnippet) {
+                highlights = [textSnippet.slice(0, 500)]
+              }
             }
             items.push({ url, publishedDate, highlights })
           }
@@ -184,7 +193,8 @@ export async function searchExaWeb(
       },
     }
 
-    const response = await fetch(EXA_MCP_ENDPOINT, {
+    const mcpUrl = cleanKey ? `${EXA_MCP_ENDPOINT}?exaApiKey=${encodeURIComponent(cleanKey)}` : EXA_MCP_ENDPOINT
+    const response = await fetch(mcpUrl, {
       method: 'POST',
       headers: mcpHeaders,
       body: JSON.stringify(payload),

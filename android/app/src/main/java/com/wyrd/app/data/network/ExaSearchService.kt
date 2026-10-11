@@ -42,6 +42,9 @@ class ExaSearchService(
                         put("numResults", 5)
                         put("contents", JSONObject().apply {
                             put("highlights", true)
+                            put("text", JSONObject().apply {
+                                put("maxCharacters", 1000)
+                            })
                         })
                     }
 
@@ -76,6 +79,12 @@ class ExaSearchService(
                                         val singleHl = obj.optString("highlight", "").trim()
                                         if (singleHl.isNotBlank()) highlightsList.add(singleHl)
                                     }
+                                    if (highlightsList.isEmpty()) {
+                                        val textSnippet = obj.optString("text", "").ifBlank { obj.optString("summary", "") }.trim()
+                                        if (textSnippet.isNotBlank()) {
+                                            highlightsList.add(textSnippet.take(500))
+                                        }
+                                    }
                                     items.add(ExaSearchItem(url, publishedDate, highlightsList))
                                 }
                             }
@@ -108,8 +117,15 @@ class ExaSearchService(
                 })
             }
 
+            val mcpUrl = if (!cleanKey.isNullOrBlank()) {
+                val encodedKey = java.net.URLEncoder.encode(cleanKey, "UTF-8")
+                "$EXA_MCP_ENDPOINT?exaApiKey=$encodedKey"
+            } else {
+                EXA_MCP_ENDPOINT
+            }
+
             val requestBuilder = Request.Builder()
-                .url(EXA_MCP_ENDPOINT)
+                .url(mcpUrl)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Accept", "application/json, text/event-stream")
                 .addHeader("User-Agent", "WYRD/1.0 (Android; Linux)")

@@ -22,7 +22,7 @@ export const TAVILY_SEARCH_TOOL = {
   function: {
     name: 'tavily_search',
     description:
-      'Searches the live web in real time for breaking news, current events, recent releases/updates, sports scores, weather, and up-to-the-minute facts via Tavily.',
+      'Searches the live web in real time for breaking news, corporate announcements, funding, official company site, and live facts via Tavily. Note: cannot access Glassdoor or Reddit.',
     parameters: {
       type: 'object',
       properties: {
@@ -41,7 +41,7 @@ export const EXA_SEARCH_TOOL = {
   function: {
     name: 'exa_search',
     description:
-      'Searches the web semantically for forum discussions, Reddit threads, Glassdoor employee reviews, interview feedback, company culture, in-depth documentation, or deep research via Exa.',
+      'Searches the web semantically for employee reviews, Glassdoor ratings, Reddit threads, interview feedback, workplace culture, and forum discussions via Exa.',
     parameters: {
       type: 'object',
       properties: {
@@ -53,6 +53,49 @@ export const EXA_SEARCH_TOOL = {
       required: ['query'],
     },
   },
+}
+
+export function isReviewOrForumQuery(query: string): boolean {
+  const q = query.toLowerCase()
+  return (
+    q.includes('glassdoor') ||
+    q.includes('reddit') ||
+    q.includes('blind') ||
+    q.includes('teamblind') ||
+    q.includes('indeed') ||
+    q.includes('comparably') ||
+    q.includes('levels.fyi') ||
+    q.includes('trustpilot') ||
+    q.includes('g2') ||
+    q.includes('capterra') ||
+    q.includes('employee review') ||
+    q.includes('employee reviews') ||
+    q.includes('staff review') ||
+    q.includes('worker review') ||
+    q.includes('company review') ||
+    q.includes('workplace culture') ||
+    q.includes('work culture') ||
+    q.includes('company culture') ||
+    q.includes('interview review') ||
+    q.includes('interview feedback') ||
+    q.includes('interview question') ||
+    q.includes('interview questions') ||
+    q.includes('interview experience') ||
+    q.includes('work-life') ||
+    q.includes('wlb') ||
+    q.includes('management review') ||
+    q.includes('leadership review') ||
+    q.includes('layoff sentiment') ||
+    q.includes('employee sentiment') ||
+    q.includes('salary') ||
+    q.includes('compensation') ||
+    (q.includes('review') &&
+      (q.includes('culture') ||
+        q.includes('sentiment') ||
+        q.includes('employee') ||
+        q.includes('workplace') ||
+        q.includes('intern')))
+  )
 }
 
 export const WEB_SEARCH_TOOL = {
@@ -362,11 +405,14 @@ export async function* streamLlmCompletion({
   }
   effectiveSystemPrompt += `[Context: ${temporalContext}]`
   effectiveSystemPrompt += `\n[Autonomous Web Search Tools: You have access to external search engines to ground your answers in verified external facts. You are in charge of deciding autonomously whether to use web search.
-- \`tavily_search\`: Real-time live web search engine. Use this when the user's question requires breaking news, current events, recent releases/updates, company homepage/official records, or live web facts. Invoke with:
+- \`tavily_search\`: Real-time live web search engine. Specialized for: breaking news, current corporate announcements, recent funding rounds, official company website info, and live facts. Note: Tavily CANNOT bypass anti-bot blocks on Glassdoor or Reddit. Invoke with:
 <tool_call><function=tavily_search><parameter=query>your search query</parameter></function></tool_call>
-- \`exa_search\`: Semantic neural search engine. Use this when the user needs forum discussions (e.g. Reddit), company employee reviews and interview feedback (e.g. Glassdoor), workplace culture sentiment, in-depth documentation, or deep research. Invoke with:
+- \`exa_search\`: Neural semantic search engine. Specialized for: employee reviews (Glassdoor, Indeed, Comparably), community and forum discussions (Reddit, Hacker News, Blind), interview feedback, workplace culture, and salary data. Exa indexes and searches these platforms directly. Invoke with:
 <tool_call><function=exa_search><parameter=query>your search query</parameter></function></tool_call>
-- Dual Tool Combination: You can invoke these search tools sequentially across rounds or combine them if the first search does not provide sufficient data (e.g., use Tavily for official company facts/news and Exa for employee sentiment/reviews).
+- Tool Selection & Combination Directives:
+  1. For company employee sentiment, Glassdoor ratings, Reddit threads, workplace culture, or interview experiences: you MUST use \`exa_search\`. Never use Tavily for Glassdoor or Reddit.
+  2. For company business health checks, employment audits, or due diligence: ALWAYS combine both tools across search rounds! Use \`tavily_search\` to verify corporate facts, funding, and news, AND use \`exa_search\` to uncover employee sentiment, Glassdoor reviews, and workplace culture. Do not write a final verdict until you have searched both sides.
+  3. If your first search round only returned corporate news or missed employee reviews, immediately invoke \`exa_search\` in the next round to gather the employee sentiment and Glassdoor data before finalizing your verdict.
 If the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]`
 
   if (reasoningEffort === 'low') {
@@ -426,7 +472,7 @@ If the request does not require external search, answer directly without invokin
   }
 
   let toolExecutionRounds = 0
-  const maxToolExecutionRounds = 2
+  const maxToolExecutionRounds = 3
 
   while (toolExecutionRounds <= maxToolExecutionRounds) {
     if (signal?.aborted) return
@@ -636,14 +682,23 @@ If the request does not require external search, answer directly without invokin
       toolExecutionRounds++
       const { tool, query } = extracted
       const hasTavilyKey = Boolean(localStorage.getItem('wyrd_tavily_api_key')?.trim())
-      const isTavily = tool === 'tavily_search' || (tool === 'web_search' && hasTavilyKey)
+      let isTavily = tool === 'tavily_search' || (tool === 'web_search' && hasTavilyKey)
+      if (isTavily && isReviewOrForumQuery(query)) {
+        console.log(`Auto-switching tool from Tavily to Exa for review/forum query: "${query}"`)
+        isTavily = false
+      }
       let engineName = isTavily ? 'Tavily' : 'Exa'
       const toolFunctionName = isTavily ? 'tavily_search' : 'exa_search'
 
       // Clear any partial content from round 1 so XML or preamble never leaks
       yield { clearContent: true }
       const statusPrefix = toolExecutionRounds > 1 ? 'Gathering additional data with ' : 'Searching '
-      yield { status: `${statusPrefix}${isTavily ? 'live web with Tavily' : 'web with Exa'} for: "${query}"...` }
+      const statusLabel = isTavily
+        ? `${statusPrefix}live web with Tavily`
+        : isReviewOrForumQuery(query)
+          ? `${statusPrefix}employee reviews & Glassdoor with Exa`
+          : `${statusPrefix}web with Exa`
+      yield { status: `${statusLabel} for: "${query}"...` }
 
       let searchOutput: string
       if (isTavily) {
@@ -686,7 +741,9 @@ If the request does not require external search, answer directly without invokin
 
       const nextInstruction =
         toolExecutionRounds < maxToolExecutionRounds
-          ? `[INSTRUCTION: Review the search results above. If they are sufficient to answer the user thoroughly, provide your final response now without calling further tools. If crucial data is missing or incomplete (such as employee reviews, community discussions, or live facts), you may invoke another tool (such as ${isTavily ? 'exa_search for forum/review discussions (e.g. Reddit, Glassdoor)' : 'tavily_search for live corporate news or official records'}) to gather the remaining evidence.]`
+          ? isTavily
+            ? `[INSTRUCTION: Round ${toolExecutionRounds} results from Tavily (corporate/news) received. CRITICAL: If the user request or project directives ask for employee sentiment, workplace culture, Glassdoor/Reddit reviews, or interview experiences, you MUST now invoke \`exa_search\` (e.g. <tool_call><function=exa_search><parameter=query>Company Name employee reviews Glassdoor Reddit</parameter></function></tool_call>). Do NOT call tavily_search again for reviews or forums. If all required information across both business and employee sentiment is already complete, provide your final response now without calling further tools.]`
+            : `[INSTRUCTION: Round ${toolExecutionRounds} results from Exa (reviews/sentiment) received. If you still need breaking news, recent corporate announcements, or official company records, you may invoke \`tavily_search\`. If all required information is already complete, provide your final response now without calling further tools.]`
           : `[INSTRUCTION: Web search is now COMPLETE. Do NOT invoke any further tools or emit <tool_call> tags. Directly, accurately, and thoroughly answer the user's question using all gathered search results and your knowledge.]`
 
       // Append assistant's tool call and search context for direct answer synthesis
