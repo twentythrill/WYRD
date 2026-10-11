@@ -60,7 +60,7 @@ export const WEB_SEARCH_TOOL = {
   function: {
     name: 'web_search',
     description:
-      'Searches the web for recent events and factual corroboration. Returns URLs, publication dates, and extracted snippets. If the returned snippets do not confirm the claim, treat the claim as unverified.',
+      'Searches the web for up-to-date facts, breaking news, company information, community discussions, forum opinions, and user reviews.',
     parameters: {
       type: 'object',
       properties: {
@@ -80,13 +80,13 @@ export function extractToolCall(text: string, explicitToolName?: string): Extrac
 
   // Determine tool function name if explicitly present
   let tool: SearchToolType = 'web_search'
-  if (explicitToolName && /exa/i.test(explicitToolName)) {
+  if (explicitToolName && /exa_search/i.test(explicitToolName)) {
     tool = 'exa_search'
-  } else if (explicitToolName && /tavily/i.test(explicitToolName)) {
+  } else if (explicitToolName && /tavily_search/i.test(explicitToolName)) {
     tool = 'tavily_search'
-  } else if (/exa_search|exa/i.test(trimmed)) {
+  } else if (/exa_search/i.test(trimmed)) {
     tool = 'exa_search'
-  } else if (/tavily_search|tavily/i.test(trimmed)) {
+  } else if (/tavily_search/i.test(trimmed)) {
     tool = 'tavily_search'
   }
 
@@ -361,12 +361,9 @@ export async function* streamLlmCompletion({
     effectiveSystemPrompt += `${systemPrompt.trim()}\n\n`
   }
   effectiveSystemPrompt += `[Context: ${temporalContext}]`
-  effectiveSystemPrompt += `\n[Autonomous Web Search Tools: You have access to external search engines to ground your answers in verified external facts. You are in charge of deciding autonomously whether to use web search.
-- \`tavily_search\`: Keyword-based real-time search engine. Best for breaking news, current events, recent releases/updates, official company/product websites, and live factual data. Invoke with:
-<tool_call><function=tavily_search><parameter=query>your search query</parameter></function></tool_call>
-- \`exa_search\`: Neural semantic search engine. Best for community discussions, forum opinions, user reviews, sentiment analysis, long-form articles, and in-depth research. Invoke with:
-<tool_call><function=exa_search><parameter=query>your search query</parameter></function></tool_call>
-- Tool Switching & Multi-Turn Combination: You can invoke these search tools sequentially across rounds or combine them if a request has multiple dimensions (e.g. live factual data vs community discussions/reviews) or if the initial search does not provide sufficient, relevant, or complete information.
+  effectiveSystemPrompt += `\n[Autonomous Web Search: You have access to a web search tool to ground your answers in verified external facts. You are in charge of deciding autonomously whether to use web search.
+- \`web_search\`: Searches the web for live facts, current events, official documentation, community discussions, and user reviews. Invoke with:
+<tool_call><function=web_search><parameter=query>your search query</parameter></function></tool_call>
 If the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]`
 
   if (reasoningEffort === 'low') {
@@ -440,7 +437,7 @@ If the request does not require external search, answer directly without invokin
     }
 
     if (toolExecutionRounds < maxToolExecutionRounds && !hasImagesInConversation) {
-      bodyPayload.tools = [TAVILY_SEARCH_TOOL, EXA_SEARCH_TOOL]
+      bodyPayload.tools = [WEB_SEARCH_TOOL]
       bodyPayload.tool_choice = 'auto'
     }
 
@@ -634,59 +631,55 @@ If the request does not require external search, answer directly without invokin
 
     if (extracted && toolExecutionRounds < maxToolExecutionRounds) {
       toolExecutionRounds++
-      const { tool, query } = extracted
+      const { query } = extracted
       const hasTavilyKey = Boolean(localStorage.getItem('wyrd_tavily_api_key')?.trim())
-      const isTavily = tool === 'tavily_search' || (tool === 'web_search' && hasTavilyKey)
-      let engineName = isTavily ? 'Tavily' : 'Exa'
-      const toolFunctionName = isTavily ? 'tavily_search' : 'exa_search'
 
       // Clear any partial content from round 1 so XML or preamble never leaks
       yield { clearContent: true }
-      const statusPrefix = toolExecutionRounds > 1 ? 'Gathering additional data with ' : 'Searching '
-      yield { status: `${statusPrefix}${isTavily ? 'live web with Tavily' : 'web with Exa'} for: "${query}"...` }
+      const statusPrefix = toolExecutionRounds > 1 ? 'Gathering additional data for ' : 'Searching web for '
+      const shortQuery = query.length > 40 ? query.slice(0, 37) + '...' : query
+      yield { status: `${statusPrefix}"${shortQuery}"...` }
 
-      let searchOutput: string
-      if (isTavily) {
-        const tavilyRes = await searchTavilyWeb(query)
-        if (tavilyRes.success && tavilyRes.content && tavilyRes.content !== TAVILY_ZERO_RESULTS_MESSAGE) {
-          searchOutput = tavilyRes.content
+      let searchOutput = ''
+      if (hasTavilyKey) {
+        const [tavilyRes, exaRes] = await Promise.all([
+          searchTavilyWeb(query).catch((e) => ({ success: false, content: '', error: String(e) })),
+          searchExaWeb(query).catch((e) => ({ success: false, content: '', error: String(e) })),
+        ])
+
+        const tavilyText =
+          tavilyRes.success &&
+          tavilyRes.content &&
+          tavilyRes.content !== TAVILY_ZERO_RESULTS_MESSAGE
+            ? tavilyRes.content
+            : null
+
+        const exaText =
+          exaRes.success &&
+          exaRes.content &&
+          exaRes.content !== ZERO_RESULTS_MESSAGE
+            ? exaRes.content
+            : null
+
+        if (tavilyText && exaText) {
+          searchOutput = `### Live Web & Official Sources:\n${tavilyText}\n\n---\n\n### Community Discussions, Reviews & Semantic Results:\n${exaText}`
+        } else if (exaText) {
+          searchOutput = exaText
+        } else if (tavilyText) {
+          searchOutput = tavilyText
         } else {
-          // Tavily yielded 0 results or failed -> Transparent fallback to Exa!
-          console.warn('Tavily search yielded no results or failed, falling back to Exa:', tavilyRes.error)
-          yield { status: `Tavily yielded no data, checking Exa for: "${query}"...` }
-          const exaRes = await searchExaWeb(query)
-          if (exaRes.success && exaRes.content && exaRes.content !== ZERO_RESULTS_MESSAGE) {
-            engineName = 'Exa (fallback from Tavily)'
-            searchOutput = exaRes.content
-          } else {
-            searchOutput = tavilyRes.content || TAVILY_ZERO_RESULTS_MESSAGE
-          }
+          searchOutput = tavilyRes.content || exaRes.content || TAVILY_ZERO_RESULTS_MESSAGE
         }
       } else {
-        const exaRes = await searchExaWeb(query)
-        if (exaRes.success && exaRes.content && exaRes.content !== ZERO_RESULTS_MESSAGE) {
-          searchOutput = exaRes.content
-        } else if (hasTavilyKey) {
-          // Exa yielded 0 results or failed -> Transparent fallback to Tavily!
-          console.warn('Exa search yielded no results or failed, falling back to Tavily:', exaRes.error)
-          yield { status: `Exa yielded no data, checking Tavily for: "${query}"...` }
-          const tavilyRes = await searchTavilyWeb(query)
-          if (tavilyRes.success && tavilyRes.content && tavilyRes.content !== TAVILY_ZERO_RESULTS_MESSAGE) {
-            engineName = 'Tavily (fallback from Exa)'
-            searchOutput = tavilyRes.content
-          } else {
-            searchOutput = exaRes.content || ZERO_RESULTS_MESSAGE
-          }
-        } else {
-          searchOutput = exaRes.content || ZERO_RESULTS_MESSAGE
-        }
+        const exaRes = await searchExaWeb(query).catch((e) => ({ success: false, content: '', error: String(e) }))
+        searchOutput = exaRes.content || ZERO_RESULTS_MESSAGE
       }
 
       yield { status: 'Synthesizing answer...' }
 
       const nextInstruction =
         toolExecutionRounds < maxToolExecutionRounds
-          ? `[INSTRUCTION: Review the search results above against the user's prompt. If the retrieved evidence is complete and sufficient to answer all aspects of the request, provide your final response now without calling further tools. If crucial details are still missing, incomplete, or if the current search engine did not cover all aspects of the request, you may invoke another search tool (such as ${isTavily ? 'exa_search' : 'tavily_search'}, or refine your query) in the next round to gather the remaining evidence.]`
+          ? `[INSTRUCTION: Review the search results above against the user's prompt. If the retrieved evidence is complete and sufficient to answer all aspects of the request, provide your final response now without calling further tools. If crucial details are still missing or incomplete, you may invoke web_search again with a refined query to gather the remaining evidence.]`
           : `[INSTRUCTION: Web search is now COMPLETE. Do NOT invoke any further tools or emit <tool_call> tags. Directly, accurately, and thoroughly answer the user's question using all gathered search results and your knowledge.]`
 
       // Append assistant's tool call and search context for direct answer synthesis
@@ -694,11 +687,11 @@ If the request does not require external search, answer directly without invokin
         ...currentMessages,
         {
           role: 'assistant',
-          content: `<tool_call><function=${toolFunctionName}><parameter=query>${query}</parameter></function></tool_call>`,
+          content: `<tool_call><function=web_search><parameter=query>${query}</parameter></function></tool_call>`,
         },
         {
           role: 'user',
-          content: `[Web Search Results (via ${engineName}) for "${query}"]:\n${searchOutput}\n\n${nextInstruction}`,
+          content: `[Web Search Results for "${query}"]:\n${searchOutput}\n\n${nextInstruction}`,
         },
       ]
 

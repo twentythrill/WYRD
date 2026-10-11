@@ -68,13 +68,12 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
    * **Multimodal Tool Suppression**: Suppresses function calling `tools` when images are present in the conversation, eliminating HTTP 400 Bad Request gateway errors on multimodal payloads.
    * **Streaming Demuxer (`ThinkAndToolParser`)**: Zero-leak XML streaming parser that mirrors Android's demuxer to isolate `<think>` reasoning and `<tool_call>` definitions, completely preventing raw tool XML from displaying in chat bubbles or persisting into DB content.
    * **Instant Generation Abort**: Tapping the Stop square fires an `AbortController` signal that immediately closes HTTP streams and sockets.
-   * **Autonomous Dual-Engine Web Search Grounding (Tavily + Exa AI)**:
-     * **Tavily AI Search (`tavily_search`)**: Connects directly to `https://api.tavily.com/search` to fetch real-time live web results for breaking news, current events, recent releases/updates, sports scores, live data, and up-to-the-minute facts. Configured via `wyrd_tavily_api_key` in Settings.
-     * **Exa AI Search (`exa_search`)**: Neural semantic search engine for deep concept exploration, documentation, technical research, and academic literature. Configured via `wyrd_exa_api_key` (or public MCP tier fallback) in Settings.
-     * **Model Autonomous Routing**: The LLM autonomously chooses between `tavily_search` and `exa_search` based on the query's temporal and conceptual needs.
-     * **Automatic Fallback Cascade**: High-availability failover between search providers. If Tavily's token quota is reached or key expires, it transparently falls back to Exa with live status updates, and vice-versa if Exa encounters errors and a Tavily key is configured.
+   * **Autonomous Unified Multi-Engine Web Search Grounding (`web_search`)**:
+     * **Unified Tool Interface (`web_search`)**: Exposes a clean, single `web_search` tool to the model, eliminating routing dilemmas and provider guessing.
+     * **Parallel Execution Engine**: When Tavily is configured, the browser executes Tavily and Exa concurrently in parallel via `Promise.all()`, returning live factual sources alongside semantic community/forum/review discussions in ~1.5s total latency.
+     * **Unified Multi-Engine Synthesis**: Results from both search engines are partitioned into clean, structured sections (`### Live Web & Official Sources` and `### Community Discussions, Reviews & Semantic Results`), giving the model complete facts and reviews on Round 1.
      * **Zero-Result Guards & Structured Snippets**: Structured source blocks (`Title`, `URL`, `Publication Date`, `Highlights / Content Snippets`), tool-boundary zero-result guards, and strict verification trailers to eliminate hallucinations.
-     * **Clean Grounding & Synthesis**: Executes searches in Round 1 with animated status ("Searching live web with Tavily..." / "Searching web with Exa..."), transitions smoothly to "Synthesizing answer...", suppresses tools in Round 2, and synthesizes a verified factual answer.
+     * **Multi-Format Tool Extraction**: Accurately parses standard tool calls, XML parameters (`<parameter=query>`), XML query tags (`<query>`), function syntax, and bracket actions.
    * **30-Turn Context Window Clamping**: Clamps message payload to the most recent 30 conversation turns to preserve token budgets and avoid gateway limits.
 9. **Projects & Knowledge Base Spaces**:
    * **Custom System Prompt Override**: Dedicated projects with custom instructions that strictly override the generic profile system prompt.
