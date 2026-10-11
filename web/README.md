@@ -1,4 +1,4 @@
-# WYRD Web (Desktop & Browser Companion) (v1.1.0)
+# WYRD Web (Desktop & Browser Companion) (v1.3.0)
 
 A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversations, settings, and cognitive states in real-time with the Android application via Supabase.
 
@@ -67,12 +67,12 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
    * **Multimodal Tool Suppression**: Suppresses function calling `tools` when images are present in the conversation, eliminating HTTP 400 Bad Request gateway errors on multimodal payloads.
    * **Streaming Demuxer (`ThinkAndToolParser`)**: Zero-leak XML streaming parser that mirrors Android's demuxer to isolate `<think>` reasoning and `<tool_call>` definitions, completely preventing raw tool XML from displaying in chat bubbles or persisting into DB content.
    * **Instant Generation Abort**: Tapping the Stop square fires an `AbortController` signal that immediately closes HTTP streams and sockets.
-   * **Autonomous Web Search & Factual Grounding (Exa AI)**:
-     * **Multi-Result Snippet Highlights**: Queries Exa with `numResults: 5` and requests snippet highlights via `contents: { highlights: true }`, retrieving URLs, publication dates, and extracted highlights.
-     * **Zero-Result Guard**: Intercepts queries returning 0 results at the tool boundary before reaching the model, returning: `Search returned 0 results. No credible sources or records were found for this query.`
-     * **Structured Text Blocks & Verification Trailer**: Formats positive results into structured blocks with URL, publication date, and extracted highlights, and appends an enforcement trailer to enforce strict factual grounding and eliminate hallucinations.
-     * **Clean Grounding & Synthesis**: Executes Exa search in Round 1 with animated status ("Searching web with Exa for: '...'..."), transitions smoothly to "Synthesizing answer...", suppresses tools in Round 2, and guides the model to produce a verified answer without hesitation, looping, or failed synthesis.
-     * Configurable with personal Exa API key or public tier fallback in Settings.
+   * **Autonomous Dual-Engine Web Search Grounding (Tavily + Exa AI)**:
+     * **Tavily AI Search (`tavily_search`)**: Connects directly to `https://api.tavily.com/search` to fetch real-time live web results for breaking news, current events, recent releases/updates, sports scores, live data, and up-to-the-minute facts. Configured via `wyrd_tavily_api_key` in Settings.
+     * **Exa AI Search (`exa_search`)**: Neural semantic search engine for deep concept exploration, documentation, technical research, and academic literature. Configured via `wyrd_exa_api_key` (or public MCP tier fallback) in Settings.
+     * **Model Autonomous Routing**: The LLM autonomously chooses between `tavily_search` and `exa_search` based on the query's temporal and conceptual needs.
+     * **Zero-Result Guards & Structured Snippets**: Structured source blocks (`Title`, `URL`, `Publication Date`, `Highlights / Content Snippets`), tool-boundary zero-result guards, and strict verification trailers to eliminate hallucinations.
+     * **Clean Grounding & Synthesis**: Executes searches in Round 1 with animated status ("Searching live web with Tavily..." / "Searching web with Exa..."), transitions smoothly to "Synthesizing answer...", suppresses tools in Round 2, and synthesizes a verified factual answer.
    * **30-Turn Context Window Clamping**: Clamps message payload to the most recent 30 conversation turns to preserve token budgets and avoid gateway limits.
 9. **Projects & Knowledge Base Spaces**:
    * **Custom System Prompt Override**: Dedicated projects with custom instructions that strictly override the generic profile system prompt.

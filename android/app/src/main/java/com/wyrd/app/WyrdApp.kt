@@ -4,6 +4,7 @@ import android.app.Application
 import com.wyrd.app.data.local.AppDatabase
 import com.wyrd.app.data.network.AudioRecorderHelper
 import com.wyrd.app.data.network.ExaSearchService
+import com.wyrd.app.data.network.TavilySearchService
 import com.wyrd.app.data.network.OpenAiSttService
 import com.wyrd.app.data.network.SupabaseSyncManager
 import com.wyrd.app.data.network.XiaomiMimoService
@@ -25,6 +26,7 @@ class WyrdApp : Application() {
     val preferencesManager by lazy { PreferencesManager(this) }
     val mimoService by lazy { XiaomiMimoService() }
     val exaSearchService by lazy { ExaSearchService() }
+    val tavilySearchService by lazy { TavilySearchService() }
     val openAiSttService by lazy { OpenAiSttService() }
     val nativeTtsManager by lazy { NativeTtsManager(this) }
     val audioRecorderHelper by lazy { AudioRecorderHelper() }

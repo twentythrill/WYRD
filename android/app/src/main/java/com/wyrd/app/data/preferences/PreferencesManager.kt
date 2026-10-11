@@ -84,6 +84,10 @@ class PreferencesManager(private val context: Context) {
         preferences[KEY_EXA_SEARCH_ENABLED] ?: true
     }
 
+    val isTavilySearchEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_TAVILY_SEARCH_ENABLED] ?: true
+    }
+
     val customBaseUrlFlow: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[KEY_CUSTOM_BASE_URL] ?: ""
     }
@@ -161,6 +165,12 @@ class PreferencesManager(private val context: Context) {
         }
     }
 
+    suspend fun setTavilySearchEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_TAVILY_SEARCH_ENABLED] = enabled
+        }
+    }
+
     suspend fun setCustomBaseUrl(url: String) {
         context.dataStore.edit { preferences ->
             preferences[KEY_CUSTOM_BASE_URL] = url.trim()
@@ -184,6 +194,7 @@ class PreferencesManager(private val context: Context) {
         private val KEY_XIAOMI_ENABLED = booleanPreferencesKey("is_xiaomi_mimo_enabled")
         private val KEY_OPENAI_STT_ENABLED = booleanPreferencesKey("is_openai_stt_enabled")
         private val KEY_EXA_SEARCH_ENABLED = booleanPreferencesKey("is_exa_search_enabled")
+        private val KEY_TAVILY_SEARCH_ENABLED = booleanPreferencesKey("is_tavily_search_enabled")
         private val KEY_CUSTOM_BASE_URL = stringPreferencesKey("custom_base_url")
         private val KEY_APP_THEME = stringPreferencesKey("app_theme")
         private val KEY_TTS_ENGINE = stringPreferencesKey("tts_engine_package")

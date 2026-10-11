@@ -30,6 +30,7 @@ export function SettingsModal({
   const [apiKey, setApiKey] = useState(localStorage.getItem('wyrd_api_key') || '')
   const [openAiKey, setOpenAiKey] = useState(localStorage.getItem('wyrd_openai_api_key') || '')
   const [exaKey, setExaKey] = useState(localStorage.getItem('wyrd_exa_api_key') || '')
+  const [tavilyKey, setTavilyKey] = useState(localStorage.getItem('wyrd_tavily_api_key') || '')
   const [baseUrl, setBaseUrl] = useState(() => {
     const saved = localStorage.getItem('wyrd_base_url') || ''
     return saved === 'https://api.siliconflow.cn/v1' ? '' : saved
@@ -55,6 +56,7 @@ export function SettingsModal({
       localStorage.setItem('wyrd_api_key', apiKey.trim())
       localStorage.setItem('wyrd_openai_api_key', openAiKey.trim())
       localStorage.setItem('wyrd_exa_api_key', exaKey.trim())
+      localStorage.setItem('wyrd_tavily_api_key', tavilyKey.trim())
       localStorage.setItem('wyrd_base_url', baseUrl.trim())
 
       await onSaveProfile({
@@ -254,6 +256,22 @@ export function SettingsModal({
 
             <div>
               <label className="block text-xs text-[#8E8E93] mb-1.5 font-sans">
+                Tavily Search API Key (Live Web)
+              </label>
+              <input
+                type="password"
+                value={tavilyKey}
+                onChange={(e) => setTavilyKey(e.target.value)}
+                placeholder="tvly-..."
+                className="w-full px-3.5 py-2.5 bg-[#141414] border border-[#262626] rounded-xl text-[#CECDC4] text-sm focus:outline-none focus:border-[#CECDC4] transition-colors font-mono"
+              />
+              <p className="text-[11px] text-[#636366] mt-1 font-sans">
+                Get a free key at <a href="https://app.tavily.com" target="_blank" rel="noreferrer" className="underline hover:text-[#CECDC4]">app.tavily.com</a> (1,000 free searches/mo) for real-time live web browsing.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs text-[#8E8E93] mb-1.5 font-sans">
                 Exa Search API Key (Optional)
               </label>
               <input
@@ -264,7 +282,7 @@ export function SettingsModal({
                 className="w-full px-3.5 py-2.5 bg-[#141414] border border-[#262626] rounded-xl text-[#CECDC4] text-sm focus:outline-none focus:border-[#CECDC4] transition-colors font-mono"
               />
               <p className="text-[11px] text-[#636366] mt-1 font-sans">
-                Used for autonomous live web search via Exa AI MCP.
+                Get a free key at <a href="https://dashboard.exa.ai" target="_blank" rel="noreferrer" className="underline hover:text-[#CECDC4]">dashboard.exa.ai</a> (1,000 free searches). Used for semantic and deep concept research.
               </p>
             </div>
 

@@ -249,6 +249,8 @@ class XiaomiMimoService(
         messages: List<ChatMessagePayload>,
         exaSearchService: ExaSearchService? = null,
         exaApiKey: String? = null,
+        tavilySearchService: TavilySearchService? = null,
+        tavilyApiKey: String? = null,
         customBaseUrl: String? = null
     ): Flow<StreamEvent> = flow {
         val cleanKey = apiKey.trim()
@@ -266,14 +268,25 @@ class XiaomiMimoService(
         }
         val temporalContext = "Current Device Date and Time: $currentDateTimeStr"
 
+        val hasTavily = tavilySearchService != null
+        val hasExa = exaSearchService != null
+        val hasAnySearch = hasTavily || hasExa
+
         val effectiveSystemPrompt = buildString {
             if (systemPrompt.isNotBlank()) {
                 append(systemPrompt)
                 append("\n\n")
             }
             append("[Context: $temporalContext]")
-            if (exaSearchService != null) {
-                append("\n[Web Search Tool: You have access to a live web search tool named `web_search` (which calls the Exa search engine). Searches the web for recent events and factual corroboration. Returns URLs, publication dates, and extracted snippets. If the returned snippets do not confirm the claim, treat the claim as unverified. You are in charge of deciding autonomously whether to use web search for the user's answer. If the user's question requires real-time facts, current news, recent releases/updates, live data, or facts beyond your knowledge cutoff, you should invoke web search using:\n<tool_call><function=web_search><parameter=query>your search query</parameter></function></tool_call>\nIf the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]")
+            if (hasAnySearch) {
+                append("\n[Autonomous Web Search Tools: You have access to external search engines to ground your answers in verified external facts. You are in charge of deciding autonomously whether to use web search.")
+                if (hasTavily) {
+                    append("\n- `tavily_search`: Real-time live web search engine. Use this when the user's question requires breaking news, current events, recent releases/updates (e.g. software versions, patch notes), live data (weather, sports scores, stock prices), or live web facts. Invoke with:\n<tool_call><function=tavily_search><parameter=query>your search query</parameter></function></tool_call>")
+                }
+                if (hasExa) {
+                    append("\n- `exa_search`: Semantic neural search engine. Use this when the user needs deep concept exploration, documentation, technical research, or academic literature. Invoke with:\n<tool_call><function=exa_search><parameter=query>your search query</parameter></function></tool_call>")
+                }
+                append("\nIf the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]")
             }
             when (reasoningEffort) {
                 ReasoningEffort.OFF -> {
@@ -346,7 +359,7 @@ class XiaomiMimoService(
 
         val candidateEndpoints = getCandidateEndpoints(cleanKey, customBaseUrl)
         val candidateModels = getCandidateModelIds(model)
-        val webTools = if (exaSearchService != null) getWebSearchTools() else null
+        val webTools = if (hasAnySearch) getWebSearchTools(enableTavily = hasTavily, enableExa = hasExa) else null
 
         var currentMessages = messagesJsonArray
         var toolExecutionRounds = 0
@@ -364,7 +377,7 @@ class XiaomiMimoService(
 
             // In Round 1, provide webTools if search is enabled (and no multimodal images in conversation); in Round 2+, suppress tools so model generates final answer
             val hasImagesInConversation = historyToInclude.any { it.imagesBase64.isNotEmpty() || !it.imageBase64.isNullOrBlank() }
-            val currentWebTools = if (toolExecutionRounds == 0 && exaSearchService != null && !hasImagesInConversation) webTools else null
+            val currentWebTools = if (toolExecutionRounds == 0 && hasAnySearch && !hasImagesInConversation) webTools else null
 
             // Try streaming first across endpoints and models
             outerStream@ for (endpoint in candidateEndpoints) {
@@ -630,24 +643,37 @@ class XiaomiMimoService(
                 throw IllegalStateException(lastErrorMsg)
             }
 
-            // Check if model autonomously invoked web_search tool (via native tool calls, buffered tool call XML, or content)
-            var extractedQuery: String? = null
+            // Check if model autonomously invoked web search tool (via native tool calls, buffered tool call XML, or content)
+            var toolCall: ExtractedToolCall? = null
             if (toolCallArgs.isNotBlank()) {
-                extractedQuery = extractToolQuery(toolCallArgs.toString())
+                toolCall = extractToolInvocation(toolCallArgs.toString())
             }
-            if (extractedQuery.isNullOrBlank() && activeParser != null) {
-                extractedQuery = extractToolQuery(activeParser.getToolCallContent())
+            if (toolCall == null && activeParser != null) {
+                toolCall = extractToolInvocation(activeParser.getToolCallContent())
             }
-            if (extractedQuery.isNullOrBlank()) {
-                extractedQuery = extractToolQuery(streamedContentAccumulator.toString())
+            if (toolCall == null) {
+                toolCall = extractToolInvocation(streamedContentAccumulator.toString())
             }
 
-            if (!extractedQuery.isNullOrBlank() && exaSearchService != null && toolExecutionRounds < maxToolExecutionRounds) {
+            if (toolCall != null && hasAnySearch && toolExecutionRounds < maxToolExecutionRounds) {
                 toolExecutionRounds++
-                emit(StreamEvent.Status("Searching web with Exa..."))
-                Log.d(TAG, "Autonomous web search requested for: $extractedQuery")
-                val searchResult = exaSearchService.searchWeb(extractedQuery, apiKey = exaApiKey).getOrNull() ?: ExaSearchService.ZERO_RESULTS_MESSAGE
-                Log.d(TAG, "Exa search retrieved ${searchResult.length} chars of live web data")
+                val isTavily = toolCall.tool == "tavily_search" || (toolCall.tool == "web_search" && hasTavily)
+                val engineName = if (isTavily) "Tavily" else "Exa"
+                val functionName = if (isTavily) "tavily_search" else "exa_search"
+
+                emit(StreamEvent.Status(if (isTavily) "Searching live web with Tavily..." else "Searching web with Exa..."))
+                Log.d(TAG, "Autonomous $engineName search requested for: ${toolCall.query}")
+
+                val searchResult = if (isTavily && tavilySearchService != null) {
+                    tavilySearchService.searchWeb(toolCall.query, apiKey = tavilyApiKey).getOrNull()
+                        ?: TavilySearchService.ZERO_RESULTS_MESSAGE
+                } else if (exaSearchService != null) {
+                    exaSearchService.searchWeb(toolCall.query, apiKey = exaApiKey).getOrNull()
+                        ?: ExaSearchService.ZERO_RESULTS_MESSAGE
+                } else {
+                    "No search engine available."
+                }
+                Log.d(TAG, "$engineName search retrieved ${searchResult.length} chars of live web data")
 
                 val updatedMessages = JSONArray()
                 for (i in 0 until currentMessages.length()) {
@@ -657,11 +683,11 @@ class XiaomiMimoService(
                 // Append assistant's search invocation cleanly
                 updatedMessages.put(JSONObject().apply {
                     put("role", "assistant")
-                    put("content", "<tool_call><function=web_search><parameter=query>$extractedQuery</parameter></function></tool_call>")
+                    put("content", "<tool_call><function=$functionName><parameter=query>${toolCall.query}</parameter></function></tool_call>")
                 })
 
                 val nextInstruction =
-                    "[INSTRUCTION: Web search via Exa is now COMPLETE. Do NOT invoke web_search or emit any <tool_call> tags. Directly, accurately, and thoroughly answer the user's question using the search results above and your knowledge.]"
+                    "[INSTRUCTION: Web search via $engineName is now COMPLETE. Do NOT invoke $functionName or emit any <tool_call> tags. Directly, accurately, and thoroughly answer the user's question using the search results above and your knowledge.]"
 
                 // Append search results context as user message to avoid provider HTTP 400 rejection on 'tool' role
                 updatedMessages.put(JSONObject().apply {
@@ -669,8 +695,8 @@ class XiaomiMimoService(
                     put(
                         "content",
                         buildString {
-                            append("[Web Search Results (via Exa) for \"")
-                            append(extractedQuery)
+                            append("[Web Search Results (via $engineName) for \"")
+                            append(toolCall.query)
                             append("\"]:\n")
                             append(searchResult)
                             append("\n\n")
@@ -970,75 +996,110 @@ class XiaomiMimoService(
         return list
     }
 
-    private fun getWebSearchTools(): JSONArray {
+    data class ExtractedToolCall(
+        val tool: String,
+        val query: String
+    )
+
+    private fun getWebSearchTools(enableTavily: Boolean = true, enableExa: Boolean = true): JSONArray {
         return JSONArray().apply {
-            put(JSONObject().apply {
-                put("type", "function")
-                put("function", JSONObject().apply {
-                    put("name", "web_search")
-                    put("description", "Searches the web for recent events and factual corroboration. Returns URLs, publication dates, and extracted snippets. If the returned snippets do not confirm the claim, treat the claim as unverified.")
-                    put("parameters", JSONObject().apply {
-                        put("type", "object")
-                        put("properties", JSONObject().apply {
-                            put("query", JSONObject().apply {
-                                put("type", "string")
-                                put("description", "The search query to look up on the web via Exa")
+            if (enableTavily) {
+                put(JSONObject().apply {
+                    put("type", "function")
+                    put("function", JSONObject().apply {
+                        put("name", "tavily_search")
+                        put("description", "Searches the live web in real time for breaking news, current events, recent updates, sports scores, weather, and up-to-the-minute facts via Tavily.")
+                        put("parameters", JSONObject().apply {
+                            put("type", "object")
+                            put("properties", JSONObject().apply {
+                                put("query", JSONObject().apply {
+                                    put("type", "string")
+                                    put("description", "The search query to look up on the live web via Tavily")
+                                })
                             })
+                            put("required", JSONArray().apply { put("query") })
                         })
-                        put("required", JSONArray().apply { put("query") })
                     })
                 })
-            })
+            }
+            if (enableExa) {
+                put(JSONObject().apply {
+                    put("type", "function")
+                    put("function", JSONObject().apply {
+                        put("name", "exa_search")
+                        put("description", "Searches the web semantically for comprehensive articles, in-depth documentation, company profiles, academic/technical research, or concept discovery via Exa.")
+                        put("parameters", JSONObject().apply {
+                            put("type", "object")
+                            put("properties", JSONObject().apply {
+                                put("query", JSONObject().apply {
+                                    put("type", "string")
+                                    put("description", "The search query to look up on the web semantically via Exa")
+                                })
+                            })
+                            put("required", JSONArray().apply { put("query") })
+                        })
+                    })
+                })
+            }
         }
     }
 
-    fun extractToolQuery(text: String): String? {
+    fun extractToolInvocation(text: String): ExtractedToolCall? {
         val trimmed = text.trim()
         if (trimmed.isBlank()) return null
+
+        var tool = "web_search"
+        if (trimmed.contains("tavily_search", ignoreCase = true) || trimmed.contains("tavily", ignoreCase = true)) {
+            tool = "tavily_search"
+        } else if (trimmed.contains("exa_search", ignoreCase = true) || trimmed.contains("exa", ignoreCase = true)) {
+            tool = "exa_search"
+        }
 
         // 1. XML parameter syntax: <parameter=query>...</parameter> or <parameter name="query">...</parameter>
         val paramRegex = Regex("""<parameter(?:=|\s+name=["'])query["']?>([\s\S]*?)</parameter>""", RegexOption.IGNORE_CASE)
         paramRegex.find(trimmed)?.let { m ->
             val q = m.groupValues[1].trim()
-            if (q.isNotBlank()) return q
+            if (q.isNotBlank()) return ExtractedToolCall(tool, q)
         }
 
         // 2. Direct tag syntax: <query>...</query> or <search_query>...</search_query>
         val tagRegex = Regex("""<(?:query|search_query)>([\s\S]*?)</(?:query|search_query)>""", RegexOption.IGNORE_CASE)
         tagRegex.find(trimmed)?.let { m ->
             val q = m.groupValues[1].trim()
-            if (q.isNotBlank()) return q
+            if (q.isNotBlank()) return ExtractedToolCall(tool, q)
         }
 
         // 3. JSON format: {"query": "..."} or {"search_query": "..."}
         try {
             val json = JSONObject(trimmed)
             val q = json.optString("query", "").ifBlank { json.optString("search_query", "") }
-            if (q.isNotBlank()) return q
+            if (q.isNotBlank()) return ExtractedToolCall(tool, q.trim())
         } catch (_: Exception) {}
 
         val jsonRegex = Regex("""(?:"query"|"search_query")\s*:\s*"([^"]+)"""")
         jsonRegex.find(trimmed)?.let { m ->
             val q = m.groupValues[1].trim()
-            if (q.isNotBlank()) return q
+            if (q.isNotBlank()) return ExtractedToolCall(tool, q)
         }
 
-        // 4. Function call syntax: web_search("...") or web_search(query="...") or call:web_search(...)
-        val fnRegex = Regex("""(?:call:)?web_search\s*\(\s*(?:(?:query|q)\s*=\s*)?["']([^"'\n\r]+)["']\s*\)""", RegexOption.IGNORE_CASE)
+        // 4. Function call syntax: tavily_search("...") or exa_search("...") or web_search("...")
+        val fnRegex = Regex("""(?:call:)?(?:tavily_search|exa_search|web_search)\s*\(\s*(?:(?:query|q)\s*=\s*)?["']([^"'\n\r]+)["']\s*\)""", RegexOption.IGNORE_CASE)
         fnRegex.find(trimmed)?.let { m ->
             val q = m.groupValues[1].trim()
-            if (q.isNotBlank()) return q
+            if (q.isNotBlank()) return ExtractedToolCall(tool, q)
         }
 
-        // 5. Action bracket syntax: [web_search: ...] or [ACTION: web_search("...")]
-        val bracketRegex = Regex("""\[(?:ACTION:\s*)?web_search[\s:\(]+["']?([^"'\]\)\n\r]+)["']?[\)\]]""", RegexOption.IGNORE_CASE)
+        // 5. Action bracket syntax: [tavily_search: ...] or [ACTION: exa_search("...")]
+        val bracketRegex = Regex("""\[(?:ACTION:\s*)?(?:tavily_search|exa_search|web_search)[\s:\(]+["']?([^"'\]\)\n\r]+)["']?[\)\]]""", RegexOption.IGNORE_CASE)
         bracketRegex.find(trimmed)?.let { m ->
             val q = m.groupValues[1].trim()
-            if (q.isNotBlank()) return q
+            if (q.isNotBlank()) return ExtractedToolCall(tool, q)
         }
 
         return null
     }
+
+    fun extractToolQuery(text: String): String? = extractToolInvocation(text)?.query
 
     companion object {
         private const val TAG = "WyrdLLM"

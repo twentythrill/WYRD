@@ -1,6 +1,6 @@
-# WYRD — Native Android AI Client (v1.1.0)
+# WYRD — Native Android AI Client (v1.3.0)
 
-WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo) with live web search (Exa MCP), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (Whisper), and complete local session persistence.
+WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo) with dual web search engines (Tavily AI for live web and Exa AI for semantic exploration), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (Whisper), and complete local session persistence.
 
 ---
 
@@ -121,13 +121,14 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
   - **Uninterrupted Multitasking**: When sending a prompt and navigating away to other apps (or locking the phone), the OS is prevented from freezing the process or severing SSE streaming sockets. Reasoning, Exa web search, and SQLite Room commits continue seamlessly in the background.
   - **Notification Controls**: Displays a low-profile ongoing notification with real-time status ("Sending...", "Searching web with Exa...", "Thinking...", "Generating response...") and includes a quick "■ Stop" action button to halt generation from the notification shade. Tapping the notification brings WYRD back to the foreground.
   - **Task Manager Cleanup**: Directly honors system lifecycle events—if the user swipes WYRD away from the Android Task Manager (Recents), `onTaskRemoved` immediately halts the streaming request, releases wake locks, and stops the service.
-- **Autonomous Web Search & Factual Grounding (Exa AI)**:
-  - Connects to Exa MCP and direct Exa REST search (`numResults: 5`, `contents: { "highlights": true }`) to extract URLs, publication dates, and snippet highlights.
-  - **Zero-Result Guard**: Intercepts queries returning zero results at the tool boundary before reaching the model, returning: `Search returned 0 results. No credible sources or records were found for this query.`
-  - **Structured Text Blocks & Verification Trailer**: Formats positive results into structured blocks with URL, publication date, and extracted highlights, and appends an enforcement trailer to enforce strict factual grounding and eliminate hallucinations.
-  - **Clean Grounding & Synthesis**: Executes Exa search in Round 1 with animated status ("Searching web with Exa..."), transitions smoothly to "Synthesizing answer...", suppresses tools in Round 2, and guides the model to produce a verified answer without hesitation, looping, or failed synthesis.
-  - Multi-format tool extraction supporting XML parameter syntax (`<parameter=query>`), XML tag syntax (`<query>`), JSON schemas, function calls (`web_search(...)`), and bracket actions.
-  - Configurable under Settings -> **WEB SEARCH API** (personal key or public tier fallback).
+- **Autonomous Dual-Engine Web Search Grounding (Tavily + Exa AI)**:
+  * **Tavily AI Search (`tavily_search`)**: Native `TavilySearchService` using OkHttp to query `https://api.tavily.com/search`, retrieving fresh, real-time live web events, breaking news, sports scores, live weather, and recent updates. Configurable with personal Tavily key under Settings -> **WEB SEARCH APIS**.
+  * **Exa AI Search (`exa_search`)**: Native `ExaSearchService` connecting to Exa MCP and direct Exa REST search (`numResults: 5`, `contents: { "highlights": true }`) to extract URLs, publication dates, and snippet highlights for deep semantic concept exploration and documentation.
+  * **Model Autonomous Routing**: The LLM autonomously chooses between `tavily_search` and `exa_search` based on the query's temporal and conceptual requirements.
+  * **Zero-Result Guards & Structured Snippets**: Both engines include verification constraints and structured source blocks (`Title`, `URL`, `Publication Date`, `Highlights / Content Snippets`) to prevent hallucination.
+  * **Clean Grounding & Synthesis**: Executes searches in Round 1 with animated status ("Searching live web with Tavily..." / "Searching web with Exa..."), transitions smoothly to "Synthesizing answer...", suppresses tools in Round 2, and guides the model to produce a verified answer without hesitation, looping, or failed synthesis.
+  * Multi-format tool extraction supporting XML parameter syntax (`<parameter=query>`), XML tag syntax (`<query>`), JSON schemas, function calls (`tavily_search(...)`, `exa_search(...)`), and bracket actions.
+  * Configurable under Settings -> **WEB SEARCH APIS** with encrypted Keystore storage (`SecureKeyStorage`) and toggle states (`PreferencesManager`).
 - **Contextual Grounding**: Injects current device date, time, and timezone into the LLM system prompt on every completion.
 - **Concise Auto-Naming**: Automatically summarizes conversations into punchy 3 to 4-word titles.
 - **Side Panel & History**: Material 3 navigation drawer featuring a dedicated top brand header (eye logo marker + "WYRD" title), quick actions (New Chat, Search Chats), Pin chat, Rename chat (modal dialog), and Delete chat.

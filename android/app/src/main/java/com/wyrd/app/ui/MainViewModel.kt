@@ -59,6 +59,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val secureKeyStorage = app.secureKeyStorage
     private val mimoService = app.mimoService
     private val exaSearchService = app.exaSearchService
+    private val tavilySearchService = app.tavilySearchService
     private val openAiSttService = app.openAiSttService
     private val nativeTtsManager = app.nativeTtsManager
     private val audioRecorderHelper = app.audioRecorderHelper
@@ -149,6 +150,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     val isExaSearchEnabled: StateFlow<Boolean> = preferencesManager.isExaSearchEnabledFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    val isTavilySearchEnabled: StateFlow<Boolean> = preferencesManager.isTavilySearchEnabledFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     val customBaseUrl: StateFlow<String> = preferencesManager.customBaseUrlFlow
@@ -831,7 +835,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val liveExaApiKey = secureKeyStorage.getExaApiKey().ifBlank { null }
-        val isSearchEnabled = isExaSearchEnabled.value
+        val isExaEnabled = isExaSearchEnabled.value
+        val liveTavilyApiKey = secureKeyStorage.getTavilyApiKey().ifBlank { null }
+        val isTavilyEnabled = isTavilySearchEnabled.value && !liveTavilyApiKey.isNullOrBlank()
 
         val shouldAutoRead = autoReadNextAssistantMessage
         var isTtsStreamingActive = false
@@ -875,8 +881,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 reasoningEffort = reasoningEffort.value,
                 systemPrompt = effectiveSystemPrompt,
                 messages = payloadList,
-                exaSearchService = if (isSearchEnabled) exaSearchService else null,
+                exaSearchService = if (isExaEnabled) exaSearchService else null,
                 exaApiKey = liveExaApiKey,
+                tavilySearchService = if (isTavilyEnabled) tavilySearchService else null,
+                tavilyApiKey = liveTavilyApiKey,
                 customBaseUrl = liveCustomBaseUrl
             ).collect { event ->
                 when (event) {
@@ -1322,6 +1330,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setExaApiKey(key: String) {
         secureKeyStorage.setExaApiKey(key)
+    }
+
+    fun setTavilySearchEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesManager.setTavilySearchEnabled(enabled)
+        }
+    }
+
+    fun getTavilyApiKey(): String = secureKeyStorage.getTavilyApiKey()
+
+    fun setTavilyApiKey(key: String) {
+        secureKeyStorage.setTavilyApiKey(key)
     }
 
     fun setAppTheme(theme: AppTheme) {

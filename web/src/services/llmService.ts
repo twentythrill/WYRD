@@ -1,4 +1,5 @@
 import { searchExaWeb, ZERO_RESULTS_MESSAGE } from './exaSearchService'
+import { searchTavilyWeb, TAVILY_ZERO_RESULTS_MESSAGE } from './tavilySearchService'
 
 export interface StreamChunk {
   content?: string
@@ -7,6 +8,51 @@ export interface StreamChunk {
   clearContent?: boolean
   done?: boolean
   error?: string
+}
+
+export type SearchToolType = 'tavily_search' | 'exa_search' | 'web_search'
+
+export interface ExtractedToolCall {
+  tool: SearchToolType
+  query: string
+}
+
+export const TAVILY_SEARCH_TOOL = {
+  type: 'function',
+  function: {
+    name: 'tavily_search',
+    description:
+      'Searches the live web in real time for breaking news, current events, recent releases/updates, sports scores, weather, and up-to-the-minute facts via Tavily.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'The search query to look up on the live web via Tavily',
+        },
+      },
+      required: ['query'],
+    },
+  },
+}
+
+export const EXA_SEARCH_TOOL = {
+  type: 'function',
+  function: {
+    name: 'exa_search',
+    description:
+      'Searches the web semantically for comprehensive articles, in-depth documentation, company profiles, academic/technical research, or concept discovery via Exa.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'The search query to look up on the web semantically via Exa',
+        },
+      },
+      required: ['query'],
+    },
+  },
 }
 
 export const WEB_SEARCH_TOOL = {
@@ -20,7 +66,7 @@ export const WEB_SEARCH_TOOL = {
       properties: {
         query: {
           type: 'string',
-          description: 'The search query to look up on the web via Exa',
+          description: 'The search query to look up on the web',
         },
       },
       required: ['query'],
@@ -28,36 +74,58 @@ export const WEB_SEARCH_TOOL = {
   },
 }
 
-export function extractToolQuery(text: string): string | null {
+export function extractToolCall(text: string): ExtractedToolCall | null {
   const trimmed = text.trim()
   if (!trimmed) return null
+
+  // Determine tool function name if explicitly present
+  let tool: SearchToolType = 'web_search'
+  if (/tavily_search|tavily/i.test(trimmed)) {
+    tool = 'tavily_search'
+  } else if (/exa_search|exa/i.test(trimmed)) {
+    tool = 'exa_search'
+  }
 
   // 1. XML parameter syntax: <parameter=query>...</parameter> or <parameter name="query">...</parameter>
   const paramRegex = /<parameter\s*(?:=|name\s*=\s*["']?)query["']?>\s*([^<]+)\s*<\/parameter>/i
   const paramMatch = trimmed.match(paramRegex)
-  if (paramMatch?.[1]?.trim()) return paramMatch[1].trim()
+  if (paramMatch?.[1]?.trim()) {
+    return { tool, query: paramMatch[1].trim() }
+  }
 
-  // 2. Direct tag syntax: <query>...</query>
-  const queryTagRegex = /<query>\s*([^<]+)\s*<\/query>/i
+  // 2. Direct tag syntax: <query>...</query> or <search_query>...</search_query>
+  const queryTagRegex = /<(?:query|search_query)>\s*([^<]+)\s*<\/(?:query|search_query)>/i
   const queryTagMatch = trimmed.match(queryTagRegex)
-  if (queryTagMatch?.[1]?.trim()) return queryTagMatch[1].trim()
+  if (queryTagMatch?.[1]?.trim()) {
+    return { tool, query: queryTagMatch[1].trim() }
+  }
 
   // 3. JSON function arguments syntax: {"query": "..."}
-  const jsonQueryRegex = /["']query["']\s*:\s*["']([^"'\n\r]+)["']/i
+  const jsonQueryRegex = /["'](?:query|search_query)["']\s*:\s*["']([^"'\n\r]+)["']/i
   const jsonMatch = trimmed.match(jsonQueryRegex)
-  if (jsonMatch?.[1]?.trim()) return jsonMatch[1].trim()
+  if (jsonMatch?.[1]?.trim()) {
+    return { tool, query: jsonMatch[1].trim() }
+  }
 
-  // 4. Function call syntax: web_search("...") or web_search(query="...") or call:web_search(...)
-  const fnRegex = /(?:call:)?web_search\s*\(\s*(?:(?:query|q)\s*=\s*)?["']([^"'\n\r]+)["']\s*\)/i
+  // 4. Function call syntax: tavily_search("...") or exa_search("...") or web_search("...")
+  const fnRegex = /(?:call:)?(?:tavily_search|exa_search|web_search)\s*\(\s*(?:(?:query|q)\s*=\s*)?["']([^"'\n\r]+)["']\s*\)/i
   const fnMatch = trimmed.match(fnRegex)
-  if (fnMatch?.[1]?.trim()) return fnMatch[1].trim()
+  if (fnMatch?.[1]?.trim()) {
+    return { tool, query: fnMatch[1].trim() }
+  }
 
-  // 5. Action bracket syntax: [web_search: ...] or [ACTION: web_search("...")]
-  const bracketRegex = /\[(?:ACTION:\s*)?web_search[\s:(]+["']?([^"'\])\n\r]+)["']?[)\]]/i
+  // 5. Action bracket syntax: [tavily_search: ...] or [ACTION: exa_search("...")]
+  const bracketRegex = /\[(?:ACTION:\s*)?(?:tavily_search|exa_search|web_search)[\s:(]+["']?([^"'\])\n\r]+)["']?[)\]]/i
   const bracketMatch = trimmed.match(bracketRegex)
-  if (bracketMatch?.[1]?.trim()) return bracketMatch[1].trim()
+  if (bracketMatch?.[1]?.trim()) {
+    return { tool, query: bracketMatch[1].trim() }
+  }
 
   return null
+}
+
+export function extractToolQuery(text: string): string | null {
+  return extractToolCall(text)?.query ?? null
 }
 
 /**
@@ -289,7 +357,12 @@ export async function* streamLlmCompletion({
     effectiveSystemPrompt += `${systemPrompt.trim()}\n\n`
   }
   effectiveSystemPrompt += `[Context: ${temporalContext}]`
-  effectiveSystemPrompt += `\n[Web Search Tool: You have access to a live web search tool named \`web_search\` (which calls the Exa search engine). Searches the web for recent events and factual corroboration. Returns URLs, publication dates, and extracted snippets. If the returned snippets do not confirm the claim, treat the claim as unverified. You are in charge of deciding autonomously whether to use web search for the user's answer. If the user's question requires real-time facts, current news, recent releases/updates (e.g. game patch notes, versions), live data (weather, stocks, scores), or facts beyond your knowledge cutoff, you should invoke web search using:\n<tool_call><function=web_search><parameter=query>your search query</parameter></function></tool_call>\nIf the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]`
+  effectiveSystemPrompt += `\n[Autonomous Web Search Tools: You have access to external search engines to ground your answers in verified external facts. You are in charge of deciding autonomously whether to use web search.
+- \`tavily_search\`: Real-time live web search engine. Use this when the user's question requires breaking news, current events, recent releases/updates (e.g. software versions, patch notes), live data (weather, sports scores, stock prices), or live web facts. Invoke with:
+<tool_call><function=tavily_search><parameter=query>your search query</parameter></function></tool_call>
+- \`exa_search\`: Semantic neural search engine. Use this when the user needs deep concept exploration, documentation, technical research, or academic literature. Invoke with:
+<tool_call><function=exa_search><parameter=query>your search query</parameter></function></tool_call>
+If the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]`
 
   if (reasoningEffort === 'low') {
     effectiveSystemPrompt += '\n[Reasoning Budget: Low (~1000 tokens). Strictly constrain your internal thinking/reasoning process to be brief, concise, and focused solely on core deductions. Keep internal thought under 250 words. Do not engage in lengthy internal monologues, exhaustive scenario mapping, or speculative tangents.]'
@@ -362,7 +435,7 @@ export async function* streamLlmCompletion({
     }
 
     if (toolExecutionRounds === 0 && !hasImagesInConversation) {
-      bodyPayload.tools = [WEB_SEARCH_TOOL]
+      bodyPayload.tools = [TAVILY_SEARCH_TOOL, EXA_SEARCH_TOOL]
       bodyPayload.tool_choice = 'auto'
     }
 
@@ -541,37 +614,42 @@ export async function* streamLlmCompletion({
       return
     }
 
-    // Check if model autonomously invoked web_search tool (either via native args, parser XML buffer, or content)
-    let extractedQuery = extractToolQuery(toolCallArgs)
-    if (!extractedQuery && parserToolContent) {
-      extractedQuery = extractToolQuery(parserToolContent)
+    // Check if model autonomously invoked web search tool (either via native args, parser XML buffer, or content)
+    let extracted = extractToolCall(toolCallArgs)
+    if (!extracted && parserToolContent) {
+      extracted = extractToolCall(parserToolContent)
     }
-    if (!extractedQuery) {
-      extractedQuery = extractToolQuery(roundContentAccumulator)
+    if (!extracted) {
+      extracted = extractToolCall(roundContentAccumulator)
     }
 
-    if (extractedQuery && toolExecutionRounds < maxToolExecutionRounds) {
+    if (extracted && toolExecutionRounds < maxToolExecutionRounds) {
       toolExecutionRounds++
+      const { tool, query } = extracted
+      const hasTavilyKey = Boolean(localStorage.getItem('wyrd_tavily_api_key')?.trim())
+      const isTavily = tool === 'tavily_search' || (tool === 'web_search' && hasTavilyKey)
+      const engineName = isTavily ? 'Tavily' : 'Exa'
+      const toolFunctionName = isTavily ? 'tavily_search' : 'exa_search'
 
       // Clear any partial content from round 1 so XML or preamble never leaks
       yield { clearContent: true }
-      yield { status: `Searching web with Exa for: "${extractedQuery}"...` }
+      yield { status: `Searching ${isTavily ? 'live web with Tavily' : 'web with Exa'} for: "${query}"...` }
 
-      const searchRes = await searchExaWeb(extractedQuery)
-      const searchOutput = searchRes.content || ZERO_RESULTS_MESSAGE
+      const searchRes = isTavily ? await searchTavilyWeb(query) : await searchExaWeb(query)
+      const searchOutput = searchRes.content || (isTavily ? TAVILY_ZERO_RESULTS_MESSAGE : ZERO_RESULTS_MESSAGE)
 
       yield { status: 'Synthesizing answer...' }
 
-      // Append assistant's tool call and Exa search context for direct answer synthesis
+      // Append assistant's tool call and search context for direct answer synthesis
       currentMessages = [
         ...currentMessages,
         {
           role: 'assistant',
-          content: `<tool_call><function=web_search><parameter=query>${extractedQuery}</parameter></function></tool_call>`,
+          content: `<tool_call><function=${toolFunctionName}><parameter=query>${query}</parameter></function></tool_call>`,
         },
         {
           role: 'user',
-          content: `[Web Search Results (via Exa) for "${extractedQuery}"]:\n${searchOutput}\n\n[INSTRUCTION: Web search via Exa is now COMPLETE. Do NOT invoke web_search or emit any <tool_call> tags. Directly, accurately, and thoroughly answer the user's question using the search results above and your knowledge.]`,
+          content: `[Web Search Results (via ${engineName}) for "${query}"]:\n${searchOutput}\n\n[INSTRUCTION: Web search via ${engineName} is now COMPLETE. Do NOT invoke ${toolFunctionName} or emit any <tool_call> tags. Directly, accurately, and thoroughly answer the user's question using the search results above and your knowledge.]`,
         },
       ]
 

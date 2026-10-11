@@ -106,6 +106,7 @@ fun SettingsScreen(
     val isXiaomiMimoEnabled by viewModel.isXiaomiMimoEnabled.collectAsState()
     val isOpenAiSttEnabled by viewModel.isOpenAiSttEnabled.collectAsState()
     val isExaSearchEnabled by viewModel.isExaSearchEnabled.collectAsState()
+    val isTavilySearchEnabled by viewModel.isTavilySearchEnabled.collectAsState()
     val customBaseUrl by viewModel.customBaseUrl.collectAsState()
 
     val context = LocalContext.current
@@ -113,6 +114,7 @@ fun SettingsScreen(
     var showXiaomiDialog by remember { mutableStateOf(false) }
     var showOpenAiDialog by remember { mutableStateOf(false) }
     var showExaDialog by remember { mutableStateOf(false) }
+    var showTavilyDialog by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
     var showClearUnpinnedDialog by remember { mutableStateOf(false) }
     var showSupabaseAuthDialog by remember { mutableStateOf(false) }
@@ -127,6 +129,7 @@ fun SettingsScreen(
     var editingCustomBaseUrl by remember { mutableStateOf("") }
     var editingOpenAiKey by remember { mutableStateOf("") }
     var editingExaKey by remember { mutableStateOf("") }
+    var editingTavilyKey by remember { mutableStateOf("") }
 
     // Native Back Button Handling:
     BackHandler {
@@ -138,6 +141,8 @@ fun SettingsScreen(
             showOpenAiDialog = false
         } else if (showExaDialog) {
             showExaDialog = false
+        } else if (showTavilyDialog) {
+            showTavilyDialog = false
         } else if (showResetConfirmDialog) {
             showResetConfirmDialog = false
         } else if (showClearUnpinnedDialog) {
@@ -445,8 +450,28 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(28.dp))
 
             // WEB SEARCH API SECTION
-            SettingsSectionHeader(title = "WEB SEARCH API")
+            SettingsSectionHeader(title = "WEB SEARCH APIS")
             Spacer(modifier = Modifier.height(8.dp))
+
+            val hasTavilyKey = viewModel.getTavilyApiKey().isNotBlank()
+            ProviderConfigRow(
+                title = "Tavily Search (Live Web)",
+                subtitle = if (hasTavilyKey) "Tavily AI (Personal key active)" else "Real-time web browsing (Tap to set key)",
+                isEnabled = isTavilySearchEnabled,
+                hasKey = hasTavilyKey,
+                onTitleClick = {
+                    viewModel.hapticManager.tick()
+                    editingTavilyKey = viewModel.getTavilyApiKey()
+                    showTavilyDialog = true
+                },
+                onToggle = { enabled ->
+                    viewModel.hapticManager.click()
+                    viewModel.setTavilySearchEnabled(enabled)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
             val hasExaKey = viewModel.getExaApiKey().isNotBlank()
             ProviderConfigRow(
                 title = "Exa AI Search",
@@ -815,6 +840,22 @@ fun SettingsScreen(
                     viewModel.hapticManager.success()
                     viewModel.setOpenAiApiKey(key)
                     showOpenAiDialog = false
+                }
+            )
+        }
+
+        // Tavily Search API Key Dialog
+        if (showTavilyDialog) {
+            ApiKeyEntryDialog(
+                title = "Tavily Search API Key",
+                initialKey = editingTavilyKey,
+                description = "Get a free API key at app.tavily.com (1,000 free searches/month). Enables real-time live web browsing for current events and breaking news.",
+                placeholder = "tvly-...",
+                onDismiss = { showTavilyDialog = false },
+                onSave = { key, _ ->
+                    viewModel.hapticManager.success()
+                    viewModel.setTavilyApiKey(key)
+                    showTavilyDialog = false
                 }
             )
         }

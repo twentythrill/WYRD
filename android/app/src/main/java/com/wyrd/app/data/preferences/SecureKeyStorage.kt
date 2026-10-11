@@ -59,6 +59,14 @@ class SecureKeyStorage(context: Context) {
         sharedPreferences.edit().putString(KEY_EXA_API_KEY, key.trim()).apply()
     }
 
+    fun getTavilyApiKey(): String {
+        return sharedPreferences.getString(KEY_TAVILY_API_KEY, "") ?: ""
+    }
+
+    fun setTavilyApiKey(key: String) {
+        sharedPreferences.edit().putString(KEY_TAVILY_API_KEY, key.trim()).apply()
+    }
+
     fun clearAll() {
         sharedPreferences.edit().clear().commit()
     }
@@ -209,6 +217,7 @@ class SecureKeyStorage(context: Context) {
         private const val KEY_XIAOMI_API_KEY = "xiaomi_mimo_api_key"
         private const val KEY_OPENAI_API_KEY = "openai_stt_api_key"
         private const val KEY_EXA_API_KEY = "exa_search_api_key"
+        private const val KEY_TAVILY_API_KEY = "tavily_search_api_key"
         private const val KEY_SUPABASE_ACCESS_TOKEN = "supabase_access_token"
         private const val KEY_SUPABASE_REFRESH_TOKEN = "supabase_refresh_token"
         private const val KEY_SUPABASE_USER_EMAIL = "supabase_user_email"
