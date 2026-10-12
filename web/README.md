@@ -47,9 +47,9 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
      * **Bottom**: Floating controls and input capsule sit over a 176px multi-stop subtle fade gradient, dissolving messages smoothly behind the capsule with complete visual continuity.
    * **Dynamic Centered Scroll-to-Bottom Button**: 38px circular chevron button centered directly on top of the text input capsule. Smoothly fades and scales in only when scrolled up away from the bottom, and instantly fades out once bottom is reached.
    * **Instant Top-Snapped Prompt on Send**:
-     * The moment the user sends a prompt, the chat scroll container smoothly snaps the prompt directly to the top of the viewport (76px below the TopBar).
-     * A dynamic bottom scroll clearance buffer expands to guarantee effortless scrolling even before the model begins streaming tokens.
-     * The LLM streams its response directly beneath the prompt in full view, allowing immediate reading from the top down.
+     * The moment the user sends a prompt, the chat scroll container smoothly animates and snaps the prompt directly to the top of the viewport (76px below the TopBar).
+     * Clean single-pass scroll execution with mutual-exclusion locks (`isSnappingToPromptRef`) eliminates scroll fighting, jitter, and layout jerking.
+     * Zero artificial bottom empty space: naturally clears space for streaming tokens directly beneath the prompt in full view, allowing immediate reading from the top down.
      * Manual scrolling is fully preserved for reviewing history or following long answers.
    * **Universal Auto-Scroll on Chat Open (Android Parity)**: Opening or selecting any conversation immediately and reliably positions the view at the true bottom across all viewports using full container scroll offsets (`scrollTop = scrollHeight`), multi-stage layout settlement, programmatic scroll guards, and ResizeObserver tracking.
    * **Reading-First Scroll Control**: Strictly disables autoscrolling during incoming answer streaming so your reading flow is never broken by jumping viewports.

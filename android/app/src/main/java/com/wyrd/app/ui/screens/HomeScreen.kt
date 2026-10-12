@@ -259,11 +259,6 @@ fun HomeScreen(
 
     // Initial chat load: when navigating to a chat with existing history, position at the true bottom once.
     var lastLoadedChatId by remember { mutableStateOf<Long?>(null) }
-    var hasSentPromptInChat by remember { mutableStateOf(false) }
-
-    LaunchedEffect(activeChatId) {
-        hasSentPromptInChat = false
-    }
 
     LaunchedEffect(activeChatId, messages) {
         if (activeChatId == null) {
@@ -297,13 +292,13 @@ fun HomeScreen(
         if (totalCount > 0 && !userScrolledUp && !isListDragged && !ttsPlaybackState.isPlaying) {
             val lastMsg = messages.lastOrNull()
             if (lastMsg?.role == "user") {
-                hasSentPromptInChat = true
                 val userPromptIndex = totalCount - 1
                 isProgrammaticScroll = true
-                listState.animateScrollToItem(userPromptIndex, 0)
-                kotlinx.coroutines.delay(80)
-                listState.animateScrollToItem(userPromptIndex, 0)
-                isProgrammaticScroll = false
+                try {
+                    listState.animateScrollToItem(userPromptIndex, 0)
+                } finally {
+                    isProgrammaticScroll = false
+                }
             }
         }
     }
@@ -315,8 +310,8 @@ fun HomeScreen(
         }
         prevImeBottom = imeBottom
 
-        if (imeBottom > 0 && messages.isNotEmpty() && !userScrolledUp && !hasSentPromptInChat) {
-            val targetIndex = messages.size + if (isGenerating) 1 else 0
+        if (imeBottom > 0 && messages.isNotEmpty() && !userScrolledUp && !isGenerating && !isProgrammaticScroll) {
+            val targetIndex = messages.size - 1
             listState.scrollToItem(targetIndex, 0)
         }
     }
@@ -808,7 +803,6 @@ fun HomeScreen(
                                             onBranch = { viewModel.branchChat(it) },
                                             onRedo = {
                                                  userScrolledUp = false
-                                                 hasSentPromptInChat = true
                                                  viewModel.redoMessage(it)
                                             }
                                         )
@@ -863,16 +857,10 @@ fun HomeScreen(
                                 }
 
                                 item(key = "chat_bottom_anchor") {
-                                    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
-                                    val bottomSpacerHeight = if (hasSentPromptInChat || isGenerating) {
-                                        (screenHeight - topBarHeight - 120.dp).coerceAtLeast(1.dp)
-                                    } else {
-                                        1.dp
-                                    }
                                     Spacer(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(bottomSpacerHeight)
+                                            .height(1.dp)
                                     )
                                 }
                             }
@@ -1136,7 +1124,6 @@ fun HomeScreen(
                                 keyboardController?.hide()
                                 focusManager.clearFocus(force = true)
                                 userScrolledUp = false
-                                hasSentPromptInChat = true
                                 if (isAttachmentMenuOpen) isAttachmentMenuOpen = false
                                 viewModel.sendMessage()
                             },

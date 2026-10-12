@@ -170,7 +170,7 @@ export function ChatArea({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const isSubmittingRef = useRef<boolean>(false)
   const isProgrammaticScrollRef = useRef<boolean>(false)
-  const [hasSentPromptInChat, setHasSentPromptInChat] = useState<boolean>(false)
+  const isSnappingToPromptRef = useRef<boolean>(false)
 
   // Voice Recording (STT via OpenAI Whisper) State
   const [isRecording, setIsRecording] = useState(false)
@@ -248,45 +248,42 @@ export function ChatArea({
   }, [])
 
   const snapPromptToTop = useCallback((messageId?: string) => {
-    const executeScroll = () => {
-      const container = scrollContainerRef.current
-      if (!container) return
+    const container = scrollContainerRef.current
+    if (!container) return
 
-      let targetEl: HTMLElement | null = null
-      if (messageId) {
-        targetEl = document.getElementById(`message-${messageId}`)
-      }
-      if (!targetEl) {
-        const userBubbles = container.querySelectorAll('[data-message-role="user"]')
-        if (userBubbles.length > 0) {
-          targetEl = userBubbles[userBubbles.length - 1] as HTMLElement
-        }
-      }
-
-      if (targetEl && container) {
-        isProgrammaticScrollRef.current = true
-        isUserAtBottomRef.current = false
-        setShowScrollBottom(false)
-
-        const containerRect = container.getBoundingClientRect()
-        const targetRect = targetEl.getBoundingClientRect()
-        // Top offset of 76px positions prompt right under the TopBar (56px TopBar + breathing room)
-        const topOffset = 76
-        const targetScrollTop = Math.max(0, container.scrollTop + (targetRect.top - containerRect.top) - topOffset)
-
-        container.scrollTo({
-          top: targetScrollTop,
-          behavior: 'smooth',
-        })
-
-        setTimeout(() => {
-          isProgrammaticScrollRef.current = false
-        }, 500)
+    let targetEl: HTMLElement | null = null
+    if (messageId) {
+      targetEl = document.getElementById(`message-${messageId}`)
+    }
+    if (!targetEl) {
+      const userBubbles = container.querySelectorAll('[data-message-role="user"]')
+      if (userBubbles.length > 0) {
+        targetEl = userBubbles[userBubbles.length - 1] as HTMLElement
       }
     }
 
-    requestAnimationFrame(executeScroll)
-    setTimeout(executeScroll, 50)
+    if (targetEl && container) {
+      isProgrammaticScrollRef.current = true
+      isSnappingToPromptRef.current = true
+      isUserAtBottomRef.current = false
+      setShowScrollBottom(false)
+
+      const containerRect = container.getBoundingClientRect()
+      const targetRect = targetEl.getBoundingClientRect()
+      // Top offset of 76px positions prompt right under the TopBar (56px TopBar + breathing room)
+      const topOffset = 76
+      const targetScrollTop = Math.max(0, container.scrollTop + (targetRect.top - containerRect.top) - topOffset)
+
+      container.scrollTo({
+        top: targetScrollTop,
+        behavior: 'smooth',
+      })
+
+      setTimeout(() => {
+        isProgrammaticScrollRef.current = false
+        isSnappingToPromptRef.current = false
+      }, 600)
+    }
   }, [])
 
   // Explicit Chat Selection Trigger (re-selecting active chat or clicking a chat)
@@ -357,13 +354,14 @@ export function ChatArea({
   }, [chat?.id, isLoadingMessages, displayedMessages, scrollToBottomInstant])
 
   // Keep viewport pinned to the bottom if content expands (e.g. image loads, code formatting, KaTeX math),
-  // but ONLY if user hasn't scrolled up away from the bottom and model is not streaming.
+  // but ONLY if user hasn't scrolled up away from the bottom and not snapping or generating.
   useEffect(() => {
     const el = contentContainerRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
 
     const observer = new ResizeObserver(() => {
-      if ((isUserAtBottomRef.current || isProgrammaticScrollRef.current) && !isGenerating) {
+      if (isSnappingToPromptRef.current || isGenerating) return
+      if (isUserAtBottomRef.current && !isProgrammaticScrollRef.current) {
         scrollToBottomInstant()
       }
     })
@@ -371,11 +369,6 @@ export function ChatArea({
     observer.observe(el)
     return () => observer.disconnect()
   }, [isGenerating, scrollToBottomInstant])
-
-  // Reset hasSentPromptInChat when chat changes
-  useEffect(() => {
-    setHasSentPromptInChat(false)
-  }, [chat?.id])
 
   // 2. New message added: when user sends a prompt, snap that prompt directly to the top!
   useEffect(() => {
@@ -387,7 +380,6 @@ export function ChatArea({
       const lastMsg = messages[messages.length - 1]
       const isUserMessage = lastMsg?.role === 'user'
       if (isUserMessage) {
-        setHasSentPromptInChat(true)
         snapPromptToTop(lastMsg.id)
       }
     }
@@ -547,13 +539,11 @@ export function ChatArea({
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
-    setHasSentPromptInChat(true)
     onSendMessage(text, attachmentsPayload)
     setTimeout(() => {
       setIsSubmitting(false)
       isSubmittingRef.current = false
     }, 400)
-    snapPromptToTop()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1080,13 +1070,6 @@ export function ChatArea({
                   )}
                 </div>
               )}
-
-              {/* Bottom scroll room allowing the prompt to snap to the top and stream comfortably */}
-              <div
-                aria-hidden="true"
-                style={{ height: hasSentPromptInChat ? 'calc(100vh - 220px)' : '0px' }}
-                className="pointer-events-none transition-[height] duration-200"
-              />
 
               <div ref={messagesEndRef} />
             </div>

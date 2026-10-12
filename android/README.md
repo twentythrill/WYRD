@@ -43,10 +43,9 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
   - In existing chats, when the soft keyboard appears, both `LazyColumn` and the input capsule adapt to IME insets; the message list auto-scrolls with tight, comfortable breathing room directly above the floating capsule, removing unnecessary empty space and keeping the conversation visible.
   - The floating TTS button gracefully fades out while typing (unless actively playing) to maximize visible viewport.
   - **Instant Top-Snapped Prompt on Send**:
-    - The moment the user sends a prompt, the message list automatically and smoothly snaps that prompt directly to the top of the screen (positioned comfortably below the top bar).
-    - A dynamic bottom viewport buffer expands to ensure full scroll clearance even before the LLM has generated any response tokens.
-    - As the LLM streams its response, text flows naturally downwards from the user prompt into clear view, allowing the user to begin reading immediately without any jumping or auto-scroll disruption.
-    - Full manual scroll control is preserved so the user can freely scroll up or down at any time.
+    - The moment the user sends a prompt, the message list cleanly and smoothly animates that prompt directly to the top of the screen (positioned comfortably below the top bar).
+    - As the LLM streams its response, text flows naturally downwards from the user prompt into clear view, allowing the user to begin reading immediately without any jumping, erratic back-and-forth bounce, or auto-scroll disruption.
+    - Full manual scroll control is preserved with zero artificial voids or empty black space, allowing the user to freely scroll up or down at any time.
   - **Dynamic Scroll-to-Bottom Button & Universal Bottom Positioning**:
     - **Universal True Bottom Anchoring**: When opening any conversation from the history drawer or on launch, the message list automatically and consistently scrolls to the true bottom using a layout bottom anchor (`chat_bottom_anchor`), settling reliably through multi-stage layout measurement passes so conversation history is immediately ready at the latest message above the capsule.
     - Centered directly above the text input capsule with smooth scale and fade animations (`fadeIn` + `scaleIn` / `fadeOut` + `scaleOut`).
