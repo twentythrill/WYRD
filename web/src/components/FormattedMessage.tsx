@@ -332,7 +332,7 @@ function WordItem({
     <span
       onDoubleClick={handleDoubleClick}
       title="Double click to read from here"
-      className="cursor-pointer select-text inline"
+      className="cursor-pointer select-text inline break-words [overflow-wrap:anywhere]"
     >
       {word.leadingPunct}
       <span
@@ -396,8 +396,8 @@ function CodeBlockItem({
           <span>{copied ? 'Copied' : 'Copy'}</span>
         </button>
       </div>
-      <pre className={`p-3.5 text-xs overflow-x-auto font-mono ${codeColor} leading-[22px] select-text`}>
-        <code>
+      <pre className={`p-3.5 text-[17px] font-mono ${codeColor} leading-[24px] select-text whitespace-pre-wrap break-words [overflow-wrap:anywhere]`}>
+        <code className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
           {words.map((w, wIdx) => (
             <WordItem
               key={wIdx}

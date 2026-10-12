@@ -73,6 +73,10 @@ export function tokenizeTextIntoWords(text: string, baseOffset: number): Formatt
   const chunkRegex = /(\S+)(\s*)/g
   let chunkMatch: RegExpExecArray | null
 
+  const initialWhitespaceMatch = text.match(/^(\s+)/)
+  const initialWhitespace = initialWhitespaceMatch ? initialWhitespaceMatch[1] : ''
+  let isFirst = true
+
   while ((chunkMatch = chunkRegex.exec(text)) !== null) {
     const rawChunk = chunkMatch[1]
     const trailingSpace = chunkMatch[2]
@@ -83,11 +87,12 @@ export function tokenizeTextIntoWords(text: string, baseOffset: number): Formatt
     const wordMatch = rawChunk.match(/^([^\p{L}\p{N}]*)([\p{L}\p{N}'’\-_]+)([^\p{L}\p{N}]*)$/u)
 
     if (wordMatch) {
-      const leadingPunct = wordMatch[1]
+      const punct = wordMatch[1]
+      const leadingPunct = (isFirst ? initialWhitespace : '') + punct
       const coreWord = wordMatch[2]
       const trailingPunct = wordMatch[3]
 
-      const start = chunkStart + leadingPunct.length
+      const start = chunkStart + punct.length
       const end = start + coreWord.length
 
       words.push({
@@ -100,8 +105,9 @@ export function tokenizeTextIntoWords(text: string, baseOffset: number): Formatt
       })
     } else {
       // Symbols or numbers only
+      const leadingPunct = isFirst ? initialWhitespace : ''
       words.push({
-        leadingPunct: '',
+        leadingPunct,
         text: rawChunk,
         trailingPunct: '',
         start: chunkStart,
@@ -109,6 +115,19 @@ export function tokenizeTextIntoWords(text: string, baseOffset: number): Formatt
         trailingSpace,
       })
     }
+    isFirst = false
+  }
+
+  // Handle case where text consists entirely of whitespace
+  if (words.length === 0 && text.length > 0) {
+    words.push({
+      leadingPunct: text,
+      text: '',
+      trailingPunct: '',
+      start: baseOffset,
+      end: baseOffset,
+      trailingSpace: '',
+    })
   }
 
   return words

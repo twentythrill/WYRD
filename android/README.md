@@ -20,7 +20,14 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
     - Status bar and 3-button navigation bar are 100% transparent (`android.graphics.Color.TRANSPARENT`) with OS contrast enforcement disabled (`isStatusBarContrastEnforced = false`, `isNavigationBarContrastEnforced = false`), eliminating gray scrims.
     - **Top Subtle Gradient**: Multi-stop vertical gradient (~130dp) softly dissolving text scrolling behind the status bar and top bar without harsh solid black blocks.
     - **Bottom Subtle Gradient**: 230dp multi-stop vertical gradient dissolving text smoothly behind the floating capsule and through the transparent navigation bar, delivering pure seamless continuity.
-- **Markdown & Tabular Layout Engine**: Jetpack Compose renderer supporting headers, syntax-styled code cards with one-tap copy and horizontal scroll, blockquotes, ordered/unordered lists, bold/italic formatting, and clickable links. Includes a specialized Markdown Table parser rendering aligned, padded monospaced tabular grids with header separation, dynamic column formatting, and 1:1 character index parity in `plainBuilder` to ensure uninterrupted TTS word-by-word tracking.
+- **Markdown, Code Block & Tabular Layout Engine**:
+  - **Native Markdown Code Blocks (`CodeBlockCard`)**: Fenced code blocks (` ```lang ... ``` `) render inside dedicated, Warm Brutalist cards adhering to active theme tokens (`wyrdColors.surface`, `1.dp` border `wyrdColors.border`, `12.dp` rounded corners). Features:
+    - **Header Bar**: Displays language title (`FontFamily.Monospace`, 11sp) on `wyrdColors.surfaceElevated` alongside a one-tap copy button with instant mechanical haptic feedback and a dynamic green checkmark (`AccentGreen`, "Copied") state.
+    - **Natural Line Wrapping & Text Selection**: Monospace code body (`17sp`, `23sp` line height, matching body text) with natural soft line-wrapping, eliminating horizontal scrolling even for long code lines or minified tokens, and non-jumping text selection (`SelectionContainer` with `suppressBringIntoView()`).
+    - **Audio & TTS Parity**: Preserves 1:1 character index offsets in `plainBuilder` and `annotatedBuilder`, allowing word-by-word reading highlight pills and tap-to-seek playback inside code blocks.
+    - **Streaming Resilient**: Streams in real-time without layout jumps even while code blocks are unclosed mid-stream.
+  - **Markdown Tables (`MarkdownTableCard`)**: Specialized parser rendering aligned, padded monospaced tabular grids with header separation, dynamic column formatting, and 1:1 character index parity in `plainBuilder` to ensure uninterrupted TTS word-by-word tracking.
+  - **Typography & Rich Elements**: Headers, blockquotes, ordered/unordered lists, bold/italic formatting, and clickable links.
 - **Zero-Shift Streaming Typography**: `StreamingAssistantMessageItem` and `AssistantMessageItem` share the exact same condensed 23sp line-height typographic pipeline, markdown preprocessing (`formatMarkdownForReading`), and padding layout. Eliminates intermediate spacing shifts, erratic vertical jumps, or layout snapping between streaming and finalized assistant turns.
 - **Selection & Double-Tap Actions**:
   - Native long-press text selection with system copy handles across all messages, streaming content, and reasoning blocks. Powered by a no-op `BringIntoViewSpec` provided to `LazyColumn` (`LocalBringIntoViewSpec`) and non-consuming gesture timeouts, ensuring text selection is 100% rock-solid with zero jumping, viewport snapping, or scrolling behind the floating capsule anywhere in messages of any length.
@@ -35,6 +42,11 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
   - Multiline text input with adaptive height (44dp–180dp), reactive `.imePadding()`, and auto-focus on launch.
   - In existing chats, when the soft keyboard appears, both `LazyColumn` and the input capsule adapt to IME insets; the message list auto-scrolls with tight, comfortable breathing room directly above the floating capsule, removing unnecessary empty space and keeping the conversation visible.
   - The floating TTS button gracefully fades out while typing (unless actively playing) to maximize visible viewport.
+  - **Instant Top-Snapped Prompt on Send**:
+    - The moment the user sends a prompt, the message list automatically and smoothly snaps that prompt directly to the top of the screen (positioned comfortably below the top bar).
+    - A dynamic bottom viewport buffer expands to ensure full scroll clearance even before the LLM has generated any response tokens.
+    - As the LLM streams its response, text flows naturally downwards from the user prompt into clear view, allowing the user to begin reading immediately without any jumping or auto-scroll disruption.
+    - Full manual scroll control is preserved so the user can freely scroll up or down at any time.
   - **Dynamic Scroll-to-Bottom Button & Universal Bottom Positioning**:
     - **Universal True Bottom Anchoring**: When opening any conversation from the history drawer or on launch, the message list automatically and consistently scrolls to the true bottom using a layout bottom anchor (`chat_bottom_anchor`), settling reliably through multi-stage layout measurement passes so conversation history is immediately ready at the latest message above the capsule.
     - Centered directly above the text input capsule with smooth scale and fade animations (`fadeIn` + `scaleIn` / `fadeOut` + `scaleOut`).

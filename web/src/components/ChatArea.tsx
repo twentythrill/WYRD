@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ArrowRight,
   Plus,
@@ -169,6 +170,7 @@ export function ChatArea({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const isSubmittingRef = useRef<boolean>(false)
   const isProgrammaticScrollRef = useRef<boolean>(false)
+  const [hasSentPromptInChat, setHasSentPromptInChat] = useState<boolean>(false)
 
   // Voice Recording (STT via OpenAI Whisper) State
   const [isRecording, setIsRecording] = useState(false)
@@ -243,6 +245,48 @@ export function ChatArea({
       isUserAtBottomRef.current = true
       setShowScrollBottom(false)
     }
+  }, [])
+
+  const snapPromptToTop = useCallback((messageId?: string) => {
+    const executeScroll = () => {
+      const container = scrollContainerRef.current
+      if (!container) return
+
+      let targetEl: HTMLElement | null = null
+      if (messageId) {
+        targetEl = document.getElementById(`message-${messageId}`)
+      }
+      if (!targetEl) {
+        const userBubbles = container.querySelectorAll('[data-message-role="user"]')
+        if (userBubbles.length > 0) {
+          targetEl = userBubbles[userBubbles.length - 1] as HTMLElement
+        }
+      }
+
+      if (targetEl && container) {
+        isProgrammaticScrollRef.current = true
+        isUserAtBottomRef.current = false
+        setShowScrollBottom(false)
+
+        const containerRect = container.getBoundingClientRect()
+        const targetRect = targetEl.getBoundingClientRect()
+        // Top offset of 76px positions prompt right under the TopBar (56px TopBar + breathing room)
+        const topOffset = 76
+        const targetScrollTop = Math.max(0, container.scrollTop + (targetRect.top - containerRect.top) - topOffset)
+
+        container.scrollTo({
+          top: targetScrollTop,
+          behavior: 'smooth',
+        })
+
+        setTimeout(() => {
+          isProgrammaticScrollRef.current = false
+        }, 500)
+      }
+    }
+
+    requestAnimationFrame(executeScroll)
+    setTimeout(executeScroll, 50)
   }, [])
 
   // Explicit Chat Selection Trigger (re-selecting active chat or clicking a chat)
@@ -328,7 +372,12 @@ export function ChatArea({
     return () => observer.disconnect()
   }, [isGenerating, scrollToBottomInstant])
 
-  // 2. New message added: only auto-scroll if user sent it so their prompt is in view
+  // Reset hasSentPromptInChat when chat changes
+  useEffect(() => {
+    setHasSentPromptInChat(false)
+  }, [chat?.id])
+
+  // 2. New message added: when user sends a prompt, snap that prompt directly to the top!
   useEffect(() => {
     const currentChatId = chat?.id || null
     const hasNewMessage = messages.length > prevMessagesLengthRef.current
@@ -338,10 +387,11 @@ export function ChatArea({
       const lastMsg = messages[messages.length - 1]
       const isUserMessage = lastMsg?.role === 'user'
       if (isUserMessage) {
-        scrollToBottom(true)
+        setHasSentPromptInChat(true)
+        snapPromptToTop(lastMsg.id)
       }
     }
-  }, [messages, chat?.id])
+  }, [messages, chat?.id, snapPromptToTop])
 
   // NOTE: Strictly do NOT autoscroll during incoming streaming of answer
   // (currentStreamingContent or currentStreamingReasoning), preserving user reading flow.
@@ -497,12 +547,13 @@ export function ChatArea({
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
+    setHasSentPromptInChat(true)
     onSendMessage(text, attachmentsPayload)
     setTimeout(() => {
       setIsSubmitting(false)
       isSubmittingRef.current = false
     }, 400)
-    scrollToBottom(true)
+    snapPromptToTop()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1030,6 +1081,13 @@ export function ChatArea({
                 </div>
               )}
 
+              {/* Bottom scroll room allowing the prompt to snap to the top and stream comfortably */}
+              <div
+                aria-hidden="true"
+                style={{ height: hasSentPromptInChat ? 'calc(100vh - 220px)' : '0px' }}
+                className="pointer-events-none transition-[height] duration-200"
+              />
+
               <div ref={messagesEndRef} />
             </div>
           </div>
@@ -1175,20 +1233,63 @@ function MessageItem({
   onBranch?: () => void
   onRedo?: () => void
 }) {
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
+        setMenuPosition(null)
       }
     }
-    if (menuOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
+    function handleScrollOrResize() {
+      setMenuPosition(null)
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [menuOpen])
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setMenuPosition(null)
+      }
+    }
+    if (menuPosition) {
+      document.addEventListener('mousedown', handleClickOutside)
+      window.addEventListener('scroll', handleScrollOrResize, true)
+      window.addEventListener('resize', handleScrollOrResize)
+      document.addEventListener('keydown', handleKeyDown)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      window.removeEventListener('scroll', handleScrollOrResize, true)
+      window.removeEventListener('resize', handleScrollOrResize)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [menuPosition])
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    window.getSelection()?.removeAllRanges()
+
+    const menuWidth = 208 // w-52
+    const menuHeight = 175
+    const margin = 8
+
+    let x = e.clientX
+    let y = e.clientY
+
+    // If dropdown would overflow right of window, position it to the left of the cursor
+    if (x + menuWidth + margin > window.innerWidth) {
+      x = e.clientX - menuWidth
+    }
+    // If dropdown would overflow bottom of window, position it above the cursor
+    if (y + menuHeight + margin > window.innerHeight) {
+      y = e.clientY - menuHeight
+    }
+
+    // Guard against edge cases
+    x = Math.max(margin, Math.min(x, window.innerWidth - menuWidth - margin))
+    y = Math.max(margin, Math.min(y, window.innerHeight - menuHeight - margin))
+
+    setMenuPosition({ x, y })
+  }
 
   if (message.role === 'user') {
     const attachments = message.attachments || []
@@ -1196,9 +1297,9 @@ function MessageItem({
     const fileAttachments = attachments.filter((att) => att.type !== 'image' || !att.uri)
 
     return (
-      <div className="flex flex-col items-end relative w-full" ref={menuRef}>
+      <div id={`message-${message.id}`} data-message-role="user" className="flex flex-col items-end relative w-full">
         <div
-          onDoubleClick={() => setMenuOpen(true)}
+          onDoubleClick={handleDoubleClick}
           title="Double click for options"
           className={`max-w-[88%] rounded-[22px] px-4.5 py-3.5 select-text cursor-pointer transition-colors ${
             isDark ? 'bg-[#1A1A1A] text-[#CECDC4]' : 'bg-[#DFDED8] text-[#141414]'
@@ -1331,72 +1432,77 @@ function MessageItem({
         </div>
 
         {/* Double-tap / context menu matching Android options: Copy, Edit, Branch, Redo */}
-        {menuOpen && (
-          <div
-            className={`absolute right-0 top-full mt-2 w-52 rounded-xl border shadow-2xl py-1.5 z-40 text-sm ${
-              isDark ? 'bg-[#1A1A1A] border-[#262626]' : 'bg-[#DFDED8] border-[#CECDC4]'
-            }`}
-          >
-            <button
-              onClick={() => {
-                onCopy()
-                setMenuOpen(false)
-              }}
-              className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
-                isDark ? 'text-[#CECDC4] hover:bg-[#262626]' : 'text-[#141414] hover:bg-[#CECDC4]'
+        {menuPosition &&
+          createPortal(
+            <div
+              ref={menuRef}
+              style={{ top: menuPosition.y, left: menuPosition.x }}
+              className={`fixed z-50 w-52 rounded-xl border shadow-2xl py-1.5 text-sm animate-in fade-in duration-100 select-none ${
+                isDark ? 'bg-[#1A1A1A] border-[#262626]' : 'bg-[#DFDED8] border-[#CECDC4]'
               }`}
+              onClick={(e) => e.stopPropagation()}
             >
-              {isCopied ? (
-                <Check className={`w-4 h-4 ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
-              ) : (
-                <Copy className="w-4 h-4" />
+              <button
+                onClick={() => {
+                  onCopy()
+                  setMenuPosition(null)
+                }}
+                className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
+                  isDark ? 'text-[#CECDC4] hover:bg-[#262626]' : 'text-[#141414] hover:bg-[#CECDC4]'
+                }`}
+              >
+                {isCopied ? (
+                  <Check className={`w-4 h-4 ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+                <span>{isCopied ? 'Copied' : 'Copy'}</span>
+              </button>
+              {onEdit && (
+                <button
+                  onClick={() => {
+                    onEdit()
+                    setMenuPosition(null)
+                  }}
+                  className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
+                    isDark ? 'text-[#CECDC4] hover:bg-[#262626]' : 'text-[#141414] hover:bg-[#CECDC4]'
+                  }`}
+                >
+                  <Edit2 className="w-4 h-4" />
+                  <span>Edit</span>
+                </button>
               )}
-              <span>{isCopied ? 'Copied' : 'Copy'}</span>
-            </button>
-            {onEdit && (
-              <button
-                onClick={() => {
-                  onEdit()
-                  setMenuOpen(false)
-                }}
-                className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
-                  isDark ? 'text-[#CECDC4] hover:bg-[#262626]' : 'text-[#141414] hover:bg-[#CECDC4]'
-                }`}
-              >
-                <Edit2 className="w-4 h-4" />
-                <span>Edit</span>
-              </button>
-            )}
-            {onBranch && (
-              <button
-                onClick={() => {
-                  onBranch()
-                  setMenuOpen(false)
-                }}
-                className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
-                  isDark ? 'text-[#CECDC4] hover:bg-[#262626]' : 'text-[#141414] hover:bg-[#CECDC4]'
-                }`}
-              >
-                <GitBranch className="w-4 h-4" />
-                <span>Branch into a new chat</span>
-              </button>
-            )}
-            {onRedo && (
-              <button
-                onClick={() => {
-                  onRedo()
-                  setMenuOpen(false)
-                }}
-                className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
-                  isDark ? 'text-[#CECDC4] hover:bg-[#262626]' : 'text-[#141414] hover:bg-[#CECDC4]'
-                }`}
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>Redo</span>
-              </button>
-            )}
-          </div>
-        )}
+              {onBranch && (
+                <button
+                  onClick={() => {
+                    onBranch()
+                    setMenuPosition(null)
+                  }}
+                  className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
+                    isDark ? 'text-[#CECDC4] hover:bg-[#262626]' : 'text-[#141414] hover:bg-[#CECDC4]'
+                  }`}
+                >
+                  <GitBranch className="w-4 h-4" />
+                  <span>Branch into a new chat</span>
+                </button>
+              )}
+              {onRedo && (
+                <button
+                  onClick={() => {
+                    onRedo()
+                    setMenuPosition(null)
+                  }}
+                  className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
+                    isDark ? 'text-[#CECDC4] hover:bg-[#262626]' : 'text-[#141414] hover:bg-[#CECDC4]'
+                  }`}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Redo</span>
+                </button>
+              )}
+            </div>,
+            document.body
+          )}
       </div>
     )
   }
@@ -1406,7 +1512,7 @@ function MessageItem({
   const activeHighlightRange = isCurrentMessage ? ttsPlaybackState?.currentRange : null
 
   return (
-    <div className="flex flex-col items-start space-y-2 w-full">
+    <div id={`message-${message.id}`} data-message-role="assistant" className="flex flex-col items-start space-y-2 w-full">
       {/* Reasoning Thought Block */}
       {message.reasoning && (
         <ReasoningBlock

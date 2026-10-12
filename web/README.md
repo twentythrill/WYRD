@@ -32,19 +32,25 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
    * Global `username` and customizable `system_prompt` stored in the `profiles` table.
    * Model preference selection (`mimo-v2.6-pro`, `mimo-v2.6-flash`, etc.) and official Xiaomi MiMo **Thinking** toggle (on / off) without prompt injection.
 6. **Brutalist Chat Experience & Android Parity**:
-   * **Message Bubble Actions (Android Parity)**: Hovering message bubbles reveals quick actions:
+   * **Message Bubble Actions & Pointer-Anchored Dropdown (Android Parity)**:
+     * **Double-Click Pointer Dropdown**: Double-clicking anywhere on a user prompt opens the action context menu anchored precisely at the mouse pointer location (with smart viewport boundary clamping and automatic dismiss on scroll, resize, Escape, or outside click), clearing accidental word selections and rendering via a React portal.
      * **Edit**: Loads user prompts back into the input capsule with autofocus and an "Editing prompt" cancel bar; submitting rewrites subsequent turns.
      * **Redo**: Truncates following assistant responses and re-streams a fresh generation from the model.
      * **Branch**: Slices the conversation thread up to the selected message into a new isolated session titled `"<Title> (Branch)"`.
      * **Copy**: One-click prompt/response copying to clipboard with confirmation feedback.
    * **Client-Side Draft New Chat**: Clicking "New Chat" resets to a clean draft session without inserting phantom rows into the database. Threads are created on-demand upon sending the first prompt.
    * **Clean Centered Welcome & Hero State**: Zero-message and new chat states display the exact mobile app Welcome Screen (160px eye logo at 30% opacity, "Welcome Back, [Username]", `(◕‿◕)`, and optional active project badge) unified with the text input capsule in a single block mathematically centered both horizontally and vertically on screen, providing complete symmetry when the left sidebar is closed.
-   * **Condensed Typography Parity (Android Parity)**: Tight, condensed reading rhythm matching Android's 23sp line height (`leading-[24px]` for markdown content, `leading-[23px]` for user bubbles, and `leading-[18px]` for reasoning blocks), eliminating excessive line spacing while maintaining clean legibility.
+   * **Condensed Typography & Code Block Auto-Wrapping (Android Parity)**: Tight, condensed reading rhythm matching Android's 23sp line height (`leading-[24px]` for markdown content, `leading-[23px]` for user bubbles, and `leading-[18px]` for reasoning blocks). Markdown code blocks feature automatic soft line-wrapping (`whitespace-pre-wrap break-words [overflow-wrap:anywhere]`), preserving code indentation and newlines while eliminating horizontal scrolling. The tokenizer (`tokenizeTextIntoWords`) preserves all initial indentation and spaces.
    * **Monochrome "Thinking" Block (Android Parity)**: Dedicated minimalist reasoning container titled "Thinking" with sleek Lightbulb icon and live streaming pulse indicator, collapsed by default to prevent visual jumping, and completely free of extraneous icons or colored emojis. Strictly suppressed when Thinking is toggled off.
    * **Gemini-Style Top & Bottom Subtle Fade Gradients (No Solid Cut-Offs)**:
      * **Top**: Transparent TopBar sits directly over a 112px multi-stop subtle fade-to-background gradient, softly veiling text scrolling underneath without harsh solid bars.
      * **Bottom**: Floating controls and input capsule sit over a 176px multi-stop subtle fade gradient, dissolving messages smoothly behind the capsule with complete visual continuity.
    * **Dynamic Centered Scroll-to-Bottom Button**: 38px circular chevron button centered directly on top of the text input capsule. Smoothly fades and scales in only when scrolled up away from the bottom, and instantly fades out once bottom is reached.
+   * **Instant Top-Snapped Prompt on Send**:
+     * The moment the user sends a prompt, the chat scroll container smoothly snaps the prompt directly to the top of the viewport (76px below the TopBar).
+     * A dynamic bottom scroll clearance buffer expands to guarantee effortless scrolling even before the model begins streaming tokens.
+     * The LLM streams its response directly beneath the prompt in full view, allowing immediate reading from the top down.
+     * Manual scrolling is fully preserved for reviewing history or following long answers.
    * **Universal Auto-Scroll on Chat Open (Android Parity)**: Opening or selecting any conversation immediately and reliably positions the view at the true bottom across all viewports using full container scroll offsets (`scrollTop = scrollHeight`), multi-stage layout settlement, programmatic scroll guards, and ResizeObserver tracking.
    * **Reading-First Scroll Control**: Strictly disables autoscrolling during incoming answer streaming so your reading flow is never broken by jumping viewports.
    * **Duplicate Protection**: Concurrency locks on input submission and state-level deduplication prevent duplicate prompt dispatches or ghost bubbles on rapid interactions or realtime sync events.

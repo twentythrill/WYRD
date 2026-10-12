@@ -82,15 +82,19 @@ import com.wyrd.app.data.local.MessageEntity
 import com.wyrd.app.data.tts.NativeTtsManager
 import com.wyrd.app.data.tts.TtsPlaybackState
 import com.wyrd.app.ui.theme.AccentRed
+import com.wyrd.app.ui.theme.AccentGreen
 import com.wyrd.app.ui.theme.Black
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.material.icons.automirrored.filled.CallSplit
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.platform.LocalClipboardManager
+import kotlinx.coroutines.delay
 import com.wyrd.app.ui.theme.DarkBorder
 import com.wyrd.app.ui.theme.DarkCard
 import com.wyrd.app.ui.theme.DarkSurfaceElevated
@@ -675,6 +679,13 @@ data class MarkdownTableRow(
     val cells: List<MarkdownTableCell>
 )
 
+data class MarkdownCodeData(
+    val language: String,
+    val rawCode: String,
+    val startOffset: Int,
+    val endOffset: Int
+)
+
 data class MarkdownTableData(
     val headers: List<MarkdownTableCell>,
     val alignments: List<TableColumnAlignment>,
@@ -692,6 +703,11 @@ sealed class MessageContentBlock {
 
     data class Table(
         val table: MarkdownTableData,
+        val startOffset: Int
+    ) : MessageContentBlock()
+
+    data class Code(
+        val code: MarkdownCodeData,
         val startOffset: Int
     ) : MessageContentBlock()
 }
@@ -1086,6 +1102,50 @@ fun formatMarkdownForReading(
         val line = lines[lineIndex]
         val trimmed = line.trim()
 
+        // Check if this line starts a code block
+        if (trimmed.startsWith("```")) {
+            flushCurrentText()
+
+            if (overallPlainBuilder.isNotEmpty() && !overallPlainBuilder.endsWith("\n")) {
+                overallPlainBuilder.append("\n")
+                overallAnnotatedBuilder.append("\n")
+            }
+
+            val codeStartOffset = overallPlainBuilder.length
+            val lang = trimmed.removePrefix("```").trim()
+            lineIndex++ // skip opening fence
+
+            val codeLines = mutableListOf<String>()
+            while (lineIndex < lines.size) {
+                val nextLine = lines[lineIndex]
+                if (nextLine.trim().startsWith("```")) {
+                    lineIndex++ // skip closing fence
+                    break
+                }
+                codeLines.add(nextLine)
+                lineIndex++
+            }
+
+            val rawCode = codeLines.joinToString("\n")
+            overallPlainBuilder.append(rawCode)
+            overallAnnotatedBuilder.append(rawCode)
+            val codeEndOffset = overallPlainBuilder.length
+
+            val codeData = MarkdownCodeData(
+                language = lang,
+                rawCode = rawCode,
+                startOffset = codeStartOffset,
+                endOffset = codeEndOffset
+            )
+            blocks.add(MessageContentBlock.Code(codeData, codeStartOffset))
+
+            if (lineIndex < lines.size) {
+                if (!overallPlainBuilder.endsWith("\n\n")) overallPlainBuilder.append("\n")
+                if (!overallAnnotatedBuilder.toAnnotatedString().text.endsWith("\n\n")) overallAnnotatedBuilder.append("\n")
+            }
+            continue
+        }
+
         // Check if this line starts a table
         if (trimmed.contains("|") && lineIndex + 1 < lines.size && isTableSeparator(lines[lineIndex + 1])) {
             flushCurrentText()
@@ -1167,6 +1227,214 @@ fun formatMarkdownForReading(
         baseAnnotatedString = overallAnnotatedBuilder.toAnnotatedString(),
         blocks = blocks
     )
+}
+
+@Composable
+fun CodeBlockCard(
+    codeData: MarkdownCodeData,
+    activeHighlightRange: Pair<Int, Int>? = null,
+    onSeek: ((charOffset: Int) -> Unit)? = null,
+    onActiveWordPosition: ((line: Int, wordTopInItem: Float, wordBottomInItem: Float) -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    val wyrdColors = LocalWyrdColors.current
+    val currentBorder = wyrdColors.border
+    val currentSurface = wyrdColors.surface
+    val currentSurfaceElevated = wyrdColors.surfaceElevated
+    val currentTextPrimary = wyrdColors.textPrimary
+    val currentTextSecondary = wyrdColors.textSecondary
+    val currentBackground = wyrdColors.background
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val hapticManager = remember {
+        (context.applicationContext as? com.wyrd.app.WyrdApp)?.hapticManager
+            ?: com.wyrd.app.util.HapticManager(context)
+    }
+    val clipboardManager = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(1800)
+            copied = false
+        }
+    }
+
+    val displayLang = codeData.language.ifBlank { "code" }
+
+    val localHighlightRange = remember(activeHighlightRange, codeData.startOffset, codeData.endOffset) {
+        if (activeHighlightRange != null) {
+            val (hs, he) = activeHighlightRange
+            val overlapStart = maxOf(hs, codeData.startOffset)
+            val overlapEnd = minOf(he, codeData.endOffset)
+            if (overlapStart < overlapEnd) {
+                Pair(overlapStart - codeData.startOffset, overlapEnd - codeData.startOffset)
+            } else null
+        } else null
+    }
+
+    val codeAnnotated = remember(codeData.rawCode, localHighlightRange, currentTextPrimary, currentBackground) {
+        val raw = codeData.rawCode
+        if (localHighlightRange != null) {
+            val (start, end) = localHighlightRange
+            val safeStart = start.coerceIn(0, raw.length)
+            val safeEnd = end.coerceIn(safeStart, raw.length)
+            buildAnnotatedString {
+                append(raw)
+                if (safeStart < safeEnd) {
+                    addStyle(
+                        SpanStyle(
+                            background = currentTextPrimary,
+                            color = currentBackground
+                        ),
+                        start = safeStart,
+                        end = safeEnd
+                    )
+                }
+            }
+        } else {
+            AnnotatedString(raw)
+        }
+    }
+
+    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    var blockTopInParent by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(localHighlightRange, textLayoutResult) {
+        if (localHighlightRange == null) return@LaunchedEffect
+        val layout = textLayoutResult ?: return@LaunchedEffect
+        val (start, _) = localHighlightRange
+        val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
+        val line = layout.getLineForOffset(safeOffset)
+        val lineTop = layout.getLineTop(line) + blockTopInParent
+        val lineBottom = layout.getLineBottom(line) + blockTopInParent
+        onActiveWordPosition?.invoke(line, lineTop, lineBottom)
+    }
+
+    Box(
+        modifier = modifier
+            .padding(vertical = 6.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(currentSurface)
+            .border(1.dp, currentBorder, RoundedCornerShape(12.dp))
+            .onGloballyPositioned { coordinates ->
+                blockTopInParent = coordinates.positionInParent().y
+            }
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Header Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(currentSurfaceElevated)
+                    .padding(horizontal = 14.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = displayLang,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = currentTextSecondary
+                )
+
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            clipboardManager.setText(AnnotatedString(codeData.rawCode))
+                            copied = true
+                            hapticManager.click()
+                        }
+                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    if (copied) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Copied",
+                            tint = AccentGreen,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = "Copied",
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = AccentGreen
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.ContentCopy,
+                            contentDescription = "Copy code",
+                            tint = currentTextSecondary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = "Copy",
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = currentTextSecondary
+                        )
+                    }
+                }
+            }
+
+            HorizontalDivider(
+                color = currentBorder,
+                thickness = 0.8.dp
+            )
+
+            // Code Content Body
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp)
+                    .then(
+                        if (onSeek != null) {
+                            Modifier.pointerInput(codeData.startOffset, codeData.rawCode) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    val longPressTimeout = viewConfiguration.longPressTimeoutMillis
+                                    val up = withTimeoutOrNull(longPressTimeout) {
+                                        waitForUpOrCancellation()
+                                    }
+                                    if (up != null && !up.isConsumed) {
+                                        val layout = textLayoutResult ?: return@awaitEachGesture
+                                        val localOffset = layout.getOffsetForPosition(up.position)
+                                        val globalOffset = codeData.startOffset + localOffset
+                                        onSeek(globalOffset)
+                                    }
+                                }
+                            }
+                        } else Modifier
+                    )
+            ) {
+                SelectionContainer(
+                    modifier = Modifier.suppressBringIntoView()
+                ) {
+                    Text(
+                        text = codeAnnotated,
+                        onTextLayout = { textLayoutResult = it },
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 17.sp,
+                            lineHeight = 23.sp,
+                            color = currentTextPrimary
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -1593,15 +1861,15 @@ fun AssistantMessageItem(
         )
     }
 
-    val hasTables = remember(formatted) {
-        formatted.blocks.any { it is MessageContentBlock.Table }
+    val hasComplexBlocks = remember(formatted) {
+        formatted.blocks.any { it !is MessageContentBlock.Text }
     }
 
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     var textTopInItem by remember { mutableStateOf(0f) }
 
     LaunchedEffect(activeHighlightRange, textLayoutResult, isCurrentMessage) {
-        if (!isCurrentMessage || activeHighlightRange == null || hasTables) return@LaunchedEffect
+        if (!isCurrentMessage || activeHighlightRange == null || hasComplexBlocks) return@LaunchedEffect
         val layout = textLayoutResult ?: return@LaunchedEffect
         val (start, _) = activeHighlightRange
         val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
@@ -1622,7 +1890,7 @@ fun AssistantMessageItem(
         }
 
         // Synchronized ElevenReader style reading & Tap-to-seek
-        if (!hasTables) {
+        if (!hasComplexBlocks) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1693,6 +1961,17 @@ fun AssistantMessageItem(
                                         table = block.table,
                                         activeHighlightRange = activeHighlightRange,
                                         onSeek = { charOffset -> onSeek(formatted.plainText, charOffset) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                                is MessageContentBlock.Code -> {
+                                    CodeBlockCard(
+                                        codeData = block.code,
+                                        activeHighlightRange = activeHighlightRange,
+                                        onSeek = { charOffset -> onSeek(formatted.plainText, charOffset) },
+                                        onActiveWordPosition = if (isCurrentMessage) { line, top, bottom ->
+                                            onActiveWordPosition?.invoke(line, top + textTopInItem, bottom + textTopInItem)
+                                        } else null,
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                 }
@@ -1782,8 +2061,8 @@ fun StreamingAssistantMessageItem(
         } else null
     }
 
-    val hasTables = remember(formatted) {
-        formatted?.blocks?.any { it is MessageContentBlock.Table } == true
+    val hasComplexBlocks = remember(formatted) {
+        formatted?.blocks?.any { it !is MessageContentBlock.Text } == true
     }
 
     Column(
@@ -1814,7 +2093,7 @@ fun StreamingAssistantMessageItem(
             }
         }
 
-        if (!hasTables) {
+        if (!hasComplexBlocks) {
             if (annotatedText != null) {
                 Box(
                     modifier = Modifier.fillMaxWidth()
@@ -1882,6 +2161,13 @@ fun StreamingAssistantMessageItem(
                                     is MessageContentBlock.Table -> {
                                         MarkdownTableCard(
                                             table = block.table,
+                                            activeHighlightRange = activeHighlightRange,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                    is MessageContentBlock.Code -> {
+                                        CodeBlockCard(
+                                            codeData = block.code,
                                             activeHighlightRange = activeHighlightRange,
                                             modifier = Modifier.fillMaxWidth()
                                         )

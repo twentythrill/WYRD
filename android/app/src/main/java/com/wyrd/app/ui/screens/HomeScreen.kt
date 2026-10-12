@@ -2,6 +2,7 @@ package com.wyrd.app.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -258,6 +259,12 @@ fun HomeScreen(
 
     // Initial chat load: when navigating to a chat with existing history, position at the true bottom once.
     var lastLoadedChatId by remember { mutableStateOf<Long?>(null) }
+    var hasSentPromptInChat by remember { mutableStateOf(false) }
+
+    LaunchedEffect(activeChatId) {
+        hasSentPromptInChat = false
+    }
+
     LaunchedEffect(activeChatId, messages) {
         if (activeChatId == null) {
             lastLoadedChatId = null
@@ -283,15 +290,20 @@ fun HomeScreen(
         }
     }
 
-    // Auto-scroll to bottom ONLY when user submits a new prompt so the user's message is in view.
+    // Snap prompt to the top when user submits a new prompt so reading begins right under top bar.
     // Strictly do NOT autoscroll while the answer is streaming or completing, preserving reading flow.
     LaunchedEffect(messages.size) {
         val totalCount = messages.size
         if (totalCount > 0 && !userScrolledUp && !isListDragged && !ttsPlaybackState.isPlaying) {
             val lastMsg = messages.lastOrNull()
             if (lastMsg?.role == "user") {
-                val targetIndex = totalCount + if (isGenerating) 1 else 0
-                listState.animateScrollToItem(targetIndex, 0)
+                hasSentPromptInChat = true
+                val userPromptIndex = totalCount - 1
+                isProgrammaticScroll = true
+                listState.animateScrollToItem(userPromptIndex, 0)
+                kotlinx.coroutines.delay(80)
+                listState.animateScrollToItem(userPromptIndex, 0)
+                isProgrammaticScroll = false
             }
         }
     }
@@ -303,7 +315,7 @@ fun HomeScreen(
         }
         prevImeBottom = imeBottom
 
-        if (imeBottom > 0 && messages.isNotEmpty() && !userScrolledUp) {
+        if (imeBottom > 0 && messages.isNotEmpty() && !userScrolledUp && !hasSentPromptInChat) {
             val targetIndex = messages.size + if (isGenerating) 1 else 0
             listState.scrollToItem(targetIndex, 0)
         }
@@ -796,6 +808,7 @@ fun HomeScreen(
                                             onBranch = { viewModel.branchChat(it) },
                                             onRedo = {
                                                  userScrolledUp = false
+                                                 hasSentPromptInChat = true
                                                  viewModel.redoMessage(it)
                                             }
                                         )
@@ -850,10 +863,16 @@ fun HomeScreen(
                                 }
 
                                 item(key = "chat_bottom_anchor") {
+                                    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+                                    val bottomSpacerHeight = if (hasSentPromptInChat || isGenerating) {
+                                        (screenHeight - topBarHeight - 120.dp).coerceAtLeast(1.dp)
+                                    } else {
+                                        1.dp
+                                    }
                                     Spacer(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(1.dp)
+                                            .height(bottomSpacerHeight)
                                     )
                                 }
                             }
@@ -1117,6 +1136,7 @@ fun HomeScreen(
                                 keyboardController?.hide()
                                 focusManager.clearFocus(force = true)
                                 userScrolledUp = false
+                                hasSentPromptInChat = true
                                 if (isAttachmentMenuOpen) isAttachmentMenuOpen = false
                                 viewModel.sendMessage()
                             },
