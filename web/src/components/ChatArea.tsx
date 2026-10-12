@@ -724,11 +724,13 @@ export function ChatArea({
   }
 
   const renderInputCapsule = () => (
-    <div className={`relative flex items-center rounded-[34px] pl-2.5 pr-1.5 py-1.5 shadow-lg pointer-events-auto transition-colors ${
-      isDark
-        ? 'bg-[#141414] border border-[#262626]'
-        : 'bg-[#E8E7E1] border border-[#CECDC4]'
-    }`}>
+    <div
+      style={{
+        backgroundColor: isDark ? '#141414' : '#E8E7E1',
+        borderColor: isDark ? '#262626' : '#CECDC4',
+      }}
+      className="relative flex items-center rounded-[34px] pl-2.5 pr-1.5 py-1.5 border shadow-lg pointer-events-auto transition-colors"
+    >
       {/* Left '+' Attachment Button */}
       <button
         type="button"
@@ -835,14 +837,16 @@ export function ChatArea({
             <button
               onClick={onStopGeneration}
               title="Stop Generation"
-              className={`w-[48px] h-[48px] rounded-full flex items-center justify-center transition-all shrink-0 ml-1 cursor-pointer ${
-                isDark ? 'bg-[#CECDC4] hover:opacity-90' : 'bg-[#141414] hover:opacity-90'
-              }`}
+              style={{
+                backgroundColor: isDark ? '#CECDC4' : '#141414',
+              }}
+              className="w-12 h-12 rounded-full flex items-center justify-center transition-all shrink-0 ml-1 cursor-pointer hover:opacity-90"
             >
               <div
-                className={`w-4 h-4 rounded-[3px] ${
-                  isDark ? 'bg-black' : 'bg-[#F9F9F7]'
-                }`}
+                style={{
+                  backgroundColor: isDark ? '#000000' : '#F9F9F7',
+                }}
+                className="w-4 h-4 rounded-[3px]"
               />
             </button>
           ) : (
@@ -850,16 +854,14 @@ export function ChatArea({
               onClick={handleSend}
               disabled={!canSend}
               title="Send"
-              className={`w-[48px] h-[48px] rounded-full flex items-center justify-center transition-all shrink-0 ml-1 ${
-                isDark ? 'bg-[#CECDC4]' : 'bg-[#141414]'
-              } ${
-                canSend
-                  ? isDark
-                    ? 'text-black cursor-pointer hover:opacity-90'
-                    : 'text-[#F9F9F7] cursor-pointer hover:opacity-90'
-                  : isDark
-                  ? 'text-black/35 cursor-default'
-                  : 'text-[#F9F9F7]/35 cursor-default'
+              style={{
+                backgroundColor: isDark ? '#CECDC4' : '#141414',
+                color: canSend
+                  ? (isDark ? '#000000' : '#F9F9F7')
+                  : (isDark ? 'rgba(0, 0, 0, 0.35)' : 'rgba(249, 249, 247, 0.35)'),
+              }}
+              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shrink-0 ml-1 ${
+                canSend ? 'cursor-pointer hover:opacity-90' : 'cursor-default'
               }`}
             >
               <ArrowRight className="w-6 h-6 stroke-[2.5]" />
@@ -1075,11 +1077,18 @@ export function ChatArea({
                           ? 'Resume speech'
                           : 'Play latest response'
                       }
+                      style={
+                        ttsState.isPlaying
+                          ? {
+                              backgroundColor: isDark ? '#CECDC4' : '#141414',
+                              color: isDark ? '#000000' : '#F9F9F7',
+                              borderColor: isDark ? '#CECDC4' : '#141414',
+                            }
+                          : undefined
+                      }
                       className={`w-11 h-11 rounded-full border flex items-center justify-center transition-all duration-200 cursor-pointer pointer-events-auto ${
                         ttsState.isPlaying
-                          ? isDark
-                            ? 'bg-[#CECDC4] text-black border-[#CECDC4] shadow-md'
-                            : 'bg-[#141414] text-[#F9F9F7] border-[#141414] shadow-md'
+                          ? 'shadow-md'
                           : isDark
                           ? 'bg-[#141414] text-[#CECDC4] border-[#262626] hover:bg-[#1A1A1A] hover:border-[#383838]'
                           : 'bg-[#EFEFEA] text-[#141414] border-[#DCDBCF] hover:bg-[#E5E4DC] hover:border-[#CBCAC0]'
