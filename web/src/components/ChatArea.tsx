@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import {
   ArrowRight,
-  Square,
   Plus,
   ChevronDown,
   ChevronUp,
@@ -728,7 +727,7 @@ export function ChatArea({
     <div className={`relative flex items-center rounded-[34px] pl-2.5 pr-1.5 py-1.5 shadow-lg pointer-events-auto transition-colors ${
       isDark
         ? 'bg-[#141414] border border-[#262626]'
-        : 'bg-[#EFEFEA] border border-[#DCDBCF]'
+        : 'bg-[#E8E7E1] border border-[#CECDC4]'
     }`}>
       {/* Left '+' Attachment Button */}
       <button
@@ -806,11 +805,11 @@ export function ChatArea({
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder="Ask anything..."
+          placeholder="Ask away..."
           className={`flex-1 px-3 py-2 bg-transparent text-[16px] focus:outline-none resize-none max-h-44 font-sans leading-snug ${
             isDark
               ? 'text-[#CECDC4] placeholder-[#7A7A7A]'
-              : 'text-[#141414] placeholder-[#8E8E93]'
+              : 'text-[#141414] placeholder-[#9E9E9B]'
           }`}
         />
       )}
@@ -831,35 +830,39 @@ export function ChatArea({
             <Mic className="w-5 h-5 stroke-[2]" />
           </button>
 
-          {/* Right Action Button: Send or Stop */}
+          {/* Right Action Button: Send or Stop matching Android ChatInputBubble exactly */}
           {isGenerating ? (
             <button
               onClick={onStopGeneration}
               title="Stop Generation"
-              className={`w-11 h-11 rounded-full border flex items-center justify-center transition-all shrink-0 ml-1 ${
-                isDark
-                  ? 'bg-[#1A1A1A] border-[#262626] text-[#CECDC4] hover:text-[#FF453A]'
-                  : 'bg-[#E5E4DC] border-[#DCDBCF] text-[#141414] hover:text-[#FF453A]'
+              className={`w-[48px] h-[48px] rounded-full flex items-center justify-center transition-all shrink-0 ml-1 cursor-pointer ${
+                isDark ? 'bg-[#CECDC4] hover:opacity-90' : 'bg-[#141414] hover:opacity-90'
               }`}
             >
-              <Square className="w-4 h-4 fill-current" />
+              <div
+                className={`w-4 h-4 rounded-[3px] ${
+                  isDark ? 'bg-black' : 'bg-[#F9F9F7]'
+                }`}
+              />
             </button>
           ) : (
             <button
               onClick={handleSend}
               disabled={!canSend}
               title="Send"
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all shrink-0 ml-1 ${
+              className={`w-[48px] h-[48px] rounded-full flex items-center justify-center transition-all shrink-0 ml-1 ${
+                isDark ? 'bg-[#CECDC4]' : 'bg-[#141414]'
+              } ${
                 canSend
                   ? isDark
-                    ? 'bg-[#CECDC4] text-black hover:bg-white'
-                    : 'bg-[#141414] text-[#F9F9F7] hover:bg-black'
+                    ? 'text-black cursor-pointer hover:opacity-90'
+                    : 'text-[#F9F9F7] cursor-pointer hover:opacity-90'
                   : isDark
-                  ? 'text-[#636366] opacity-30 cursor-not-allowed'
-                  : 'text-[#8E8E93] opacity-30 cursor-not-allowed'
+                  ? 'text-black/35 cursor-default'
+                  : 'text-[#F9F9F7]/35 cursor-default'
               }`}
             >
-              <ArrowRight className="w-5 h-5 stroke-[2.5]" />
+              <ArrowRight className="w-6 h-6 stroke-[2.5]" />
             </button>
           )}
         </div>
