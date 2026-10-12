@@ -76,6 +76,7 @@ import com.wyrd.app.ui.theme.TextGray
 import com.wyrd.app.ui.theme.TextMuted
 import com.wyrd.app.ui.theme.TextWhite
 import com.wyrd.app.ui.theme.White
+import com.wyrd.app.ui.theme.OnPrimaryColor
 import com.wyrd.app.util.AttachmentHelper
 
 val PROJECT_COLOR_PRESETS = listOf(
@@ -631,7 +632,7 @@ fun ProjectDialog(
                         enabled = name.isNotBlank(),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = White,
-                            contentColor = Color.Black,
+                            contentColor = OnPrimaryColor,
                             disabledContainerColor = DarkBorder,
                             disabledContentColor = TextMuted
                         ),

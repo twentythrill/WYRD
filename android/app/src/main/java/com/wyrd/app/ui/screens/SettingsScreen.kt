@@ -39,6 +39,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -87,6 +89,7 @@ import com.wyrd.app.ui.theme.TextGray
 import com.wyrd.app.ui.theme.TextMuted
 import com.wyrd.app.ui.theme.TextWhite
 import com.wyrd.app.ui.theme.White
+import com.wyrd.app.ui.theme.OnPrimaryColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1159,10 +1162,18 @@ private fun ApiKeyEntryDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(keyText.trim(), urlText.trim()) }) {
+            Button(
+                onClick = { onSave(keyText.trim(), urlText.trim()) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = White,
+                    contentColor = OnPrimaryColor,
+                    disabledContainerColor = DarkBorder,
+                    disabledContentColor = TextMuted
+                ),
+                shape = RoundedCornerShape(10.dp)
+            ) {
                 Text(
                     text = "Save",
-                    color = White,
                     fontFamily = SpaceGrotesk,
                     fontWeight = FontWeight.Bold
                 )

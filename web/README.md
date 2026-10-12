@@ -1,4 +1,4 @@
-# WYRD Web (Desktop & Browser Companion) (v1.5.4)
+# WYRD Web (Desktop & Browser Companion) (v1.5.6)
 
 A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversations, settings, and cognitive states in real-time with the Android application via Supabase.
 

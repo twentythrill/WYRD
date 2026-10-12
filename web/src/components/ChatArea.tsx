@@ -655,13 +655,13 @@ export function ChatArea({
       <>
         {stagedAttachments.length > 0 && (
           <div className={`mb-2 p-2 rounded-2xl border flex items-center gap-2 overflow-x-auto pointer-events-auto shadow-md max-w-full ${
-            isDark ? 'bg-[#1A1A1A] border-[#262626]' : 'bg-[#EAE9E2] border-[#DCDBCF]'
+            isDark ? 'bg-[#1A1A1A] border-[#262626]' : 'bg-[#DFDED8] border-[#CECDC4]'
           }`}>
             {stagedAttachments.map((att) => (
               <div
                 key={att.id}
                 className={`relative group shrink-0 flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-xs ${
-                  isDark ? 'bg-[#141414] border-[#262626] text-[#CECDC4]' : 'bg-[#EFEFEA] border-[#DCDBCF] text-[#141414]'
+                  isDark ? 'bg-[#141414] border-[#262626] text-[#CECDC4]' : 'bg-[#E8E7E1] border-[#CECDC4] text-[#141414]'
                 }`}
               >
                 {att.type === 'image' ? (
@@ -670,7 +670,7 @@ export function ChatArea({
                       src={att.previewUrl}
                       alt={att.name}
                       className={`w-8 h-8 rounded-lg object-cover border ${
-                        isDark ? 'border-[#333333]' : 'border-[#DCDBCF]'
+                        isDark ? 'border-[#262626]' : 'border-[#CECDC4]'
                       }`}
                     />
                     <div className="flex flex-col">
@@ -691,7 +691,7 @@ export function ChatArea({
                   onClick={() => handleRemoveStagedAttachment(att.id)}
                   title="Remove attachment"
                   className={`ml-1 w-4 h-4 rounded-full flex items-center justify-center text-[#8E8E93] transition-colors cursor-pointer ${
-                    isDark ? 'bg-[#262626] hover:bg-[#333333] hover:text-white' : 'bg-[#DCDBCF] hover:bg-[#CBCAC0] hover:text-black'
+                    isDark ? 'bg-[#262626] hover:bg-[#333333] hover:text-white' : 'bg-[#CECDC4] hover:bg-[#B8B7AF] hover:text-black'
                   }`}
                 >
                   <X className="w-2.5 h-2.5 stroke-[2.5]" />
@@ -701,7 +701,7 @@ export function ChatArea({
             {isProcessingAttachments && (
               <div className="flex items-center gap-1.5 px-3 py-1 text-xs text-[#8E8E93] shrink-0">
                 <div className={`w-3.5 h-3.5 border-2 rounded-full animate-spin ${
-                  isDark ? 'border-[#262626] border-t-[#CECDC4]' : 'border-[#DCDBCF] border-t-[#141414]'
+                  isDark ? 'border-[#262626] border-t-[#CECDC4]' : 'border-[#CECDC4] border-t-[#141414]'
                 }`} />
                 <span>Processing...</span>
               </div>
@@ -711,10 +711,10 @@ export function ChatArea({
 
         {stagedAttachments.length === 0 && isProcessingAttachments && (
           <div className={`mb-2 px-3.5 py-2 rounded-2xl border flex items-center gap-2 text-xs text-[#8E8E93] font-sans pointer-events-auto shadow-md ${
-            isDark ? 'bg-[#1A1A1A] border-[#262626]' : 'bg-[#EAE9E2] border-[#DCDBCF]'
+            isDark ? 'bg-[#1A1A1A] border-[#262626]' : 'bg-[#DFDED8] border-[#CECDC4]'
           }`}>
             <div className={`w-3.5 h-3.5 border-2 rounded-full animate-spin ${
-              isDark ? 'border-[#262626] border-t-[#CECDC4]' : 'border-[#DCDBCF] border-t-[#141414]'
+              isDark ? 'border-[#262626] border-t-[#CECDC4]' : 'border-[#CECDC4] border-t-[#141414]'
             }`} />
             <span>Loading attachment...</span>
           </div>
@@ -727,9 +727,8 @@ export function ChatArea({
     <div
       style={{
         backgroundColor: isDark ? '#141414' : '#E8E7E1',
-        borderColor: isDark ? '#262626' : '#CECDC4',
       }}
-      className="relative flex items-center rounded-[34px] pl-2.5 pr-1.5 py-1.5 border shadow-lg pointer-events-auto transition-colors"
+      className="relative flex items-center rounded-[34px] pl-2.5 pr-1.5 py-1.5 pointer-events-auto transition-colors"
     >
       {/* Left '+' Attachment Button */}
       <button
@@ -771,7 +770,7 @@ export function ChatArea({
               className={`p-1.5 rounded-full transition-colors ${
                 isDark
                   ? 'text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#1A1A1A]'
-                  : 'text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#E5E4DC]'
+                  : 'text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#DFDED8]'
               }`}
             >
               <X className="w-4 h-4" />
@@ -795,7 +794,7 @@ export function ChatArea({
           <div className={`w-4 h-4 border-2 rounded-full animate-spin ${
             isDark
               ? 'border-[#262626] border-t-[#CECDC4]'
-              : 'border-[#DCDBCF] border-t-[#141414]'
+              : 'border-[#CECDC4] border-t-[#141414]'
           }`} />
           <span>Transcribing audio with OpenAI Whisper...</span>
         </div>
@@ -823,16 +822,16 @@ export function ChatArea({
           <button
             onClick={handleStartRecording}
             title="Voice dictation (OpenAI Whisper STT)"
-            className={`w-10 h-10 rounded-full flex items-center justify-center text-[#8E8E93] transition-colors ${
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-[#8E8E93] transition-colors cursor-pointer ${
               isDark
                 ? 'hover:text-[#CECDC4] hover:bg-[#1A1A1A]'
-                : 'hover:text-[#141414] hover:bg-[#E5E4DC]'
+                : 'hover:text-[#141414] hover:bg-[#DFDED8]'
             }`}
           >
             <Mic className="w-5 h-5 stroke-[2]" />
           </button>
 
-          {/* Right Action Button: Send or Stop matching Android ChatInputBubble exactly */}
+          {/* Right Action Button: Send or Stop matching Android ChatInputBubble exactly (54dp circle) */}
           {isGenerating ? (
             <button
               onClick={onStopGeneration}
@@ -840,7 +839,7 @@ export function ChatArea({
               style={{
                 backgroundColor: isDark ? '#CECDC4' : '#141414',
               }}
-              className="w-12 h-12 rounded-full flex items-center justify-center transition-all shrink-0 ml-1 cursor-pointer hover:opacity-90"
+              className="w-[54px] h-[54px] rounded-full flex items-center justify-center transition-all shrink-0 ml-1 cursor-pointer hover:opacity-90"
             >
               <div
                 style={{
@@ -860,7 +859,7 @@ export function ChatArea({
                   ? (isDark ? '#000000' : '#F9F9F7')
                   : (isDark ? 'rgba(0, 0, 0, 0.35)' : 'rgba(249, 249, 247, 0.35)'),
               }}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shrink-0 ml-1 ${
+              className={`w-[54px] h-[54px] rounded-full flex items-center justify-center transition-all shrink-0 ml-1 ${
                 canSend ? 'cursor-pointer hover:opacity-90' : 'cursor-default'
               }`}
             >
@@ -911,7 +910,7 @@ export function ChatArea({
       {isLoadingMessages ? (
         <div className="h-full flex flex-col items-center justify-center text-center select-none py-12">
           <div className={`w-6 h-6 border-2 rounded-full animate-spin mb-3 ${
-            isDark ? 'border-[#262626] border-t-[#CECDC4]' : 'border-[#DCDBCF] border-t-[#141414]'
+            isDark ? 'border-[#262626] border-t-[#CECDC4]' : 'border-[#CECDC4] border-t-[#141414]'
           }`} />
           <span className="font-sans text-xs text-[#8E8E93]">Loading conversation...</span>
         </div>
@@ -939,14 +938,16 @@ export function ChatArea({
               <div className={`font-sans text-[22px] ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>(◕‿◕)</div>
               {activeProject && (
                 <div
-                  className={`mt-4 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono border ${
+                  className={`mt-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl text-xs font-sans border ${
                     isDark
                       ? 'border-[#262626] bg-[#141414] text-[#CECDC4]'
-                      : 'border-[#DCDBCF] bg-[#EAE9E2] text-[#141414]'
+                      : 'border-[#CECDC4] bg-[#E8E7E1] text-[#141414]'
                   }`}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-[#CECDC4]' : 'bg-[#141414]'}`} />
-                  <span>Drafting in <span className="font-semibold">{activeProject.name}</span></span>
+                  <span className={isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}>
+                    Drafting in <span className={`font-semibold ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>{activeProject.name}</span>
+                  </span>
                 </div>
               )}
 
@@ -1046,15 +1047,15 @@ export function ChatArea({
 
               {/* Floating Controls Bar: Centered Scroll-to-Bottom Arrow & Right Play/Pause TTS (matching Android) */}
               <div className="relative w-full h-12 mb-2 pointer-events-none">
-                {/* Scroll-to-Bottom Arrow Button: Centered on top of input */}
+                {/* Scroll-to-Bottom Arrow Button: Centered on top of input (matching Android 44dp) */}
                 <div className="absolute left-1/2 -translate-x-1/2 bottom-0 flex items-center justify-center">
                   <button
                     onClick={() => scrollToBottom(true)}
                     title="Scroll to bottom"
-                    className={`w-[38px] h-[38px] rounded-full border transition-all duration-200 flex items-center justify-center cursor-pointer pointer-events-auto ${
+                    className={`w-11 h-11 rounded-full border transition-all duration-200 flex items-center justify-center cursor-pointer pointer-events-auto ${
                       isDark
                         ? 'bg-[#141414] border-[#262626] text-[#CECDC4] hover:bg-[#1A1A1A] hover:border-[#383838]'
-                        : 'bg-[#EFEFEA] border-[#DCDBCF] text-[#141414] hover:bg-[#E5E4DC] hover:border-[#CBCAC0]'
+                        : 'bg-[#E8E7E1] border-[#CECDC4] text-[#141414] hover:bg-[#DFDED8]'
                     } ${
                       showScrollBottom
                         ? 'opacity-100 scale-100'
@@ -1086,12 +1087,12 @@ export function ChatArea({
                             }
                           : undefined
                       }
-                      className={`w-11 h-11 rounded-full border flex items-center justify-center transition-all duration-200 cursor-pointer pointer-events-auto ${
+                      className={`w-[54px] h-[54px] rounded-full border flex items-center justify-center transition-all duration-200 cursor-pointer pointer-events-auto ${
                         ttsState.isPlaying
                           ? 'shadow-md'
                           : isDark
                           ? 'bg-[#141414] text-[#CECDC4] border-[#262626] hover:bg-[#1A1A1A] hover:border-[#383838]'
-                          : 'bg-[#EFEFEA] text-[#141414] border-[#DCDBCF] hover:bg-[#E5E4DC] hover:border-[#CBCAC0]'
+                          : 'bg-[#E8E7E1] text-[#141414] border-[#CECDC4] hover:bg-[#DFDED8]'
                       }`}
                     >
                       {ttsState.isPlaying ? (
@@ -1109,7 +1110,7 @@ export function ChatArea({
                 <div className={`mb-2 px-4 py-2 rounded-2xl border flex items-center justify-between text-xs font-sans pointer-events-auto shadow-md ${
                   isDark
                     ? 'bg-[#1A1A1A] border-[#262626] text-[#CECDC4]'
-                    : 'bg-[#EAE9E2] border-[#DCDBCF] text-[#141414]'
+                    : 'bg-[#DFDED8] border-[#CECDC4] text-[#141414]'
                 }`}>
                   <div className="flex items-center gap-2">
                     <Edit2 className="w-3.5 h-3.5 text-[#8E8E93]" />
@@ -1147,6 +1148,7 @@ export function ChatArea({
           setPendingRecord(false)
         }}
         onSuccess={handleKeyModalSuccess}
+        isDark={isDark}
       />
     </div>
   )
@@ -1190,98 +1192,164 @@ function MessageItem({
 
   if (message.role === 'user') {
     const attachments = message.attachments || []
-    return (
-      <div className="flex flex-col items-end relative space-y-2 w-full" ref={menuRef}>
-        {/* Render Attachments if present */}
-        {attachments.length > 0 && (
-          <div className="flex flex-wrap items-center justify-end gap-2 max-w-[88%]">
-            {attachments.map((att, idx) => {
-              if (att.type === 'image' && att.uri) {
-                const isDisplayable = att.uri.startsWith('data:') || att.uri.startsWith('http://') || att.uri.startsWith('https://')
-                if (!isDisplayable) {
-                  return (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#141414] border border-[#262626] text-xs text-[#CECDC4] shadow-sm max-w-xs"
-                    >
-                      <Paperclip className="w-4 h-4 text-[#8E8E93] shrink-0" />
-                      <span className="truncate font-medium">{att.name || 'Image'}</span>
-                    </div>
-                  )
-                }
-                return (
-                  <div
-                    key={idx}
-                    className="relative rounded-2xl overflow-hidden border border-[#262626] bg-[#141414] shadow-md group cursor-pointer"
-                    onClick={() => {
-                      if (att.uri.startsWith('data:') || att.uri.startsWith('http')) {
-                        const win = window.open()
-                        if (win) {
-                          win.document.write(
-                            `<html><head><title>${att.name || 'Image'}</title></head><body style="margin:0;background:#0A0A0A;display:flex;align-items:center;justify-content:center;height:100vh;"><img src="${att.uri}" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:12px;" /></body></html>`
-                          )
-                        }
-                      }
-                    }}
-                  >
-                    <img
-                      src={att.uri}
-                      alt={att.name || 'Image attachment'}
-                      className="max-h-60 max-w-xs object-cover rounded-2xl transition-transform duration-200 group-hover:scale-[1.02]"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none'
-                      }}
-                    />
-                  </div>
-                )
-              }
-              const isRemote = att.uri && (att.uri.startsWith('http://') || att.uri.startsWith('https://'))
-              const content = (
-                <div
-                  key={idx}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl bg-[#141414] border border-[#262626] text-xs text-[#CECDC4] shadow-sm max-w-xs transition-colors ${
-                    isRemote ? 'hover:border-[#383838] cursor-pointer' : ''
-                  }`}
-                  onClick={() => {
-                    if (isRemote) window.open(att.uri, '_blank')
-                  }}
-                >
-                  <FileText className="w-4 h-4 text-[#8E8E93] shrink-0" />
-                  <span className="truncate font-medium">{att.name}</span>
-                  {att.size ? (
-                    <span className="text-[10px] text-[#8E8E93] shrink-0">
-                      ({formatFileSize(att.size)})
-                    </span>
-                  ) : null}
-                </div>
-              )
-              return content
-            })}
-          </div>
-        )}
+    const imageAttachments = attachments.filter((att) => att.type === 'image' && att.uri)
+    const fileAttachments = attachments.filter((att) => att.type !== 'image' || !att.uri)
 
+    return (
+      <div className="flex flex-col items-end relative w-full" ref={menuRef}>
         <div
           onDoubleClick={() => setMenuOpen(true)}
           title="Double click for options"
-          className="max-w-[88%] px-4.5 py-3.5 rounded-[22px] bg-[#1A1A1A] border border-[#262626] text-[16px] text-[#CECDC4] leading-[23px] font-sans shadow-sm cursor-pointer select-text whitespace-pre-wrap"
+          className={`max-w-[88%] rounded-[22px] px-4.5 py-3.5 select-text cursor-pointer transition-colors ${
+            isDark ? 'bg-[#1A1A1A] text-[#CECDC4]' : 'bg-[#DFDED8] text-[#141414]'
+          }`}
         >
-          {message.content}
+          {/* Internal Attachments inside user bubble matching Android */}
+          {attachments.length > 0 && (
+            <div className="space-y-2 mb-2.5">
+              {/* Image Attachments */}
+              {imageAttachments.length > 0 && (
+                <div>
+                  {imageAttachments.length === 1 ? (
+                    <div
+                      className={`relative rounded-[14px] overflow-hidden border ${
+                        isDark ? 'border-[#262626] bg-[#141414]' : 'border-[#CECDC4] bg-[#E8E7E1]'
+                      } cursor-pointer group`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const img = imageAttachments[0]
+                        if (img.uri.startsWith('data:') || img.uri.startsWith('http')) {
+                          window.open(img.uri, '_blank')
+                        }
+                      }}
+                    >
+                      <img
+                        src={imageAttachments[0].uri}
+                        alt={imageAttachments[0].name || 'Image attachment'}
+                        className="max-h-60 w-full object-cover transition-transform duration-200 group-hover:scale-[1.01]"
+                      />
+                    </div>
+                  ) : imageAttachments.length === 2 ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {imageAttachments.map((img, idx) => (
+                        <div
+                          key={idx}
+                          className={`relative h-[130px] rounded-[12px] overflow-hidden border ${
+                            isDark ? 'border-[#262626] bg-[#141414]' : 'border-[#CECDC4] bg-[#E8E7E1]'
+                          } cursor-pointer group`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (img.uri.startsWith('data:') || img.uri.startsWith('http')) {
+                              window.open(img.uri, '_blank')
+                            }
+                          }}
+                        >
+                          <img
+                            src={img.uri}
+                            alt={img.name || 'Image attachment'}
+                            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                      {imageAttachments.map((img, idx) => (
+                        <div
+                          key={idx}
+                          className={`relative w-[110px] h-[110px] shrink-0 rounded-[12px] overflow-hidden border ${
+                            isDark ? 'border-[#262626] bg-[#141414]' : 'border-[#CECDC4] bg-[#E8E7E1]'
+                          } cursor-pointer group`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (img.uri.startsWith('data:') || img.uri.startsWith('http')) {
+                              window.open(img.uri, '_blank')
+                            }
+                          }}
+                        >
+                          <img
+                            src={img.uri}
+                            alt={img.name || 'Image attachment'}
+                            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* File Attachments */}
+              {fileAttachments.length > 0 && (
+                <div className="space-y-1.5">
+                  {fileAttachments.map((fileItem, idx) => {
+                    const isRemote = fileItem.uri && (fileItem.uri.startsWith('http://') || fileItem.uri.startsWith('https://'))
+                    return (
+                      <div
+                        key={idx}
+                        onClick={(e) => {
+                          if (isRemote) {
+                            e.stopPropagation()
+                            window.open(fileItem.uri, '_blank')
+                          }
+                        }}
+                        className={`flex items-center gap-2.5 p-2 rounded-xl border transition-colors ${
+                          isDark
+                            ? 'bg-[#141414] border-[#262626] text-[#CECDC4]'
+                            : 'bg-[#E8E7E1] border-[#CECDC4] text-[#141414]'
+                        } ${isRemote ? 'cursor-pointer hover:opacity-90' : ''}`}
+                      >
+                        <div
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                            isDark ? 'bg-[#1A1A1A]' : 'bg-[#DFDED8]'
+                          }`}
+                        >
+                          <FileText className="w-5 h-5 text-[#8E8E93]" />
+                        </div>
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className="text-xs font-medium truncate font-sans">{fileItem.name}</span>
+                          {fileItem.size ? (
+                            <span className="text-[10px] text-[#8E8E93] font-sans">
+                              {formatFileSize(fileItem.size)}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* User message text */}
+          {message.content && (
+            <div className="text-[17px] leading-[23px] font-sans whitespace-pre-wrap">
+              {message.content}
+            </div>
+          )}
         </div>
 
         {/* Double-tap / context menu matching Android options: Copy, Edit, Branch, Redo */}
         {menuOpen && (
-          <div className="absolute right-0 top-full mt-2 w-48 rounded-xl bg-[#1A1A1A] border border-[#262626] shadow-2xl py-1.5 z-40 text-sm">
+          <div
+            className={`absolute right-0 top-full mt-2 w-52 rounded-xl border shadow-2xl py-1.5 z-40 text-sm ${
+              isDark ? 'bg-[#1A1A1A] border-[#262626]' : 'bg-[#DFDED8] border-[#CECDC4]'
+            }`}
+          >
             <button
               onClick={() => {
                 onCopy()
                 setMenuOpen(false)
               }}
-              className="w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm text-[#CECDC4] hover:bg-[#262626] transition-colors"
+              className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
+                isDark ? 'text-[#CECDC4] hover:bg-[#262626]' : 'text-[#141414] hover:bg-[#CECDC4]'
+              }`}
             >
               {isCopied ? (
-                <Check className="w-4 h-4 text-[#CECDC4]" />
+                <Check className={`w-4 h-4 ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
               ) : (
-                <Copy className="w-4 h-4 text-[#CECDC4]" />
+                <Copy className="w-4 h-4" />
               )}
               <span>{isCopied ? 'Copied' : 'Copy'}</span>
             </button>
@@ -1291,9 +1359,11 @@ function MessageItem({
                   onEdit()
                   setMenuOpen(false)
                 }}
-                className="w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm text-[#CECDC4] hover:bg-[#262626] transition-colors"
+                className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
+                  isDark ? 'text-[#CECDC4] hover:bg-[#262626]' : 'text-[#141414] hover:bg-[#CECDC4]'
+                }`}
               >
-                <Edit2 className="w-4 h-4 text-[#CECDC4]" />
+                <Edit2 className="w-4 h-4" />
                 <span>Edit</span>
               </button>
             )}
@@ -1303,9 +1373,11 @@ function MessageItem({
                   onBranch()
                   setMenuOpen(false)
                 }}
-                className="w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm text-[#CECDC4] hover:bg-[#262626] transition-colors"
+                className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
+                  isDark ? 'text-[#CECDC4] hover:bg-[#262626]' : 'text-[#141414] hover:bg-[#CECDC4]'
+                }`}
               >
-                <GitBranch className="w-4 h-4 text-[#CECDC4]" />
+                <GitBranch className="w-4 h-4" />
                 <span>Branch into a new chat</span>
               </button>
             )}
@@ -1315,9 +1387,11 @@ function MessageItem({
                   onRedo()
                   setMenuOpen(false)
                 }}
-                className="w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm text-[#CECDC4] hover:bg-[#262626] transition-colors"
+                className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
+                  isDark ? 'text-[#CECDC4] hover:bg-[#262626]' : 'text-[#141414] hover:bg-[#CECDC4]'
+                }`}
               >
-                <RotateCcw className="w-4 h-4 text-[#CECDC4]" />
+                <RotateCcw className="w-4 h-4" />
                 <span>Redo</span>
               </button>
             )}
@@ -1327,7 +1401,7 @@ function MessageItem({
     )
   }
 
-  // Assistant Message (Clean, NO avatar, NO title label, single copy button at bottom matching Android)
+  // Assistant Message (Clean, NO avatar, NO title label, single 48dp copy button at bottom matching Android)
   const isCurrentMessage = ttsPlaybackState?.activeMessageId === message.id
   const activeHighlightRange = isCurrentMessage ? ttsPlaybackState?.currentRange : null
 
@@ -1353,21 +1427,21 @@ function MessageItem({
         />
       </div>
 
-      {/* Action buttons matching Android: Single copy button */}
+      {/* Action buttons matching Android: Single copy button (48dp circle / 22dp icon) */}
       <div className="pt-2 flex items-center gap-2">
         <button
           onClick={onCopy}
           title="Copy message"
-          className={`w-10 h-10 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
+          className={`w-12 h-12 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
             isDark
               ? 'bg-[#141414] border-[#262626] text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#1A1A1A]'
-              : 'bg-[#EFEFEA] border-[#DCDBCF] text-[#636366] hover:text-[#141414] hover:bg-[#E5E4DC]'
+              : 'bg-[#E8E7E1] border-[#CECDC4] text-[#636366] hover:text-[#141414] hover:bg-[#DFDED8]'
           }`}
         >
           {isCopied ? (
-            <Check className={`w-5 h-5 ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
+            <Check className={`w-[22px] h-[22px] ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
           ) : (
-            <Copy className="w-5 h-5" />
+            <Copy className="w-[22px] h-[22px]" />
           )}
         </button>
       </div>
@@ -1386,19 +1460,19 @@ function ReasoningBlock({
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const borderClass = isDark ? 'border-[#262626]' : 'border-[#DCDBCF]'
-  const bgClass = isDark ? 'bg-[#141414]' : 'bg-[#EFEFEA]'
+  const bgClass = isDark ? 'bg-[#141414]' : 'bg-[#E8E7E1]'
   const hoverTextClass = isDark ? 'hover:text-[#CECDC4]' : 'hover:text-[#141414]'
   const activeColor = isDark ? 'text-[#CECDC4]' : 'text-[#141414]'
   const mutedColor = isDark ? 'text-[#8E8E93]' : 'text-[#636366]'
+  const dividerBorder = isDark ? 'border-[#262626]' : 'border-[#CECDC4]'
 
   return (
     <div
-      className={`w-full rounded-xl border ${borderClass} ${bgClass} overflow-hidden mt-1 mb-3 select-none transition-all`}
+      className={`w-full rounded-xl ${bgClass} overflow-hidden mt-1 mb-3 select-none transition-all`}
     >
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-full px-3.5 py-2.5 flex items-center justify-between text-left text-xs ${mutedColor} ${hoverTextClass} transition-colors ${bgClass}`}
+        className={`w-full px-3.5 py-2.5 flex items-center justify-between text-left text-xs ${mutedColor} ${hoverTextClass} transition-colors ${bgClass} cursor-pointer`}
       >
         <div className="flex items-center gap-2">
           <Lightbulb
@@ -1407,7 +1481,7 @@ function ReasoningBlock({
             }`}
           />
           <span
-            className={`font-sans font-medium text-xs ${
+            className={`font-sans font-medium text-[13px] ${
               isStreaming ? activeColor : mutedColor
             }`}
           >
@@ -1430,7 +1504,7 @@ function ReasoningBlock({
 
       {isExpanded && (
         <div
-          className={`p-3.5 text-xs ${mutedColor} font-mono leading-[18px] whitespace-pre-wrap border-t ${borderClass} max-h-60 overflow-y-auto select-text`}
+          className={`p-3.5 text-[13px] ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'} font-sans leading-[18px] whitespace-pre-wrap border-t ${dividerBorder} max-h-60 overflow-y-auto select-text`}
         >
           {reasoning}
         </div>

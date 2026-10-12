@@ -42,6 +42,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.PushPin
 import com.wyrd.app.data.local.ProjectEntity
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -81,6 +83,7 @@ import com.wyrd.app.ui.theme.TextGray
 import com.wyrd.app.ui.theme.TextMuted
 import com.wyrd.app.ui.theme.TextWhite
 import com.wyrd.app.ui.theme.White
+import com.wyrd.app.ui.theme.OnPrimaryColor
 
 @Composable
 fun DrawerContent(
@@ -796,17 +799,24 @@ private fun RenameChatDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            Button(
                 onClick = {
                     val trimmed = titleText.trim()
                     if (trimmed.isNotBlank()) {
                         onConfirm(trimmed)
                     }
-                }
+                },
+                enabled = titleText.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = White,
+                    contentColor = OnPrimaryColor,
+                    disabledContainerColor = DarkBorder,
+                    disabledContentColor = TextMuted
+                ),
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Text(
                     text = "Save",
-                    color = TextWhite,
                     fontFamily = SpaceGrotesk,
                     fontWeight = FontWeight.Bold
                 )

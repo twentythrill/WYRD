@@ -57,7 +57,7 @@ export function FormattedMessage({
 
   const textColor = isDark ? 'text-[#CECDC4]' : 'text-[#141414]'
   const mutedColor = isDark ? 'text-[#8E8E93]' : 'text-[#636366]'
-  const quoteBorder = isDark ? 'border-[#8E8E93]' : 'border-[#A09F98]'
+  const quoteBorder = isDark ? 'border-[#8E8E93]' : 'border-[#636366]'
 
   return (
     <div
@@ -250,7 +250,7 @@ function RenderSpans({
           spanClasses = `px-1.5 py-0.5 rounded font-mono text-xs border ${
             isDark
               ? 'bg-[#141414] border-[#262626] text-[#CECDC4]'
-              : 'bg-[#E5E4DC] border-[#DCDBCF] text-[#141414]'
+              : 'bg-[#E8E7E1] border-[#CECDC4] text-[#141414]'
           }`
         }
 
@@ -376,8 +376,8 @@ function CodeBlockItem({
     setTimeout(() => setCopied(false), 1800)
   }
 
-  const containerBg = isDark ? 'bg-[#0A0A0A] border-[#262626]' : 'bg-[#F2F1EC] border-[#DCDBCF]'
-  const headerBg = isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#E5E4DC] border-[#DCDBCF]'
+  const containerBg = isDark ? 'bg-[#0A0A0A] border-[#262626]' : 'bg-[#F0EFEA] border-[#CECDC4]'
+  const headerBg = isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#E8E7E1] border-[#CECDC4]'
   const headerText = isDark ? 'text-[#8E8E93]' : 'text-[#636366]'
   const codeColor = isDark ? 'text-[#CECDC4]' : 'text-[#141414]'
 
@@ -392,7 +392,7 @@ function CodeBlockItem({
           className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
           title="Copy code"
         >
-          {copied ? <Check className="w-3 h-3 text-[#30D158]" /> : <Copy className="w-3 h-3" />}
+          {copied ? <Check className="w-3 h-3 text-[#32D74B]" /> : <Copy className="w-3 h-3" />}
           <span>{copied ? 'Copied' : 'Copy'}</span>
         </button>
       </div>
@@ -434,11 +434,11 @@ function TableBlockItem({
   activeWordRef: React.MutableRefObject<HTMLSpanElement | null>
   onSeek?: (plainText: string, charOffset: number) => void
 }) {
-  const containerBg = isDark ? 'bg-[#0A0A0A] border-[#262626]' : 'bg-[#F2F1EC] border-[#DCDBCF]'
-  const headerBg = isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#E5E4DC] border-[#DCDBCF]'
+  const containerBg = isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#E8E7E1] border-[#CECDC4]'
+  const headerBg = isDark ? 'bg-[#1A1A1A] border-[#262626]' : 'bg-[#DFDED8] border-[#CECDC4]'
   const headerTextColor = isDark ? 'text-[#CECDC4]' : 'text-[#141414]'
-  const rowBorder = isDark ? 'border-[#1F1F1F]' : 'border-[#E5E4DC]'
-  const hoverRowBg = isDark ? 'hover:bg-[#141414]/50' : 'hover:bg-[#EAE9E2]/50'
+  const rowBorder = isDark ? 'border-[#262626]' : 'border-[#CECDC4]'
+  const hoverRowBg = isDark ? 'hover:bg-[#1A1A1A]/50' : 'hover:bg-[#DFDED8]/50'
 
   const getAlignClass = (align?: ColumnAlignment) => {
     switch (align) {

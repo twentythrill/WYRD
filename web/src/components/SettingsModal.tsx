@@ -7,6 +7,7 @@ interface SettingsModalProps {
   profile: Profile | null
   userEmail?: string
   appTheme?: 'system' | 'dark' | 'light'
+  isDark?: boolean
   onClose: () => void
   onSaveProfile: (updates: Partial<Profile>) => Promise<void>
   onDeleteUnpinnedChats: () => Promise<void>
@@ -19,6 +20,7 @@ export function SettingsModal({
   profile,
   userEmail,
   appTheme = 'system',
+  isDark = true,
   onClose,
   onSaveProfile,
   onDeleteUnpinnedChats,
@@ -88,19 +90,35 @@ export function SettingsModal({
     }
   }
 
+  const inputClass = `w-full px-3.5 py-2.5 rounded-xl text-sm focus:outline-none transition-colors border ${
+    isDark
+      ? 'bg-[#141414] border-[#262626] text-[#CECDC4] focus:border-[#CECDC4]'
+      : 'bg-[#E8E7E1] border-[#CECDC4] text-[#141414] focus:border-[#141414]'
+  }`
+
+  const cardClass = `p-4 rounded-xl border flex items-center justify-between ${
+    isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#E8E7E1] border-[#CECDC4]'
+  }`
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg bg-[#0A0A0A] border border-[#262626] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden select-none">
+      <div className={`w-full max-w-lg border rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden select-none ${
+        isDark ? 'bg-[#0A0A0A] border-[#262626]' : 'bg-[#F0EFEA] border-[#CECDC4]'
+      }`}>
         {/* Header matching SettingsScreen.kt TopAppBar */}
-        <div className="h-14 px-4 border-b border-[#262626] flex items-center justify-between bg-[#0A0A0A]">
+        <div className={`h-14 px-4 border-b flex items-center justify-between shrink-0 ${
+          isDark ? 'border-[#262626] bg-[#0A0A0A]' : 'border-[#CECDC4] bg-[#F0EFEA]'
+        }`}>
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="p-1.5 -ml-1 text-[#CECDC4] hover:text-white rounded-lg transition-colors"
+              className={`p-1.5 -ml-1 rounded-lg transition-colors cursor-pointer ${
+                isDark ? 'text-[#CECDC4] hover:text-white' : 'text-[#141414] hover:text-black'
+              }`}
             >
               <ArrowLeft className="w-6 h-6 stroke-[2]" />
             </button>
-            <h2 className="text-lg font-bold text-[#CECDC4] font-sans">
+            <h2 className={`text-lg font-bold font-sans ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
               Settings
             </h2>
           </div>
@@ -108,7 +126,17 @@ export function SettingsModal({
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="px-4 py-1.5 rounded-full bg-[#CECDC4] text-black font-semibold text-xs hover:bg-white transition-all flex items-center gap-1.5"
+            className={`px-4 py-1.5 rounded-full font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+              savedSuccess
+                ? 'bg-[#32D74B] text-black font-semibold'
+                : isSaving
+                ? isDark
+                  ? 'bg-[#262626] text-[#636366] cursor-not-allowed border border-[#262626]'
+                  : 'bg-[#CECDC4] text-[#8E8E93] cursor-not-allowed border border-[#CECDC4]'
+                : isDark
+                ? 'bg-[#CECDC4] text-black hover:bg-white active:scale-95'
+                : 'bg-[#141414] text-[#F9F9F7] hover:bg-black active:scale-95'
+            }`}
           >
             {savedSuccess ? (
               <>
@@ -125,12 +153,14 @@ export function SettingsModal({
         <div className="p-6 overflow-y-auto space-y-6 text-sm">
           {/* Identity Section */}
           <div className="space-y-4">
-            <div className="text-[11px] font-sans font-bold tracking-[1.2px] text-[#636366] uppercase">
+            <div className={`text-[11px] font-sans font-bold tracking-[1.2px] uppercase ${
+              isDark ? 'text-[#636366]' : 'text-[#8E8E93]'
+            }`}>
               PROFILE
             </div>
 
             <div>
-              <label className="block text-xs text-[#8E8E93] mb-1.5 font-sans">
+              <label className={`block text-xs mb-1.5 font-sans ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
                 Username
               </label>
               <input
@@ -138,12 +168,12 @@ export function SettingsModal({
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Human"
-                className="w-full px-3.5 py-2.5 bg-[#141414] border border-[#262626] rounded-xl text-[#CECDC4] text-sm focus:outline-none focus:border-[#CECDC4] transition-colors font-sans"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="block text-xs text-[#8E8E93] mb-1.5 font-sans">
+              <label className={`block text-xs mb-1.5 font-sans ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
                 System Prompt
               </label>
               <textarea
@@ -151,23 +181,25 @@ export function SettingsModal({
                 value={systemPrompt}
                 onChange={(e) => setSystemPrompt(e.target.value)}
                 placeholder="Set instructions for the model..."
-                className="w-full px-3.5 py-2.5 bg-[#141414] border border-[#262626] rounded-xl text-[#CECDC4] text-sm focus:outline-none focus:border-[#CECDC4] transition-colors resize-none font-sans"
+                className={`${inputClass} resize-none`}
               />
             </div>
           </div>
 
           {/* Appearance Section matching Android SettingsScreen.kt */}
-          <div className="space-y-3 pt-2 border-t border-[#262626]">
-            <div className="text-[11px] font-sans font-bold tracking-[1.2px] text-[#636366] uppercase">
+          <div className={`space-y-3 pt-2 border-t ${isDark ? 'border-[#262626]' : 'border-[#CECDC4]'}`}>
+            <div className={`text-[11px] font-sans font-bold tracking-[1.2px] uppercase ${
+              isDark ? 'text-[#636366]' : 'text-[#8E8E93]'
+            }`}>
               APPEARANCE
             </div>
 
-            <div className="p-4 rounded-xl bg-[#141414] border border-[#262626] flex items-center justify-between">
+            <div className={cardClass}>
               <div>
-                <div className="text-sm font-semibold text-[#CECDC4] font-sans">
+                <div className={`text-sm font-semibold font-sans ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
                   App Theme
                 </div>
-                <div className="text-xs text-[#8E8E93] font-sans mt-0.5">
+                <div className={`text-xs font-sans mt-0.5 ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
                   {appTheme === 'system'
                     ? 'System (Follows device settings)'
                     : appTheme === 'light'
@@ -179,7 +211,11 @@ export function SettingsModal({
               <select
                 value={appTheme}
                 onChange={(e) => onThemeChange?.(e.target.value as any)}
-                className="px-3 py-1.5 rounded-lg bg-[#1A1A1A] border border-[#262626] text-xs text-[#CECDC4] font-sans focus:outline-none focus:border-[#CECDC4] cursor-pointer"
+                className={`px-3 py-1.5 rounded-lg border text-xs font-sans focus:outline-none cursor-pointer ${
+                  isDark
+                    ? 'bg-[#1A1A1A] border-[#262626] text-[#CECDC4]'
+                    : 'bg-[#DFDED8] border-[#CECDC4] text-[#141414]'
+                }`}
               >
                 <option value="system">System</option>
                 <option value="dark">Dark</option>
@@ -189,17 +225,19 @@ export function SettingsModal({
           </div>
 
           {/* Cloud Sync / Account Section matching SettingsScreen.kt */}
-          <div className="space-y-3 pt-2 border-t border-[#262626]">
-            <div className="text-[11px] font-sans font-bold tracking-[1.2px] text-[#636366] uppercase">
+          <div className={`space-y-3 pt-2 border-t ${isDark ? 'border-[#262626]' : 'border-[#CECDC4]'}`}>
+            <div className={`text-[11px] font-sans font-bold tracking-[1.2px] uppercase ${
+              isDark ? 'text-[#636366]' : 'text-[#8E8E93]'
+            }`}>
               CLOUD SYNC
             </div>
 
-            <div className="p-4 rounded-xl bg-[#141414] border border-[#262626] flex items-center justify-between">
+            <div className={cardClass}>
               <div>
-                <div className="text-sm font-bold text-[#CECDC4] font-sans">
+                <div className={`text-sm font-bold font-sans ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
                   WYRD Cloud (Supabase)
                 </div>
-                <div className="text-xs text-[#30D158] font-sans mt-0.5">
+                <div className="text-xs text-[#32D74B] font-sans mt-0.5">
                   {userEmail ? `Connected as ${userEmail}` : 'Connected'}
                 </div>
               </div>
@@ -210,7 +248,11 @@ export function SettingsModal({
                     onClose()
                     onSignOut()
                   }}
-                  className="px-3.5 py-1.5 rounded-lg bg-[#1A1A1A] border border-[#262626] text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#262626] text-xs font-medium transition-colors flex items-center gap-1.5"
+                  className={`px-3.5 py-1.5 rounded-lg border text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    isDark
+                      ? 'bg-[#1A1A1A] border-[#262626] text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#262626]'
+                      : 'bg-[#DFDED8] border-[#CECDC4] text-[#636366] hover:text-[#FF453A] hover:bg-[#CECDC4]'
+                  }`}
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   <span>Log Out</span>
@@ -220,13 +262,15 @@ export function SettingsModal({
           </div>
 
           {/* API Provider Config */}
-          <div className="space-y-4 pt-2 border-t border-[#262626]">
-            <div className="text-[11px] font-sans font-bold tracking-[1.2px] text-[#636366] uppercase">
+          <div className={`space-y-4 pt-2 border-t ${isDark ? 'border-[#262626]' : 'border-[#CECDC4]'}`}>
+            <div className={`text-[11px] font-sans font-bold tracking-[1.2px] uppercase ${
+              isDark ? 'text-[#636366]' : 'text-[#8E8E93]'
+            }`}>
               API CONFIGURATION
             </div>
 
             <div>
-              <label className="block text-xs text-[#8E8E93] mb-1.5 font-sans">
+              <label className={`block text-xs mb-1.5 font-sans ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
                 Xiaomi MiMo / LLM API Key
               </label>
               <input
@@ -234,12 +278,12 @@ export function SettingsModal({
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder="sk-..."
-                className="w-full px-3.5 py-2.5 bg-[#141414] border border-[#262626] rounded-xl text-[#CECDC4] text-sm focus:outline-none focus:border-[#CECDC4] transition-colors font-mono"
+                className={`${inputClass} font-mono`}
               />
             </div>
 
             <div>
-              <label className="block text-xs text-[#8E8E93] mb-1.5 font-sans">
+              <label className={`block text-xs mb-1.5 font-sans ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
                 OpenAI API Key (Voice Dictation / STT)
               </label>
               <input
@@ -247,15 +291,15 @@ export function SettingsModal({
                 value={openAiKey}
                 onChange={(e) => setOpenAiKey(e.target.value)}
                 placeholder="sk-proj-..."
-                className="w-full px-3.5 py-2.5 bg-[#141414] border border-[#262626] rounded-xl text-[#CECDC4] text-sm focus:outline-none focus:border-[#CECDC4] transition-colors font-mono"
+                className={`${inputClass} font-mono`}
               />
-              <p className="text-[11px] text-[#636366] mt-1 font-sans">
+              <p className={`text-[11px] mt-1 font-sans ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>
                 Used for microphone voice transcription via OpenAI Whisper STT.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs text-[#8E8E93] mb-1.5 font-sans">
+              <label className={`block text-xs mb-1.5 font-sans ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
                 Tavily Search API Key (Live Web)
               </label>
               <input
@@ -263,15 +307,15 @@ export function SettingsModal({
                 value={tavilyKey}
                 onChange={(e) => setTavilyKey(e.target.value)}
                 placeholder="tvly-..."
-                className="w-full px-3.5 py-2.5 bg-[#141414] border border-[#262626] rounded-xl text-[#CECDC4] text-sm focus:outline-none focus:border-[#CECDC4] transition-colors font-mono"
+                className={`${inputClass} font-mono`}
               />
-              <p className="text-[11px] text-[#636366] mt-1 font-sans">
-                Get a free key at <a href="https://app.tavily.com" target="_blank" rel="noreferrer" className="underline hover:text-[#CECDC4]">app.tavily.com</a> (1,000 free searches/mo) for real-time live web browsing.
+              <p className={`text-[11px] mt-1 font-sans ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>
+                Get a free key at <a href="https://app.tavily.com" target="_blank" rel="noreferrer" className="underline hover:opacity-80">app.tavily.com</a> (1,000 free searches/mo) for real-time live web browsing.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs text-[#8E8E93] mb-1.5 font-sans">
+              <label className={`block text-xs mb-1.5 font-sans ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
                 Exa Search API Key (Optional)
               </label>
               <input
@@ -279,15 +323,15 @@ export function SettingsModal({
                 value={exaKey}
                 onChange={(e) => setExaKey(e.target.value)}
                 placeholder="Paste Exa key or leave blank for public tier..."
-                className="w-full px-3.5 py-2.5 bg-[#141414] border border-[#262626] rounded-xl text-[#CECDC4] text-sm focus:outline-none focus:border-[#CECDC4] transition-colors font-mono"
+                className={`${inputClass} font-mono`}
               />
-              <p className="text-[11px] text-[#636366] mt-1 font-sans">
-                Get a free key at <a href="https://dashboard.exa.ai" target="_blank" rel="noreferrer" className="underline hover:text-[#CECDC4]">dashboard.exa.ai</a> (1,000 free searches). Used for semantic and deep concept research.
+              <p className={`text-[11px] mt-1 font-sans ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>
+                Get a free key at <a href="https://dashboard.exa.ai" target="_blank" rel="noreferrer" className="underline hover:opacity-80">dashboard.exa.ai</a> (1,000 free searches). Used for semantic and deep concept research.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs text-[#8E8E93] mb-1.5 font-sans">
+              <label className={`block text-xs mb-1.5 font-sans ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
                 Base URL (Optional, auto-routed to Xiaomi MiMo)
               </label>
               <input
@@ -295,26 +339,26 @@ export function SettingsModal({
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
                 placeholder="Auto-routed from API key (Leave blank for official MiMo)"
-                className="w-full px-3.5 py-2.5 bg-[#141414] border border-[#262626] rounded-xl text-[#CECDC4] text-xs focus:outline-none focus:border-[#CECDC4] transition-colors font-mono"
+                className={`${inputClass} text-xs font-mono`}
               />
-              <p className="text-[11px] text-[#636366] mt-1 font-sans">
+              <p className={`text-[11px] mt-1 font-sans ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>
                 Automatically connects to Xiaomi Token Plan (tp-*) or Pay-As-You-Go API endpoints.
               </p>
             </div>
           </div>
 
           {/* Danger Zone: Delete Unpinned Chats */}
-          <div className="space-y-3 pt-2 border-t border-[#262626]">
+          <div className={`space-y-3 pt-2 border-t ${isDark ? 'border-[#262626]' : 'border-[#CECDC4]'}`}>
             <div className="text-[11px] font-sans font-bold tracking-[1.2px] text-[#FF453A] uppercase">
               CHAT STORAGE
             </div>
 
-            <div className="p-4 rounded-xl bg-[#141414] border border-[#262626] flex items-center justify-between">
+            <div className={cardClass}>
               <div>
-                <div className="text-sm font-medium text-[#CECDC4] font-sans">
+                <div className={`text-sm font-medium font-sans ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
                   Delete Unpinned Chats
                 </div>
-                <div className="text-xs text-[#636366] font-sans mt-0.5">
+                <div className={`text-xs font-sans mt-0.5 ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>
                   Permanently delete all chats except pinned ones
                 </div>
               </div>
@@ -324,13 +368,15 @@ export function SettingsModal({
                   <button
                     onClick={handleDeleteUnpinned}
                     disabled={isDeleting}
-                    className="px-3 py-1.5 rounded-lg bg-[#FF453A] text-white text-xs font-medium hover:bg-red-600 transition-colors"
+                    className="px-3 py-1.5 rounded-lg bg-[#FF453A] text-white text-xs font-medium hover:opacity-90 transition-colors cursor-pointer"
                   >
                     {isDeleting ? 'Deleting...' : 'Confirm'}
                   </button>
                   <button
                     onClick={() => setShowClearConfirm(false)}
-                    className="px-2.5 py-1.5 rounded-lg bg-[#262626] text-[#CECDC4] text-xs transition-colors hover:text-white"
+                    className={`px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+                      isDark ? 'bg-[#262626] text-[#CECDC4] hover:text-white' : 'bg-[#CECDC4] text-[#141414] hover:text-black'
+                    }`}
                   >
                     Cancel
                   </button>
@@ -338,7 +384,11 @@ export function SettingsModal({
               ) : (
                 <button
                   onClick={() => setShowClearConfirm(true)}
-                  className="px-3.5 py-1.5 rounded-lg bg-[#1A1A1A] border border-[#262626] text-[#FF453A] hover:bg-[#262626] text-xs font-medium transition-colors flex items-center gap-1.5"
+                  className={`px-3.5 py-1.5 rounded-lg border text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    isDark
+                      ? 'bg-[#1A1A1A] border-[#262626] text-[#FF453A] hover:bg-[#262626]'
+                      : 'bg-[#DFDED8] border-[#CECDC4] text-[#FF453A] hover:bg-[#CECDC4]'
+                  }`}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Delete</span>

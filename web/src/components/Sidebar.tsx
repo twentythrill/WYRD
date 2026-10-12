@@ -182,13 +182,17 @@ export function Sidebar({
           isNested ? 'pl-7 pr-2.5' : 'px-3'
         } ${
           isSelected
-            ? 'bg-[#1A1A1A] text-[#CECDC4]'
-            : 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#141414]'
+            ? isDark
+              ? 'bg-[#1A1A1A] text-[#CECDC4]'
+              : 'bg-[#DFDED8] text-[#141414]'
+            : isDark
+            ? 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#141414]'
+            : 'text-[#636366] hover:text-[#141414] hover:bg-[#E8E7E1]'
         }`}
       >
         <div className="flex items-center gap-2 min-w-0 pr-1.5">
           {chat.is_pinned && (
-            <Pin className="w-3 h-3 text-[#CECDC4] shrink-0 fill-current" />
+            <Pin className={`w-3 h-3 shrink-0 fill-current ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
           )}
           <span className="text-[13px] font-sans truncate">{chat.title}</span>
         </div>
@@ -201,7 +205,11 @@ export function Sidebar({
               onTogglePin(chat)
             }}
             title={chat.is_pinned ? 'Unpin' : 'Pin'}
-            className="p-1 rounded text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626] cursor-pointer"
+            className={`p-1 rounded cursor-pointer ${
+              isDark
+                ? 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626]'
+                : 'text-[#636366] hover:text-[#141414] hover:bg-[#CECDC4]'
+            }`}
           >
             {chat.is_pinned ? (
               <PinOff className="w-3 h-3" />
@@ -212,7 +220,11 @@ export function Sidebar({
           <button
             onClick={(e) => handleStartRename(e, chat)}
             title="Rename"
-            className="p-1 rounded text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626] cursor-pointer"
+            className={`p-1 rounded cursor-pointer ${
+              isDark
+                ? 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626]'
+                : 'text-[#636366] hover:text-[#141414] hover:bg-[#CECDC4]'
+            }`}
           >
             <Edit3 className="w-3 h-3" />
           </button>
@@ -222,7 +234,11 @@ export function Sidebar({
               setChatToDelete(chat)
             }}
             title="Delete"
-            className="p-1 rounded text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#262626] cursor-pointer"
+            className={`p-1 rounded cursor-pointer ${
+              isDark
+                ? 'text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#262626]'
+                : 'text-[#636366] hover:text-[#FF453A] hover:bg-[#CECDC4]'
+            }`}
           >
             <Trash2 className="w-3 h-3" />
           </button>
@@ -242,9 +258,11 @@ export function Sidebar({
       )}
 
       <aside
-        className={`fixed md:relative inset-y-0 left-0 z-50 h-screen bg-[#0A0A0A] flex flex-col select-none transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
+        className={`fixed md:relative inset-y-0 left-0 z-50 h-screen flex flex-col select-none transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
+          isDark ? 'bg-[#0A0A0A]' : 'bg-[#F0EFEA]'
+        } ${
           isOpen
-            ? 'w-[270px] translate-x-0 opacity-100 border-r border-[#262626]'
+            ? `w-[270px] translate-x-0 opacity-100 border-r ${isDark ? 'border-[#262626]' : 'border-[#CECDC4]'}`
             : 'w-0 -translate-x-full md:translate-x-0 md:w-0 opacity-0 pointer-events-none border-r-0'
         }`}
       >
@@ -257,14 +275,20 @@ export function Sidebar({
                 alt="WYRD Logo"
                 className="w-7 h-7 object-contain"
               />
-              <span className="ml-2.5 font-sans font-bold text-[18px] text-[#CECDC4] tracking-[2px] uppercase">
+              <span className={`ml-2.5 font-sans font-bold text-[18px] tracking-[2px] uppercase ${
+                isDark ? 'text-[#CECDC4]' : 'text-[#141414]'
+              }`}>
                 WYRD
               </span>
             </div>
             <button
               onClick={onClose}
               title="Collapse sidebar"
-              className="p-2 text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#141414] rounded-lg transition-colors flex items-center justify-center cursor-pointer"
+              className={`p-2 rounded-lg transition-colors flex items-center justify-center cursor-pointer ${
+                isDark
+                  ? 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#141414]'
+                  : 'text-[#636366] hover:text-[#141414] hover:bg-[#E8E7E1]'
+              }`}
             >
               <PanelLeftClose className="w-5 h-5 stroke-[2]" />
             </button>
@@ -280,20 +304,22 @@ export function Sidebar({
               }}
               className={`w-full h-11 px-3 flex items-center rounded-xl transition-colors cursor-pointer ${
                 activeChatId === null && activeProjectId === null
-                  ? 'bg-[#1A1A1A] text-[#CECDC4]'
-                  : 'hover:bg-[#141414] text-[#CECDC4]'
+                  ? isDark ? 'bg-[#1A1A1A] text-[#CECDC4]' : 'bg-[#DFDED8] text-[#141414]'
+                  : isDark ? 'hover:bg-[#141414] text-[#CECDC4]' : 'hover:bg-[#E8E7E1] text-[#141414]'
               }`}
             >
-              <Plus className="w-5 h-5 text-[#CECDC4] stroke-[2]" />
+              <Plus className={`w-5 h-5 stroke-[2] ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
               <span className="ml-3 font-sans text-sm font-medium">New Chat</span>
             </button>
 
             {/* Search Chats */}
             <button
               onClick={() => setIsSearchExpanded(!isSearchExpanded)}
-              className="w-full h-11 px-3 flex items-center rounded-xl hover:bg-[#141414] text-[#CECDC4] transition-colors cursor-pointer"
+              className={`w-full h-11 px-3 flex items-center rounded-xl transition-colors cursor-pointer ${
+                isDark ? 'hover:bg-[#141414] text-[#CECDC4]' : 'hover:bg-[#E8E7E1] text-[#141414]'
+              }`}
             >
-              <Search className="w-5 h-5 text-[#CECDC4] stroke-[2]" />
+              <Search className={`w-5 h-5 stroke-[2] ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
               <span className="ml-3 font-sans text-sm font-medium">Search Chats</span>
             </button>
 
@@ -307,12 +333,18 @@ export function Sidebar({
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Filter conversations..."
                     autoFocus
-                    className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded-xl text-xs text-[#CECDC4] placeholder-[#636366] font-sans focus:outline-none focus:border-[#CECDC4]"
+                    className={`w-full px-3 py-2 border rounded-xl text-xs font-sans focus:outline-none ${
+                      isDark
+                        ? 'bg-[#141414] border-[#262626] text-[#CECDC4] placeholder-[#636366] focus:border-[#CECDC4]'
+                        : 'bg-[#E8E7E1] border-[#CECDC4] text-[#141414] placeholder-[#9E9E9B] focus:border-[#141414]'
+                    }`}
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-2.5 text-[#8E8E93] hover:text-[#CECDC4] cursor-pointer"
+                      className={`absolute right-2.5 cursor-pointer ${
+                        isDark ? 'text-[#8E8E93] hover:text-[#CECDC4]' : 'text-[#636366] hover:text-[#141414]'
+                      }`}
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -327,26 +359,30 @@ export function Sidebar({
                 onOpenSettings()
                 if (window.innerWidth < 768) onClose()
               }}
-              className="w-full h-11 px-3 flex items-center rounded-xl hover:bg-[#141414] text-[#CECDC4] transition-colors cursor-pointer"
+              className={`w-full h-11 px-3 flex items-center rounded-xl transition-colors cursor-pointer ${
+                isDark ? 'hover:bg-[#141414] text-[#CECDC4]' : 'hover:bg-[#E8E7E1] text-[#141414]'
+              }`}
             >
-              <Settings className="w-5 h-5 text-[#CECDC4] stroke-[2]" />
+              <Settings className={`w-5 h-5 stroke-[2] ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
               <span className="ml-3 font-sans text-sm font-medium">Settings</span>
             </button>
           </div>
 
           {/* Divider */}
-          <div className="my-2.5 mx-3 border-t border-[#262626] shrink-0" />
+          <div className={`my-2.5 mx-3 border-t shrink-0 ${isDark ? 'border-[#262626]' : 'border-[#CECDC4]'}`} />
 
           {/* Scrollable area for Projects & History */}
           <div className="flex-1 overflow-y-auto px-2 py-1 space-y-3">
             {/* PROJECTS SECTION */}
             <div>
-              <div className="pl-3 pr-2 py-1 flex items-center justify-between text-[10px] font-sans font-bold tracking-[1.2px] text-[#636366] uppercase">
+              <div className={`pl-3 pr-2 py-1 flex items-center justify-between text-[10px] font-sans font-bold tracking-[1.2px] uppercase ${
+                isDark ? 'text-[#636366]' : 'text-[#8E8E93]'
+              }`}>
                 <span>PROJECTS</span>
                 <button
                   onClick={onCreateProject}
                   title="Create new project"
-                  className={`w-12 h-7 rounded-lg transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+                  className={`w-12 h-[30px] rounded-lg transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                     isDark
                       ? 'text-[#CECDC4] hover:text-white'
                       : 'text-[#141414] hover:text-black'
@@ -357,7 +393,7 @@ export function Sidebar({
               </div>
 
               {projects.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-[#636366] font-sans">
+                <div className={`px-3 py-2 text-xs font-sans ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>
                   No projects yet. Click + to create one.
                 </div>
               ) : (
@@ -383,12 +419,14 @@ export function Sidebar({
                           }}
                           className={`group flex items-center justify-between px-2 py-2 rounded-xl cursor-pointer transition-colors ${
                             isProjectActive
-                              ? 'bg-[#1A1A1A] text-[#CECDC4]'
-                              : 'text-[#A1A1A6] hover:text-[#CECDC4] hover:bg-[#141414]'
+                              ? isDark ? 'bg-[#1A1A1A] text-[#CECDC4]' : 'bg-[#DFDED8] text-[#141414]'
+                              : isDark ? 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#141414]' : 'text-[#636366] hover:text-[#141414] hover:bg-[#E8E7E1]'
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0 pr-1.5">
-                            <span className="p-0.5 text-[#636366] hover:text-[#CECDC4] rounded cursor-pointer">
+                            <span className={`p-0.5 rounded cursor-pointer ${
+                              isDark ? 'text-[#636366] hover:text-[#CECDC4]' : 'text-[#8E8E93] hover:text-[#141414]'
+                            }`}>
                               {isExpanded ? (
                                 <ChevronDown className="w-3.5 h-3.5" />
                               ) : (
@@ -398,12 +436,12 @@ export function Sidebar({
                             {isExpanded ? (
                               <FolderOpen
                                 className="w-4 h-4 shrink-0"
-                                style={{ color: project.color?.trim() || '#CECDC4' }}
+                                style={{ color: project.color?.trim() || (isDark ? '#CECDC4' : '#141414') }}
                               />
                             ) : (
                               <Folder
                                 className="w-4 h-4 shrink-0"
-                                style={{ color: project.color?.trim() || '#8E8E93' }}
+                                style={{ color: project.color?.trim() || (isDark ? '#8E8E93' : '#636366') }}
                               />
                             )}
                             <span className="text-xs font-semibold font-sans truncate">
@@ -419,7 +457,11 @@ export function Sidebar({
                                 onEditProject(project)
                               }}
                               title="Project Settings"
-                              className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626] transition-all cursor-pointer"
+                              className={`opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-all cursor-pointer ${
+                                isDark
+                                  ? 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626]'
+                                  : 'text-[#636366] hover:text-[#141414] hover:bg-[#CECDC4]'
+                              }`}
                             >
                               <Settings className="w-3.5 h-3.5" />
                             </button>
@@ -431,7 +473,7 @@ export function Sidebar({
                                 if (window.innerWidth < 768) onClose()
                               }}
                               title="New chat in project"
-                              className={`w-12 h-7 rounded-[10px] transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+                              className={`w-12 h-[30px] rounded-[10px] transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                                 isDark
                                   ? 'bg-[#202020] hover:bg-[#2A2A2A] text-[#CECDC4] hover:text-white'
                                   : 'bg-[#E0DFDA] hover:bg-[#D5D4CE] text-[#141414] hover:text-black'
@@ -451,7 +493,9 @@ export function Sidebar({
                                   onNewChatInProject(project.id)
                                   if (window.innerWidth < 768) onClose()
                                 }}
-                                className="pl-8 pr-3 py-1.5 text-xs text-[#636366] hover:text-[#CECDC4] hover:bg-[#141414] rounded-xl cursor-pointer font-sans transition-colors"
+                                className={`pl-8 pr-3 py-1.5 text-xs rounded-xl cursor-pointer font-sans transition-colors ${
+                                  isDark ? 'text-[#636366] hover:text-[#CECDC4] hover:bg-[#141414]' : 'text-[#8E8E93] hover:text-[#141414] hover:bg-[#E8E7E1]'
+                                }`}
                               >
                                 + Start first chat in {project.name}
                               </div>
@@ -468,17 +512,19 @@ export function Sidebar({
             </div>
 
             {/* Divider */}
-            <div className="my-2 border-t border-[#262626]" />
+            <div className={`my-2 border-t ${isDark ? 'border-[#262626]' : 'border-[#CECDC4]'}`} />
 
             {/* HISTORY SECTION (Generic Chats) */}
             <div>
-              <div className="px-3 py-1 text-[10px] font-sans font-bold tracking-[1.2px] text-[#636366] uppercase">
+              <div className={`px-3 py-1 text-[10px] font-sans font-bold tracking-[1.2px] uppercase ${
+                isDark ? 'text-[#636366]' : 'text-[#8E8E93]'
+              }`}>
                 HISTORY
               </div>
 
               <div className="space-y-0.5 mt-1">
                 {genericChats.length === 0 ? (
-                  <div className="px-3 py-2 text-xs text-[#636366] font-sans">
+                  <div className={`px-3 py-2 text-xs font-sans ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>
                     {searchQuery ? 'No matching generic chats' : 'No chats yet'}
                   </div>
                 ) : (
@@ -493,8 +539,10 @@ export function Sidebar({
       {/* Rename Chat Modal */}
       {chatToRename && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm bg-[#141414] border border-[#262626] rounded-2xl p-5 shadow-2xl">
-            <h3 className="text-sm font-bold text-[#CECDC4] font-sans mb-3">
+          <div className={`w-full max-w-sm border rounded-2xl p-5 shadow-2xl ${
+            isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#F0EFEA] border-[#CECDC4]'
+          }`}>
+            <h3 className={`text-sm font-bold font-sans mb-3 ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
               Rename Conversation
             </h3>
             <input
@@ -506,18 +554,33 @@ export function Sidebar({
                 if (e.key === 'Escape') setChatToRename(null)
               }}
               autoFocus
-              className="w-full px-3 py-2 bg-[#1A1A1A] border border-[#262626] rounded-xl text-sm text-[#CECDC4] focus:outline-none focus:border-[#CECDC4] font-sans"
+              className={`w-full px-3 py-2 border rounded-xl text-sm font-sans focus:outline-none ${
+                isDark
+                  ? 'bg-[#1A1A1A] border-[#262626] text-[#CECDC4] focus:border-[#CECDC4]'
+                  : 'bg-[#E8E7E1] border-[#CECDC4] text-[#141414] focus:border-[#141414]'
+              }`}
             />
             <div className="mt-4 flex items-center justify-end gap-2">
               <button
                 onClick={() => setChatToRename(null)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#8E8E93] hover:text-[#CECDC4] cursor-pointer"
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+                  isDark ? 'text-[#8E8E93] hover:text-[#CECDC4]' : 'text-[#636366] hover:text-[#141414]'
+                }`}
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmRename}
-                className="px-3.5 py-1.5 rounded-lg bg-[#CECDC4] text-black text-xs font-semibold hover:bg-white cursor-pointer"
+                disabled={!renameText.trim()}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  !renameText.trim()
+                    ? isDark
+                      ? 'bg-[#262626] text-[#636366] cursor-not-allowed border border-[#262626]'
+                      : 'bg-[#CECDC4] text-[#8E8E93] cursor-not-allowed border border-[#CECDC4]'
+                    : isDark
+                    ? 'bg-[#CECDC4] text-black hover:bg-white active:scale-95'
+                    : 'bg-[#141414] text-[#F9F9F7] hover:bg-black active:scale-95'
+                }`}
               >
                 Save
               </button>
@@ -533,19 +596,29 @@ export function Sidebar({
           onClick={() => setChatToDelete(null)}
         >
           <div
-            className="w-full max-w-sm bg-[#1C1C1E] border border-[#2C2C2E] rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-150"
+            className={`w-full max-w-sm border rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-150 ${
+              isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#F0EFEA] border-[#CECDC4]'
+            }`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold text-white font-sans mb-1.5">
+            <h3 className={`text-lg font-semibold font-sans mb-1.5 ${
+              isDark ? 'text-[#CECDC4]' : 'text-[#141414]'
+            }`}>
               Delete chat?
             </h3>
-            <p className="text-[15px] text-[#A1A1A6] font-sans leading-relaxed mb-6">
+            <p className={`text-[15px] font-sans leading-relaxed mb-6 ${
+              isDark ? 'text-[#8E8E93]' : 'text-[#636366]'
+            }`}>
               Are you sure you want to delete this chat?
             </p>
             <div className="flex items-center justify-end gap-3">
               <button
                 onClick={() => setChatToDelete(null)}
-                className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-[#2C2C2E] hover:bg-[#3A3A3C] transition-colors font-sans cursor-pointer"
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors font-sans cursor-pointer ${
+                  isDark
+                    ? 'bg-[#1A1A1A] hover:bg-[#262626] text-[#CECDC4]'
+                    : 'bg-[#DFDED8] hover:bg-[#CECDC4] text-[#141414]'
+                }`}
               >
                 Cancel
               </button>
@@ -555,7 +628,7 @@ export function Sidebar({
                   setChatToDelete(null)
                   onDeleteChat(id)
                 }}
-                className="px-4 py-2 rounded-xl bg-[#E53935] hover:bg-[#D32F2F] text-white text-sm font-semibold border border-[#FF5252]/70 shadow-sm transition-colors font-sans cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-[#FF453A] hover:opacity-90 text-white text-sm font-semibold shadow-sm transition-colors font-sans cursor-pointer"
               >
                 Delete
               </button>
@@ -568,7 +641,9 @@ export function Sidebar({
       {projectContextMenu && (
         <div
           style={{ top: projectContextMenu.y, left: projectContextMenu.x }}
-          className="fixed z-50 min-w-[140px] bg-[#1C1C1E] border border-[#2C2C2E] rounded-xl py-1 shadow-2xl animate-in fade-in duration-100 select-none"
+          className={`fixed z-50 min-w-[140px] border rounded-xl py-1 shadow-2xl animate-in fade-in duration-100 select-none ${
+            isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#F0EFEA] border-[#CECDC4]'
+          }`}
           onClick={(e) => e.stopPropagation()}
         >
           <button
@@ -577,7 +652,11 @@ export function Sidebar({
               setProjectContextMenu(null)
               onEditProject(proj)
             }}
-            className="w-full px-3 py-2 text-left text-xs text-[#CECDC4] hover:text-white hover:bg-[#2C2C2E] flex items-center gap-2 cursor-pointer transition-colors font-sans"
+            className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 cursor-pointer transition-colors font-sans ${
+              isDark
+                ? 'text-[#CECDC4] hover:text-white hover:bg-[#1A1A1A]'
+                : 'text-[#141414] hover:text-black hover:bg-[#DFDED8]'
+            }`}
           >
             <Settings2 className="w-3.5 h-3.5 stroke-[2]" />
             <span>Settings</span>

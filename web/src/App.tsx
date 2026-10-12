@@ -958,6 +958,7 @@ export function App() {
         profile={profile}
         userEmail={session?.user?.email}
         appTheme={appTheme}
+        isDark={isDark}
         onClose={() => setIsSettingsOpen(false)}
         onSaveProfile={handleSaveProfile}
         onDeleteUnpinnedChats={handleDeleteUnpinnedChats}
@@ -970,6 +971,7 @@ export function App() {
         isOpen={isProjectModalOpen}
         project={editingProject}
         userId={session?.user?.id || 'local_user'}
+        isDark={isDark}
         onClose={() => {
           setIsProjectModalOpen(false)
           setEditingProject(null)

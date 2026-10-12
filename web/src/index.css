@@ -59,15 +59,15 @@
   --font-sans: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  --color-black: var(--wyrd-bg);
-  --color-surface: var(--wyrd-surface);
-  --color-surface-elevated: var(--wyrd-surface-elevated);
-  --color-card: var(--wyrd-card);
-  --color-border: var(--wyrd-border);
-  --color-text-white: var(--wyrd-text-primary);
-  --color-text-gray: var(--wyrd-text-secondary);
-  --color-text-muted: var(--wyrd-text-muted);
-  --color-text-placeholder: var(--wyrd-text-placeholder);
+  --color-wyrd-bg: var(--wyrd-bg);
+  --color-wyrd-surface: var(--wyrd-surface);
+  --color-wyrd-surface-elevated: var(--wyrd-surface-elevated);
+  --color-wyrd-card: var(--wyrd-card);
+  --color-wyrd-border: var(--wyrd-border);
+  --color-wyrd-text-primary: var(--wyrd-text-primary);
+  --color-wyrd-text-secondary: var(--wyrd-text-secondary);
+  --color-wyrd-text-muted: var(--wyrd-text-muted);
+  --color-wyrd-text-placeholder: var(--wyrd-text-placeholder);
   --color-accent-red: #FF453A;
   --color-accent-green: #32D74B;
 }
@@ -81,85 +81,6 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-/* Dynamic theme overrides for Tailwind arbitrary hex values */
-.bg-black,
-.bg-\[\#000000\] {
-  background-color: var(--wyrd-bg) !important;
-}
-
-.bg-\[\#0A0A0A\] {
-  background-color: var(--wyrd-surface) !important;
-}
-
-.bg-\[\#141414\] {
-  background-color: var(--wyrd-surface-elevated) !important;
-}
-
-.bg-\[\#1A1A1A\] {
-  background-color: var(--wyrd-card) !important;
-}
-
-.bg-\[\#0E0E0E\] {
-  background-color: var(--wyrd-reasoning-bg) !important;
-}
-
-.bg-\[\#141414\]\/50 {
-  background-color: var(--wyrd-reasoning-header) !important;
-}
-
-.border-\[\#262626\] {
-  border-color: var(--wyrd-border) !important;
-}
-
-.text-\[\#CECDC4\] {
-  color: var(--wyrd-text-primary) !important;
-}
-
-.text-\[\#8E8E93\] {
-  color: var(--wyrd-text-secondary) !important;
-}
-
-.text-\[\#636366\] {
-  color: var(--wyrd-text-muted) !important;
-}
-
-.placeholder-\[\#7A7A7A\]::placeholder {
-  color: var(--wyrd-text-placeholder) !important;
-}
-
-.hover\:bg-\[\#141414\]:hover {
-  background-color: var(--wyrd-hover) !important;
-}
-
-.hover\:bg-\[\#262626\]:hover {
-  background-color: var(--wyrd-hover-card) !important;
-}
-
-.hover\:bg-\[\#1A1A1A\]:hover {
-  background-color: var(--wyrd-card) !important;
-}
-
-.hover\:text-\[\#CECDC4\]:hover {
-  color: var(--wyrd-text-primary) !important;
-}
-
-.hover\:text-white:hover {
-  color: var(--wyrd-hover-text) !important;
-}
-
-.bg-\[\#CECDC4\] {
-  background-color: var(--wyrd-primary) !important;
-}
-
-.text-black {
-  color: var(--wyrd-on-primary) !important;
-}
-
-.hover\:bg-white:hover {
-  background-color: var(--wyrd-hover-text) !important;
-  opacity: 0.9;
 }
 
 /* Custom minimalist scrollbars */

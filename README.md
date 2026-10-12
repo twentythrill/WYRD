@@ -1,4 +1,4 @@
-# WYRD (v1.5.4)
+# WYRD (v1.5.6)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -13,15 +13,15 @@ WYRD/
 ├── android/          # Native Android AI Client (Kotlin + Jetpack Compose)
 │   ├── app/          # App source, UI components, Room database, network services
 │   ├── build.gradle.kts
-│   └── README.md     # Android client architecture & documentation (v1.5.3)
+│   └── README.md     # Android client architecture & documentation (v1.5.5)
 │
 ├── web/              # Desktop & Browser Companion (React 19 + TypeScript + Vite)
 │   ├── src/          # React components, services, Supabase integration
 │   ├── package.json
-│   └── README.md     # Web client architecture & documentation (v1.5.3)
+│   └── README.md     # Web client architecture & documentation (v1.5.5)
 │
 ├── .gitignore        # Unified repository ignore rules
-└── README.md         # Master repository overview (v1.5.3)
+└── README.md         # Master repository overview (v1.5.5)
 ```
 
 ---
@@ -78,6 +78,8 @@ WYRD/
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.5.6** | 2026-10-12 | Save Button Contrast & Theming Harmonization: Completely resolved white-on-white and black-on-black button text collisions across Android and Web. Unified all modal/dialog Save buttons (Settings, Project settings/creation, Rename conversation, and OpenAI API key modals) using high-contrast pill styling: Light mode uses deep charcoal `#141414` container with warm off-white `#F9F9F7` text (`OnPrimaryColor`), and Dark mode uses warm bone-white `#CECDC4` container with pitch black `#000000` text. Disabled states provide high visibility with dedicated background/text token pairs, and success states dynamically pop in vivid accent green `#32D74B`. |
+| **v1.5.5** | 2026-10-12 | Full Android-Web Component & Token Harmonization: Enforced canonical 11-token palette from Android Color.kt across all Web components, eliminated rogue and iOS hexes (#1C1C1E, #2C2C2E, #3A3A3C, #DCDBCF, #EFEFEA, #EAE9E2, #E5E4DC, #F2F1EC, #30D158, #E53935), harmonized Send (54px), Copy (48px), Floating TTS (54px), Scroll-to-bottom (44px), and Project plus (30px) button dimensions, embedded image/file attachments directly inside user message bubble cards, removed borders and drop-shadows from input capsule and message cards, converted Reasoning block typography to Space Grotesk with elevated backgrounds, and achieved full Light/Dark mode parity in SettingsModal, ProjectModal, Sidebar, and TopBar. |
 | **v1.5.4** | 2026-10-12 | Centered Web Hero Layout: Integrated logo, welcome greetings, and prompt input capsule into a single mathematically centered block (50% horizontal and 50% vertical screen alignment), with elevated input bar positioning closer to greetings, full light/dark theme styling, and pure symmetry when sidebar is collapsed. |
 | **v1.5.3** | 2026-10-12 | Official Xiaomi MiMo Thinking Toggle: Removed prompt injection budget overrides in favor of official Xiaomi MiMo request specification (thinking type 'enabled'/'disabled', temperature 1.0/0.7, token budget allocation), and streamlined model selector with a sleek Thinking on/off switch across Android and Web. |
 | **v1.5.2** | 2026-10-12 | Minimalist project plus button redesign: removed border and shadow, removed header container/bubble for a clean icon, and updated project row bubbles to #202020 (Dark) and #E0DFDA (Light) across Android and Web. |
