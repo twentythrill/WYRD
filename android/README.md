@@ -1,4 +1,4 @@
-# WYRD — Native Android AI Client (v1.5.1)
+# WYRD — Native Android AI Client (v1.5.3)
 
 WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo) with dual web search engines (Tavily AI for live web and Exa AI for semantic exploration), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (Whisper), and complete local session persistence.
 
@@ -95,7 +95,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 ### 4. Speech-to-Text Pipeline (STT)
 - **Spring-Loaded Pull-to-Record**: Swiping right-to-left across the screen (~95dp threshold) features elastic spring resistance with progressive mechanical haptic ticks, collapsing the keyboard and opening the fullscreen STT screen.
 - **Interactive Recording Controls**:
-  - **Top Model & Reasoning Selector**: Elevated brutalist capsule pill positioned directly above the central recording button with generous horizontal padding, allowing the user to seamlessly switch the active LLM model (`MiMo 2.6 Pro` vs `MiMo 2.6 Flash`) and reasoning effort level (`Off`, `Low`, `Medium`, `High`) mid-speaking before hitting send.
+  - **Top Model & Thinking Selector**: Elevated brutalist capsule pill positioned directly above the central recording button with generous horizontal padding, allowing the user to seamlessly switch the active LLM model (`MiMo 2.6 Pro` vs `MiMo 2.6 Flash`) and toggle Thinking (on / off) mid-speaking before hitting send.
   - **Center Glowing Button**: Stops recording, transcribes audio via OpenAI Whisper (`gpt-4o-mini-transcribe`), pastes into prompt, and immediately sends. Automatically engages conversational speech mode with instant real-time streaming TTS, speaking out loud as soon as the first tokens arrive with live word highlighting while the rest of the answer generates.
   - **Stop Button**: Stops recording, transcribes audio, and pastes into the prompt for review without sending.
   - **Cancel (✕) Button & Swipe Right**: Discards captured audio and collapses the overlay.
@@ -105,12 +105,10 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 - **Xiaomi MiMo Streaming**:
   - Model selection: **Xiaomi MiMo 2.6 Flash** (`mimo-v2.6-flash`, high-speed multimodal reasoning) and **Xiaomi MiMo 2.6 Pro** (`mimo-v2.6-pro`, deep complex reasoning) with candidate fallback cascades.
   - Dual-cluster auto-routing (Token Plan vs. Pay-As-You-Go) with optional custom base URL and dual-header (`Authorization` + `api-key`) authentication.
-  - Native reasoning effort controls (**Off**, **Low**, **Medium**, **High**) tuning thinking budget and token generation:
-    - **Off**: Completely disables the reasoning scratchpad (`"thinking": {"type": "disabled"}`) for immediate, direct streaming answers.
-    - **Low**: Strictly constrains thinking tokens to a 1,024-token budget (`"thinking": {"type": "enabled", "budget_tokens": 1024}`) for rapid, concise reasoning.
-    - **Medium**: Balanced reasoning scratchpad with an 8,192-token budget.
-    - **High**: Comprehensive chain-of-thought exploration with up to 32,768 tokens.
-    - Employs hybrid schema serialization sending structured `thinking` objects alongside `reasoning_effort` and fallback parameters, ensuring strict budget enforcement across all Xiaomi MiMo clusters and gateways.
+  - **Official Thinking Parameter & On/Off Toggle**:
+    - Streamlined dropdown toggle switch for **Thinking** (enabled / disabled) without prompt injection overhead or artificial token budget constraints.
+    - When enabled: sends `"thinking": {"type": "enabled"}` along with `temperature: 1.0` (official Xiaomi MiMo specification) and a 32,768 completion token budget.
+    - When disabled: sends `"thinking": {"type": "disabled"}` along with `temperature: 0.7` and an 8,192 token allocation for instant direct answers.
   - **Lifecycle Status Progression**: Explicit phase indicators: displays "Sending..." during initial request serialization and HTTP transmission, shows "Searching web with Exa..." when autonomous searches trigger, displays "Synthesizing answer..." while aggregating results, transitions seamlessly to the collapsible **"Thinking"** card with live pulse indicator during reasoning, and renders clean formatted markdown as final content streams.
   - `ThinkAndToolParser`: High-precision streaming parser demuxing reasoning tags (`<think>`, `<thought>`, `<thinking>`) to reasoning memory, buffering tool call XML (`<tool_call>`, `<function_call>`, `<tool>`) without leaking tokens into visible text, and feeding clean assistant content to the UI.
   - **Zero Reasoning / Tool Leaks**: Thinking tokens are strictly preserved inside the Room SQLite `reasoning` column and never promoted or leaked into user-facing `content`. Automated content sanitizers strip residual XML or think tags from saved records, preventing speech-to-text / TTS from speaking internal thoughts aloud.
@@ -163,7 +161,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 - **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any project. The text is extracted client-side via `AttachmentHelper` and formatted into contextual knowledge base memory before prompt dispatch. Supports staging files during new project creation.
 - **Safe Storage Persistence**: Both local and remote project knowledge files are whitelisted in `cleanOrphanedStorageAttachments` to prevent active project documents from ever being deleted during sync cleanups.
 - **Strict Context Scoping**: System prompt overrides and knowledge documents only apply to conversations belonging to that project, preventing leakage into generic chats.
-- **Collapsible Folder Organization & Wide Action Buttons**: The navigation drawer features a clean collapsible `PROJECTS` section with nested chat threads, unified wide `[ + ]` box buttons (48dp x 30dp) for one-tap new chat creation, and long-press settings dropdown. Tapping the project header toggles expansion cleanly without duplicate child rows.
+- **Collapsible Folder Organization & Action Buttons**: The navigation drawer features a clean collapsible `PROJECTS` section with nested chat threads, an uncontained `+` icon on the PROJECTS header, and borderless/shadowless wide `[ + ]` pill buttons (`#202020` in dark mode, `#E0DFDA` in light mode, 48dp x 30dp) for one-tap new chat creation in project rows, with long-press settings dropdown. Tapping the project header toggles expansion cleanly without duplicate child rows.
 - **Custom Project Colors & Palettes**: 9-color curated warm brutalist palette (Default Bone White, Orange, Amber, Emerald, Cyan, Electric Blue, Purple, Pink, Crimson Red) with swatches in the project dialog. Project colors dynamically tint folder icons in the drawer and top navigation bar breadcrumbs.
 - **TopBar & Greeting Breadcrumbs**: Subtle folder indicator in the top bar displaying the active project name, and an intuitive "Drafting in [Project]" badge on new chat greetings.
 - **Room SQLite Migration (v9)**: Database version 9 with `MIGRATION_8_9` adding `color TEXT NOT NULL DEFAULT ''` to `projects`, plus composite performance indices on `chats(projectId)` and `chats(projectSyncId)`.

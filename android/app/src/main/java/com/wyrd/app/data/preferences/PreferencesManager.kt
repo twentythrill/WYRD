@@ -67,6 +67,20 @@ class PreferencesManager(private val context: Context) {
         SupportedModel.fromId(modelId)
     }
 
+    val isThinkingEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        val explicit = preferences[KEY_THINKING_ENABLED]
+        if (explicit != null) {
+            explicit
+        } else {
+            val effortId = preferences[KEY_REASONING_EFFORT]
+            if (effortId != null) {
+                effortId != "off"
+            } else {
+                true // Xiaomi MiMo models default to thinking enabled
+            }
+        }
+    }
+
     val reasoningEffortFlow: Flow<ReasoningEffort> = context.dataStore.data.map { preferences ->
         val effortId = preferences[KEY_REASONING_EFFORT] ?: ReasoningEffort.MEDIUM.id
         ReasoningEffort.fromId(effortId)
@@ -141,9 +155,17 @@ class PreferencesManager(private val context: Context) {
         }
     }
 
+    suspend fun setThinkingEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_THINKING_ENABLED] = enabled
+            preferences[KEY_REASONING_EFFORT] = if (enabled) "on" else "off"
+        }
+    }
+
     suspend fun setReasoningEffort(effort: ReasoningEffort) {
         context.dataStore.edit { preferences ->
             preferences[KEY_REASONING_EFFORT] = effort.id
+            preferences[KEY_THINKING_ENABLED] = (effort != ReasoningEffort.OFF)
         }
     }
 
@@ -190,6 +212,7 @@ class PreferencesManager(private val context: Context) {
         private val KEY_USERNAME = stringPreferencesKey("user_name")
         private val KEY_SYSTEM_PROMPT = stringPreferencesKey("system_prompt")
         private val KEY_ACTIVE_MODEL = stringPreferencesKey("active_model_id")
+        private val KEY_THINKING_ENABLED = booleanPreferencesKey("thinking_enabled")
         private val KEY_REASONING_EFFORT = stringPreferencesKey("reasoning_effort")
         private val KEY_XIAOMI_ENABLED = booleanPreferencesKey("is_xiaomi_mimo_enabled")
         private val KEY_OPENAI_STT_ENABLED = booleanPreferencesKey("is_openai_stt_enabled")

@@ -165,6 +165,7 @@ fun HomeScreen(
     val streamingReasoning by viewModel.streamingReasoning.collectAsState()
     val streamingStatus by viewModel.streamingStatus.collectAsState()
     val activeModel by viewModel.activeModel.collectAsState()
+    val isThinkingEnabled by viewModel.isThinkingEnabled.collectAsState()
     val reasoningEffort by viewModel.reasoningEffort.collectAsState()
     val username by viewModel.username.collectAsState()
     val promptText by viewModel.inputPrompt.collectAsState()
@@ -1164,9 +1165,9 @@ fun HomeScreen(
                     // Permanently floating TopBar with model name and hamburger menu
                     TopBar(
                         activeModel = activeModel,
-                        reasoningEffort = reasoningEffort,
+                        isThinkingEnabled = isThinkingEnabled,
                         onModelSelected = { viewModel.setActiveModel(it) },
-                        onReasoningEffortSelected = { viewModel.setReasoningEffort(it) },
+                        onToggleThinking = { viewModel.setThinkingEnabled(it) },
                         onMenuClick = {
                             viewModel.hapticManager.click()
                             keyboardController?.hide()
@@ -1246,9 +1247,9 @@ fun HomeScreen(
             isRecording = isRecording,
             isTranscribing = isTranscribing,
             activeModel = activeModel,
-            reasoningEffort = reasoningEffort,
+            isThinkingEnabled = isThinkingEnabled,
             onModelSelected = { viewModel.setActiveModel(it) },
-            onReasoningEffortSelected = { viewModel.setReasoningEffort(it) },
+            onToggleThinking = { viewModel.setThinkingEnabled(it) },
             onSendRecording = { viewModel.stopRecording(autoSend = true) },
             onStopToEdit = { viewModel.stopRecording(autoSend = false) },
             onCancel = { viewModel.cancelRecording() }

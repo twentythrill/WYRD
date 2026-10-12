@@ -41,8 +41,11 @@ import com.wyrd.app.ui.theme.TextGray
 import com.wyrd.app.ui.theme.TextMuted
 import com.wyrd.app.ui.theme.TextWhite
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,9 +54,9 @@ import com.wyrd.app.ui.theme.SpaceGrotesk
 @Composable
 fun TopBar(
     activeModel: SupportedModel,
-    reasoningEffort: ReasoningEffort,
+    isThinkingEnabled: Boolean,
     onModelSelected: (SupportedModel) -> Unit,
-    onReasoningEffortSelected: (ReasoningEffort) -> Unit,
+    onToggleThinking: (Boolean) -> Unit,
     onMenuClick: () -> Unit,
     activeProjectName: String? = null,
     activeProjectColor: String? = null,
@@ -79,9 +82,9 @@ fun TopBar(
 
         ModelAndEffortSelector(
             activeModel = activeModel,
-            reasoningEffort = reasoningEffort,
+            isThinkingEnabled = isThinkingEnabled,
             onModelSelected = onModelSelected,
-            onReasoningEffortSelected = onReasoningEffortSelected
+            onToggleThinking = onToggleThinking
         )
 
         if (!activeProjectName.isNullOrBlank()) {
@@ -124,11 +127,34 @@ fun TopBar(
 }
 
 @Composable
-fun ModelAndEffortSelector(
+fun TopBar(
     activeModel: SupportedModel,
     reasoningEffort: ReasoningEffort,
     onModelSelected: (SupportedModel) -> Unit,
     onReasoningEffortSelected: (ReasoningEffort) -> Unit,
+    onMenuClick: () -> Unit,
+    activeProjectName: String? = null,
+    activeProjectColor: String? = null,
+    modifier: Modifier = Modifier
+) = TopBar(
+    activeModel = activeModel,
+    isThinkingEnabled = (reasoningEffort != ReasoningEffort.OFF),
+    onModelSelected = onModelSelected,
+    onToggleThinking = { enabled ->
+        onReasoningEffortSelected(if (enabled) ReasoningEffort.MEDIUM else ReasoningEffort.OFF)
+    },
+    onMenuClick = onMenuClick,
+    activeProjectName = activeProjectName,
+    activeProjectColor = activeProjectColor,
+    modifier = modifier
+)
+
+@Composable
+fun ModelAndEffortSelector(
+    activeModel: SupportedModel,
+    isThinkingEnabled: Boolean,
+    onModelSelected: (SupportedModel) -> Unit,
+    onToggleThinking: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
     enabled: Boolean = true
@@ -166,18 +192,20 @@ fun ModelAndEffortSelector(
                     fontSize = 17.sp
                 )
             )
-            Text(
-                text = " · ${reasoningEffort.displayName}",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Normal,
-                    color = TextGray,
-                    fontSize = 15.sp
+            if (isThinkingEnabled) {
+                Text(
+                    text = " · Thinking",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Normal,
+                        color = TextGray,
+                        fontSize = 15.sp
+                    )
                 )
-            )
+            }
             Spacer(modifier = Modifier.width(4.dp))
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
-                contentDescription = "Select Model and Effort",
+                contentDescription = "Select Model and Thinking",
                 tint = TextGray,
                 modifier = Modifier.size(18.dp)
             )
@@ -188,7 +216,7 @@ fun ModelAndEffortSelector(
             onDismissRequest = { dropdownExpanded = false },
             modifier = Modifier
                 .background(DarkCard)
-                .width(220.dp)
+                .width(230.dp)
         ) {
             Text(
                 text = "MODEL",
@@ -238,48 +266,69 @@ fun ModelAndEffortSelector(
                 color = DarkSurface
             )
 
-            Text(
-                text = "REASONING EFFORT",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    color = TextMuted,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 10.sp,
-                    letterSpacing = 1.sp
-                ),
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-            )
-
-            ReasoningEffort.entries.forEach { effort ->
-                DropdownMenuItem(
-                    text = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = effort.displayName,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = if (effort == reasoningEffort) TextWhite else TextGray,
-                                    fontWeight = if (effort == reasoningEffort) FontWeight.Bold else FontWeight.Normal
-                                )
-                            )
-                            if (effort == reasoningEffort) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Selected",
-                                    tint = TextWhite,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                    },
-                    onClick = {
-                        onReasoningEffortSelected(effort)
-                        dropdownExpanded = false
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        hapticManager?.tick()
+                        onToggleThinking(!isThinkingEnabled)
                     }
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Thinking",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = TextWhite,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                    Text(
+                        text = "Deep reasoning mode",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = TextMuted,
+                            fontSize = 11.sp
+                        )
+                    )
+                }
+                Switch(
+                    checked = isThinkingEnabled,
+                    onCheckedChange = {
+                        hapticManager?.tick()
+                        onToggleThinking(it)
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color(0xFF141414),
+                        checkedTrackColor = Color(0xFFCECDC4),
+                        uncheckedThumbColor = Color(0xFF8E8E93),
+                        uncheckedTrackColor = Color(0xFF2C2C2E),
+                        uncheckedBorderColor = Color.Transparent
+                    )
                 )
             }
         }
     }
 }
+
+@Composable
+fun ModelAndEffortSelector(
+    activeModel: SupportedModel,
+    reasoningEffort: ReasoningEffort,
+    onModelSelected: (SupportedModel) -> Unit,
+    onReasoningEffortSelected: (ReasoningEffort) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+    enabled: Boolean = true
+) = ModelAndEffortSelector(
+    activeModel = activeModel,
+    isThinkingEnabled = (reasoningEffort != ReasoningEffort.OFF),
+    onModelSelected = onModelSelected,
+    onToggleThinking = { enabledState ->
+        onReasoningEffortSelected(if (enabledState) ReasoningEffort.MEDIUM else ReasoningEffort.OFF)
+    },
+    modifier = modifier,
+    contentPadding = contentPadding,
+    enabled = enabled
+)

@@ -620,6 +620,7 @@ export function ChatArea({
     !isProcessingAttachments
   const hasAssistantMessage = displayedMessages.some((m) => m.role === 'assistant')
   const showFloatingTts = hasAssistantMessage || isGenerating || ttsState.isPlaying || ttsState.isPaused
+  const isEmptyState = (!chat || displayedMessages.length === 0) && !isGenerating
 
   const topGradient = isDark
     ? 'linear-gradient(to bottom, #000000 0%, rgba(0,0,0,0.90) 30%, rgba(0,0,0,0.70) 55%, rgba(0,0,0,0.40) 75%, rgba(0,0,0,0.15) 90%, transparent 100%)'
@@ -629,6 +630,243 @@ export function ChatArea({
     ? 'linear-gradient(to top, #000000 0%, rgba(0,0,0,0.90) 25%, rgba(0,0,0,0.70) 50%, rgba(0,0,0,0.38) 75%, rgba(0,0,0,0.12) 90%, transparent 100%)'
     : 'linear-gradient(to top, #F9F9F7 0%, rgba(249,249,247,0.90) 25%, rgba(249,249,247,0.70) 50%, rgba(249,249,247,0.38) 75%, rgba(249,249,247,0.12) 90%, transparent 100%)'
 
+  // --- Reusable Input Capsule & Attachments Sub-renderers ---
+  const renderAudioError = () => {
+    if (!audioError) return null
+    return (
+      <div className="w-full mb-3 pointer-events-auto">
+        <div className={`px-4 py-2.5 rounded-xl border border-[#FF453A]/40 text-[#FF453A] text-xs font-sans flex items-center justify-between shadow-lg ${
+          isDark ? 'bg-[#1A1A1A]' : 'bg-[#F2ECEB]'
+        }`}>
+          <span>{audioError}</span>
+          <button
+            onClick={() => setAudioError(null)}
+            className={`p-1 ${isDark ? 'text-[#8E8E93] hover:text-[#CECDC4]' : 'text-[#8E8E93] hover:text-[#141414]'}`}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const renderStagedAttachments = () => {
+    if (stagedAttachments.length === 0 && !isProcessingAttachments) return null
+    return (
+      <>
+        {stagedAttachments.length > 0 && (
+          <div className={`mb-2 p-2 rounded-2xl border flex items-center gap-2 overflow-x-auto pointer-events-auto shadow-md max-w-full ${
+            isDark ? 'bg-[#1A1A1A] border-[#262626]' : 'bg-[#EAE9E2] border-[#DCDBCF]'
+          }`}>
+            {stagedAttachments.map((att) => (
+              <div
+                key={att.id}
+                className={`relative group shrink-0 flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-xs ${
+                  isDark ? 'bg-[#141414] border-[#262626] text-[#CECDC4]' : 'bg-[#EFEFEA] border-[#DCDBCF] text-[#141414]'
+                }`}
+              >
+                {att.type === 'image' ? (
+                  <div className="flex items-center gap-2">
+                    <img
+                      src={att.previewUrl}
+                      alt={att.name}
+                      className={`w-8 h-8 rounded-lg object-cover border ${
+                        isDark ? 'border-[#333333]' : 'border-[#DCDBCF]'
+                      }`}
+                    />
+                    <div className="flex flex-col">
+                      <span className="max-w-[120px] truncate text-[11px] font-medium">{att.name}</span>
+                      <span className="text-[9px] text-[#8E8E93]">{formatFileSize(att.size)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-[#8E8E93] shrink-0" />
+                    <div className="flex flex-col">
+                      <span className="max-w-[130px] truncate text-[11px] font-medium">{att.name}</span>
+                      <span className="text-[9px] text-[#8E8E93]">{formatFileSize(att.size)}</span>
+                    </div>
+                  </div>
+                )}
+                <button
+                  onClick={() => handleRemoveStagedAttachment(att.id)}
+                  title="Remove attachment"
+                  className={`ml-1 w-4 h-4 rounded-full flex items-center justify-center text-[#8E8E93] transition-colors cursor-pointer ${
+                    isDark ? 'bg-[#262626] hover:bg-[#333333] hover:text-white' : 'bg-[#DCDBCF] hover:bg-[#CBCAC0] hover:text-black'
+                  }`}
+                >
+                  <X className="w-2.5 h-2.5 stroke-[2.5]" />
+                </button>
+              </div>
+            ))}
+            {isProcessingAttachments && (
+              <div className="flex items-center gap-1.5 px-3 py-1 text-xs text-[#8E8E93] shrink-0">
+                <div className={`w-3.5 h-3.5 border-2 rounded-full animate-spin ${
+                  isDark ? 'border-[#262626] border-t-[#CECDC4]' : 'border-[#DCDBCF] border-t-[#141414]'
+                }`} />
+                <span>Processing...</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {stagedAttachments.length === 0 && isProcessingAttachments && (
+          <div className={`mb-2 px-3.5 py-2 rounded-2xl border flex items-center gap-2 text-xs text-[#8E8E93] font-sans pointer-events-auto shadow-md ${
+            isDark ? 'bg-[#1A1A1A] border-[#262626]' : 'bg-[#EAE9E2] border-[#DCDBCF]'
+          }`}>
+            <div className={`w-3.5 h-3.5 border-2 rounded-full animate-spin ${
+              isDark ? 'border-[#262626] border-t-[#CECDC4]' : 'border-[#DCDBCF] border-t-[#141414]'
+            }`} />
+            <span>Loading attachment...</span>
+          </div>
+        )}
+      </>
+    )
+  }
+
+  const renderInputCapsule = () => (
+    <div className={`relative flex items-center rounded-[34px] pl-2.5 pr-1.5 py-1.5 shadow-lg pointer-events-auto transition-colors ${
+      isDark
+        ? 'bg-[#141414] border border-[#262626]'
+        : 'bg-[#EFEFEA] border border-[#DCDBCF]'
+    }`}>
+      {/* Left '+' Attachment Button */}
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        title="Add Attachment (Images, Documents, Code)"
+        className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors shrink-0 cursor-pointer ${
+          isDark
+            ? 'text-[#636366] hover:text-[#CECDC4]'
+            : 'text-[#8E8E93] hover:text-[#141414]'
+        }`}
+      >
+        <Plus className="w-6 h-6 stroke-[2]" />
+      </button>
+
+      {/* Input Textarea OR Recording Interface */}
+      {isRecording ? (
+        <div className="flex-1 flex items-center justify-between px-3 py-2">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#FF453A] animate-pulse" />
+              <span className="font-mono text-xs text-[#FF453A] font-semibold">REC</span>
+            </div>
+            <span className={`font-mono text-sm ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
+              {formatDuration(recordingDuration)}
+            </span>
+            {/* Audio wave indicator */}
+            <div className="flex items-center gap-0.5 h-4">
+              <span className={`w-0.5 h-2 ${isDark ? 'bg-[#CECDC4]' : 'bg-[#141414]'} animate-pulse`} />
+              <span className={`w-0.5 h-4 ${isDark ? 'bg-[#CECDC4]' : 'bg-[#141414]'} animate-pulse [animation-delay:150ms]`} />
+              <span className={`w-0.5 h-2.5 ${isDark ? 'bg-[#CECDC4]' : 'bg-[#141414]'} animate-pulse [animation-delay:300ms]`} />
+              <span className={`w-0.5 h-3.5 ${isDark ? 'bg-[#CECDC4]' : 'bg-[#141414]'} animate-pulse [animation-delay:450ms]`} />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCancelRecording}
+              title="Cancel recording"
+              className={`p-1.5 rounded-full transition-colors ${
+                isDark
+                  ? 'text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#1A1A1A]'
+                  : 'text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#E5E4DC]'
+              }`}
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleStopRecording}
+              title="Finish & Transcribe"
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                isDark
+                  ? 'bg-[#CECDC4] text-black hover:bg-white'
+                  : 'bg-[#141414] text-[#F9F9F7] hover:bg-black'
+              }`}
+            >
+              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Done</span>
+            </button>
+          </div>
+        </div>
+      ) : isTranscribing ? (
+        <div className="flex-1 flex items-center gap-2.5 px-3 py-2 text-[#8E8E93] text-xs font-sans">
+          <div className={`w-4 h-4 border-2 rounded-full animate-spin ${
+            isDark
+              ? 'border-[#262626] border-t-[#CECDC4]'
+              : 'border-[#DCDBCF] border-t-[#141414]'
+          }`} />
+          <span>Transcribing audio with OpenAI Whisper...</span>
+        </div>
+      ) : (
+        <textarea
+          ref={textareaRef}
+          rows={1}
+          value={inputText}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          placeholder="Ask anything..."
+          className={`flex-1 px-3 py-2 bg-transparent text-[16px] focus:outline-none resize-none max-h-44 font-sans leading-snug ${
+            isDark
+              ? 'text-[#CECDC4] placeholder-[#7A7A7A]'
+              : 'text-[#141414] placeholder-[#8E8E93]'
+          }`}
+        />
+      )}
+
+      {/* Right Action Buttons */}
+      {!isRecording && !isTranscribing && (
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Voice Input Button (Mic - OpenAI Whisper STT) */}
+          <button
+            onClick={handleStartRecording}
+            title="Voice dictation (OpenAI Whisper STT)"
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-[#8E8E93] transition-colors ${
+              isDark
+                ? 'hover:text-[#CECDC4] hover:bg-[#1A1A1A]'
+                : 'hover:text-[#141414] hover:bg-[#E5E4DC]'
+            }`}
+          >
+            <Mic className="w-5 h-5 stroke-[2]" />
+          </button>
+
+          {/* Right Action Button: Send or Stop */}
+          {isGenerating ? (
+            <button
+              onClick={onStopGeneration}
+              title="Stop Generation"
+              className={`w-11 h-11 rounded-full border flex items-center justify-center transition-all shrink-0 ml-1 ${
+                isDark
+                  ? 'bg-[#1A1A1A] border-[#262626] text-[#CECDC4] hover:text-[#FF453A]'
+                  : 'bg-[#E5E4DC] border-[#DCDBCF] text-[#141414] hover:text-[#FF453A]'
+              }`}
+            >
+              <Square className="w-4 h-4 fill-current" />
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={!canSend}
+              title="Send"
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all shrink-0 ml-1 ${
+                canSend
+                  ? isDark
+                    ? 'bg-[#CECDC4] text-black hover:bg-white'
+                    : 'bg-[#141414] text-[#F9F9F7] hover:bg-black'
+                  : isDark
+                  ? 'text-[#636366] opacity-30 cursor-not-allowed'
+                  : 'text-[#8E8E93] opacity-30 cursor-not-allowed'
+              }`}
+            >
+              <ArrowRight className="w-5 h-5 stroke-[2.5]" />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div
       onDragOver={handleDragOver}
@@ -636,6 +874,21 @@ export function ChatArea({
       onDrop={handleDrop}
       className={`flex-1 h-full min-h-0 relative overflow-hidden ${isDark ? 'bg-black text-[#CECDC4]' : 'bg-[#F9F9F7] text-[#141414]'}`}
     >
+      {/* Hidden File Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="image/*,.pdf,text/*,.txt,.md,.json,.py,.ts,.js,.tsx,.jsx,.html,.css,.csv,.xml,.yaml,.yml,.sh,.c,.cpp,.h,.java,.kt,.rs,.go,.sql"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            handleProcessFiles(e.target.files)
+            e.target.value = ''
+          }
+        }}
+      />
+
       {/* Drag & Drop Visual Overlay */}
       {isDragOver && (
         <div className="absolute inset-0 bg-black/75 backdrop-blur-xs border-2 border-dashed border-[#CECDC4]/40 z-50 flex flex-col items-center justify-center pointer-events-none transition-all">
@@ -650,376 +903,229 @@ export function ChatArea({
         style={{ background: topGradient }}
       />
 
-      {/* Messages Scroll Area - Full height so text scrolls underneath floating controls */}
-      <div
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        onWheel={() => {
-          isProgrammaticScrollRef.current = false
-        }}
-        onTouchMove={() => {
-          isProgrammaticScrollRef.current = false
-        }}
-        onPointerDown={() => {
-          isProgrammaticScrollRef.current = false
-        }}
-        className="w-full h-full overflow-y-auto px-4 md:px-8 pt-20 pb-36 space-y-6"
-      >
-        {isLoadingMessages ? (
-          <div className="h-full flex flex-col items-center justify-center text-center select-none py-12">
-            <div className="w-6 h-6 border-2 border-[#262626] border-t-[#CECDC4] rounded-full animate-spin mb-3" />
-            <span className="font-sans text-xs text-[#8E8E93]">Loading conversation...</span>
-          </div>
-        ) : (!chat || displayedMessages.length === 0) && !isGenerating ? (
-          // Exact Android Empty State: 160dp eye logo at 0.3 alpha + "Welcome Back, [Username]" + "(◕‿◕)"
-          <div className="h-full flex flex-col items-center justify-center text-center select-none py-12">
-            <img
-              src={logoSrc}
-              alt="WYRD Eye"
-              className="w-40 h-40 object-contain opacity-30 pointer-events-none"
-            />
-            <div className="h-7" />
-            <div className="font-sans text-[23px] text-[#CECDC4] font-normal">
-              Welcome Back,{' '}
-              <span className="font-bold text-[#CECDC4]">
-                {profile?.username?.trim() || 'Human'}
-              </span>
-            </div>
-            <div className="h-2.5" />
-            <div className="font-sans text-[22px] text-[#636366]">(◕‿◕)</div>
-            {activeProject && (
-              <div
-                className={`mt-4 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono border ${
-                  isDark
-                    ? 'border-[#262626] bg-[#141414] text-[#CECDC4]'
-                    : 'border-[#DCDBCF] bg-[#EAE9E2] text-[#141414]'
-                }`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-[#CECDC4]' : 'bg-[#141414]'}`} />
-                <span>Drafting in <span className="font-semibold">{activeProject.name}</span></span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div ref={contentContainerRef} className="max-w-3xl mx-auto space-y-6">
-            {displayedMessages.map((msg) => (
-              <MessageItem
-                key={msg.id}
-                message={msg}
-                isCopied={copiedId === msg.id}
-                ttsPlaybackState={ttsState}
-                isDark={isDark}
-                onCopy={() => copyToClipboard(msg.content, msg.id)}
-                onSeek={(plainText, offset) => ttsService.speak(msg.id, plainText, offset)}
-                onEdit={() => onEditMessage?.(msg)}
-                onBranch={() => onBranchMessage?.(msg)}
-                onRedo={() => onRedoMessage?.(msg)}
+      {isLoadingMessages ? (
+        <div className="h-full flex flex-col items-center justify-center text-center select-none py-12">
+          <div className={`w-6 h-6 border-2 rounded-full animate-spin mb-3 ${
+            isDark ? 'border-[#262626] border-t-[#CECDC4]' : 'border-[#DCDBCF] border-t-[#141414]'
+          }`} />
+          <span className="font-sans text-xs text-[#8E8E93]">Loading conversation...</span>
+        </div>
+      ) : isEmptyState ? (
+        <>
+          {/* Preserves scrollContainerRef without errors */}
+          <div ref={scrollContainerRef} className="hidden" />
+
+          {/* Mathematically Centered Empty State Hero Block (Logo + Welcome + Kaomoji + Input Capsule) */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-4 md:px-8 pointer-events-none select-none z-20">
+            <div className="w-full max-w-3xl flex flex-col items-center justify-center text-center pointer-events-auto">
+              <img
+                src={logoSrc}
+                alt="WYRD Eye"
+                className="w-40 h-40 object-contain opacity-30 pointer-events-none"
               />
-            ))}
-
-            {/* Live Streaming Assistant Message */}
-            {isGenerating && (
-              <div className="space-y-3">
-                {currentStreamingReasoning && (
-                  <ReasoningBlock
-                    reasoning={currentStreamingReasoning}
-                    isStreaming={currentStreamingContent.length === 0}
-                    isDark={isDark}
-                  />
-                )}
-
-                {streamingStatus && currentStreamingContent.length === 0 && (
-                  <div className="flex items-center gap-2.5 text-xs font-sans text-[#8E8E93] px-1 py-1">
-                    <span className="w-2 h-2 rounded-full bg-[#CECDC4] animate-pulse" />
-                    <span className="tracking-wide">{streamingStatus}</span>
-                  </div>
-                )}
-
-                {currentStreamingContent && (
-                  <FormattedMessage
-                    content={currentStreamingContent}
-                    messageId="streaming"
-                    activeHighlightRange={
-                      ttsState.activeMessageId === 'streaming' ? ttsState.currentRange : null
-                    }
-                    isDark={isDark}
-                    onSeek={(plainText, offset) => ttsService.speak('streaming', plainText, offset)}
-                  />
-                )}
+              <div className="h-7" />
+              <div className={`font-sans text-[23px] font-normal ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
+                Welcome Back,{' '}
+                <span className={`font-bold ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
+                  {profile?.username?.trim() || 'Human'}
+                </span>
               </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-      </div>
-
-      {/* Bottom Subtle Fade Gradient: messages smoothly dissolve behind floating input capsule */}
-      <div
-        className="absolute bottom-0 left-0 right-0 h-36 pointer-events-none z-10 transition-all duration-200"
-        style={{ background: bottomGradient }}
-      />
-
-      {/* Floating Bottom Overlay: Floating Controls & Input Capsule directly over scrolling text */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none px-4 md:px-8 pb-5">
-        <div className="max-w-3xl mx-auto">
-          {/* Audio Error Alert if any */}
-          {audioError && (
-            <div className="w-full mb-3 pointer-events-auto">
-              <div className="px-4 py-2.5 rounded-xl bg-[#1A1A1A] border border-[#FF453A]/40 text-[#FF453A] text-xs font-sans flex items-center justify-between shadow-lg">
-                <span>{audioError}</span>
-                <button
-                  onClick={() => setAudioError(null)}
-                  className="text-[#8E8E93] hover:text-[#CECDC4] p-1"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Floating Controls Bar: Centered Scroll-to-Bottom Arrow & Right Play/Pause TTS (matching Android) */}
-          <div className="relative w-full h-12 mb-2 pointer-events-none">
-            {/* Scroll-to-Bottom Arrow Button: Centered on top of input */}
-            <div className="absolute left-1/2 -translate-x-1/2 bottom-0 flex items-center justify-center">
-              <button
-                onClick={() => scrollToBottom(true)}
-                title="Scroll to bottom"
-                className={`w-[38px] h-[38px] rounded-full bg-[#141414] border border-[#262626] text-[#CECDC4] hover:bg-[#1A1A1A] hover:border-[#383838] transition-all duration-200 flex items-center justify-center cursor-pointer pointer-events-auto ${
-                  showScrollBottom
-                    ? 'opacity-100 scale-100'
-                    : 'opacity-0 scale-90 pointer-events-none'
-                }`}
-              >
-                <ChevronDown className="w-5 h-5 stroke-[2]" />
-              </button>
-            </div>
-
-            {/* Floating Play/Pause TTS button on the right (matching Android 54dp circle) */}
-            {showFloatingTts && (
-              <div className="absolute right-1 bottom-0 flex items-center justify-center">
-                <button
-                  onClick={handleToggleFloatingTts}
-                  title={
-                    ttsState.isPlaying
-                      ? 'Pause speech'
-                      : ttsState.isPaused
-                      ? 'Resume speech'
-                      : 'Play latest response'
-                  }
-                  className={`w-11 h-11 rounded-full border flex items-center justify-center transition-all duration-200 cursor-pointer pointer-events-auto ${
-                    ttsState.isPlaying
-                      ? 'bg-[#CECDC4] text-black border-[#CECDC4] shadow-md'
-                      : 'bg-[#141414] text-[#CECDC4] border-[#262626] hover:bg-[#1A1A1A] hover:border-[#383838]'
+              <div className="h-2.5" />
+              <div className={`font-sans text-[22px] ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>(◕‿◕)</div>
+              {activeProject && (
+                <div
+                  className={`mt-4 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono border ${
+                    isDark
+                      ? 'border-[#262626] bg-[#141414] text-[#CECDC4]'
+                      : 'border-[#DCDBCF] bg-[#EAE9E2] text-[#141414]'
                   }`}
                 >
-                  {ttsState.isPlaying ? (
-                    <Pause className="w-5 h-5 fill-current" />
-                  ) : (
-                    <Play className="w-5 h-5 fill-current ml-0.5" />
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Editing Prompt Banner matching Android editing banner */}
-          {editingMessage && (
-            <div className="mb-2 px-4 py-2 rounded-2xl bg-[#1A1A1A] border border-[#262626] flex items-center justify-between text-xs text-[#CECDC4] font-sans pointer-events-auto shadow-md">
-              <div className="flex items-center gap-2">
-                <Edit2 className="w-3.5 h-3.5 text-[#8E8E93]" />
-                <span className="font-medium">Editing prompt</span>
-              </div>
-              <button
-                onClick={() => {
-                  onCancelEdit?.()
-                  setInputText('')
-                  if (textareaRef.current) textareaRef.current.style.height = 'auto'
-                }}
-                className="p-1 hover:text-white text-[#8E8E93] rounded transition-colors flex items-center gap-1 cursor-pointer"
-                title="Cancel editing"
-              >
-                <span className="text-[11px]">Cancel</span>
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-
-          {/* Staged Attachments Preview Bar */}
-          {stagedAttachments.length > 0 && (
-            <div className="mb-2 p-2 rounded-2xl bg-[#1A1A1A] border border-[#262626] flex items-center gap-2 overflow-x-auto pointer-events-auto shadow-md max-w-full">
-              {stagedAttachments.map((att) => (
-                <div
-                  key={att.id}
-                  className="relative group shrink-0 flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-[#141414] border border-[#262626] text-xs text-[#CECDC4]"
-                >
-                  {att.type === 'image' ? (
-                    <div className="flex items-center gap-2">
-                      <img
-                        src={att.previewUrl}
-                        alt={att.name}
-                        className="w-8 h-8 rounded-lg object-cover border border-[#333333]"
-                      />
-                      <div className="flex flex-col">
-                        <span className="max-w-[120px] truncate text-[11px] font-medium">{att.name}</span>
-                        <span className="text-[9px] text-[#8E8E93]">{formatFileSize(att.size)}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-[#8E8E93] shrink-0" />
-                      <div className="flex flex-col">
-                        <span className="max-w-[130px] truncate text-[11px] font-medium">{att.name}</span>
-                        <span className="text-[9px] text-[#8E8E93]">{formatFileSize(att.size)}</span>
-                      </div>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => handleRemoveStagedAttachment(att.id)}
-                    title="Remove attachment"
-                    className="ml-1 w-4 h-4 rounded-full bg-[#262626] hover:bg-[#333333] hover:text-white flex items-center justify-center text-[#8E8E93] transition-colors cursor-pointer"
-                  >
-                    <X className="w-2.5 h-2.5 stroke-[2.5]" />
-                  </button>
-                </div>
-              ))}
-              {isProcessingAttachments && (
-                <div className="flex items-center gap-1.5 px-3 py-1 text-xs text-[#8E8E93] shrink-0">
-                  <div className="w-3.5 h-3.5 border-2 border-[#262626] border-t-[#CECDC4] rounded-full animate-spin" />
-                  <span>Processing...</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-[#CECDC4]' : 'bg-[#141414]'}`} />
+                  <span>Drafting in <span className="font-semibold">{activeProject.name}</span></span>
                 </div>
               )}
-            </div>
-          )}
 
-          {stagedAttachments.length === 0 && isProcessingAttachments && (
-            <div className="mb-2 px-3.5 py-2 rounded-2xl bg-[#1A1A1A] border border-[#262626] flex items-center gap-2 text-xs text-[#8E8E93] font-sans pointer-events-auto shadow-md">
-              <div className="w-3.5 h-3.5 border-2 border-[#262626] border-t-[#CECDC4] rounded-full animate-spin" />
-              <span>Loading attachment...</span>
-            </div>
-          )}
+              {/* Closer Spacing to Input Capsule */}
+              <div className="h-8" />
 
-          {/* Hidden File Input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept="image/*,.pdf,text/*,.txt,.md,.json,.py,.ts,.js,.tsx,.jsx,.html,.css,.csv,.xml,.yaml,.yml,.sh,.c,.cpp,.h,.java,.kt,.rs,.go,.sql"
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files && e.target.files.length > 0) {
-                handleProcessFiles(e.target.files)
-                e.target.value = ''
-              }
+              {/* Centered Input Capsule Section */}
+              <div className="w-full text-left">
+                {renderAudioError()}
+                {renderStagedAttachments()}
+                {renderInputCapsule()}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Messages Scroll Area - Full height so text scrolls underneath floating controls */}
+          <div
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            onWheel={() => {
+              isProgrammaticScrollRef.current = false
             }}
+            onTouchMove={() => {
+              isProgrammaticScrollRef.current = false
+            }}
+            onPointerDown={() => {
+              isProgrammaticScrollRef.current = false
+            }}
+            className="w-full h-full overflow-y-auto px-4 md:px-8 pt-20 pb-36 space-y-6"
+          >
+            <div ref={contentContainerRef} className="max-w-3xl mx-auto space-y-6">
+              {displayedMessages.map((msg) => (
+                <MessageItem
+                  key={msg.id}
+                  message={msg}
+                  isCopied={copiedId === msg.id}
+                  ttsPlaybackState={ttsState}
+                  isDark={isDark}
+                  onCopy={() => copyToClipboard(msg.content, msg.id)}
+                  onSeek={(plainText, offset) => ttsService.speak(msg.id, plainText, offset)}
+                  onEdit={() => onEditMessage?.(msg)}
+                  onBranch={() => onBranchMessage?.(msg)}
+                  onRedo={() => onRedoMessage?.(msg)}
+                />
+              ))}
+
+              {/* Live Streaming Assistant Message */}
+              {isGenerating && (
+                <div className="space-y-3">
+                  {currentStreamingReasoning && (
+                    <ReasoningBlock
+                      reasoning={currentStreamingReasoning}
+                      isStreaming={currentStreamingContent.length === 0}
+                      isDark={isDark}
+                    />
+                  )}
+
+                  {streamingStatus && currentStreamingContent.length === 0 && (
+                    <div className="flex items-center gap-2.5 text-xs font-sans text-[#8E8E93] px-1 py-1">
+                      <span className={`w-2 h-2 rounded-full animate-pulse ${
+                        isDark ? 'bg-[#CECDC4]' : 'bg-[#141414]'
+                      }`} />
+                      <span className="tracking-wide">{streamingStatus}</span>
+                    </div>
+                  )}
+
+                  {currentStreamingContent && (
+                    <FormattedMessage
+                      content={currentStreamingContent}
+                      messageId="streaming"
+                      activeHighlightRange={
+                        ttsState.activeMessageId === 'streaming' ? ttsState.currentRange : null
+                      }
+                      isDark={isDark}
+                      onSeek={(plainText, offset) => ttsService.speak('streaming', plainText, offset)}
+                    />
+                  )}
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          {/* Bottom Subtle Fade Gradient: messages smoothly dissolve behind floating input capsule */}
+          <div
+            className="absolute bottom-0 left-0 right-0 h-36 pointer-events-none z-10 transition-all duration-200"
+            style={{ background: bottomGradient }}
           />
 
-          <div className="relative flex items-center bg-[#141414] border border-[#262626] rounded-[34px] pl-2.5 pr-1.5 py-1.5 shadow-lg pointer-events-auto">
-            {/* Left '+' Attachment Button */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              title="Add Attachment (Images, Documents, Code)"
-              className="w-11 h-11 flex items-center justify-center rounded-full text-[#636366] hover:text-[#CECDC4] transition-colors shrink-0 cursor-pointer"
-            >
-              <Plus className="w-6 h-6 stroke-[2]" />
-            </button>
+          {/* Floating Bottom Overlay: Floating Controls & Input Capsule directly over scrolling text */}
+          <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none px-4 md:px-8 pb-5">
+            <div className="max-w-3xl mx-auto">
+              {renderAudioError()}
 
-            {/* Input Textarea OR Recording Interface */}
-            {isRecording ? (
-              <div className="flex-1 flex items-center justify-between px-3 py-2">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#FF453A] animate-pulse" />
-                    <span className="font-mono text-xs text-[#FF453A] font-semibold">REC</span>
-                  </div>
-                  <span className="font-mono text-sm text-[#CECDC4]">
-                    {formatDuration(recordingDuration)}
-                  </span>
-                  {/* Audio wave indicator */}
-                  <div className="flex items-center gap-0.5 h-4">
-                    <span className="w-0.5 h-2 bg-[#CECDC4] animate-pulse" />
-                    <span className="w-0.5 h-4 bg-[#CECDC4] animate-pulse [animation-delay:150ms]" />
-                    <span className="w-0.5 h-2.5 bg-[#CECDC4] animate-pulse [animation-delay:300ms]" />
-                    <span className="w-0.5 h-3.5 bg-[#CECDC4] animate-pulse [animation-delay:450ms]" />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
+              {/* Floating Controls Bar: Centered Scroll-to-Bottom Arrow & Right Play/Pause TTS (matching Android) */}
+              <div className="relative w-full h-12 mb-2 pointer-events-none">
+                {/* Scroll-to-Bottom Arrow Button: Centered on top of input */}
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-0 flex items-center justify-center">
                   <button
-                    onClick={handleCancelRecording}
-                    title="Cancel recording"
-                    className="p-1.5 rounded-full text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#1A1A1A] transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={handleStopRecording}
-                    title="Finish & Transcribe"
-                    className="px-3.5 py-1.5 rounded-full bg-[#CECDC4] text-black text-xs font-semibold hover:bg-white transition-colors flex items-center gap-1.5"
-                  >
-                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                    <span>Done</span>
-                  </button>
-                </div>
-              </div>
-            ) : isTranscribing ? (
-              <div className="flex-1 flex items-center gap-2.5 px-3 py-2 text-[#8E8E93] text-xs font-sans">
-                <div className="w-4 h-4 border-2 border-[#262626] border-t-[#CECDC4] rounded-full animate-spin" />
-                <span>Transcribing audio with OpenAI Whisper...</span>
-              </div>
-            ) : (
-              <textarea
-                ref={textareaRef}
-                rows={1}
-                value={inputText}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                placeholder="Ask anything..."
-                className="flex-1 px-3 py-2 bg-transparent text-[16px] text-[#CECDC4] placeholder-[#7A7A7A] focus:outline-none resize-none max-h-44 font-sans leading-snug"
-              />
-            )}
-
-            {/* Right Action Buttons */}
-            {!isRecording && !isTranscribing && (
-              <div className="flex items-center gap-1 shrink-0">
-                {/* Voice Input Button (Mic - OpenAI Whisper STT) */}
-                <button
-                  onClick={handleStartRecording}
-                  title="Voice dictation (OpenAI Whisper STT)"
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#1A1A1A] transition-colors"
-                >
-                  <Mic className="w-5 h-5 stroke-[2]" />
-                </button>
-
-                {/* Right Action Button: Send or Stop */}
-                {isGenerating ? (
-                  <button
-                    onClick={onStopGeneration}
-                    title="Stop Generation"
-                    className="w-11 h-11 rounded-full bg-[#1A1A1A] border border-[#262626] text-[#CECDC4] hover:text-[#FF453A] flex items-center justify-center transition-all shrink-0 ml-1"
-                  >
-                    <Square className="w-4 h-4 fill-current" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSend}
-                    disabled={!canSend}
-                    title="Send"
-                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-all shrink-0 ml-1 ${
-                      canSend
-                        ? 'bg-[#CECDC4] text-black hover:bg-white'
-                        : 'text-[#636366] opacity-30 cursor-not-allowed'
+                    onClick={() => scrollToBottom(true)}
+                    title="Scroll to bottom"
+                    className={`w-[38px] h-[38px] rounded-full border transition-all duration-200 flex items-center justify-center cursor-pointer pointer-events-auto ${
+                      isDark
+                        ? 'bg-[#141414] border-[#262626] text-[#CECDC4] hover:bg-[#1A1A1A] hover:border-[#383838]'
+                        : 'bg-[#EFEFEA] border-[#DCDBCF] text-[#141414] hover:bg-[#E5E4DC] hover:border-[#CBCAC0]'
+                    } ${
+                      showScrollBottom
+                        ? 'opacity-100 scale-100'
+                        : 'opacity-0 scale-90 pointer-events-none'
                     }`}
                   >
-                    <ArrowRight className="w-5 h-5 stroke-[2.5]" />
+                    <ChevronDown className="w-5 h-5 stroke-[2]" />
                   </button>
+                </div>
+
+                {/* Floating Play/Pause TTS button on the right (matching Android 54dp circle) */}
+                {showFloatingTts && (
+                  <div className="absolute right-1 bottom-0 flex items-center justify-center">
+                    <button
+                      onClick={handleToggleFloatingTts}
+                      title={
+                        ttsState.isPlaying
+                          ? 'Pause speech'
+                          : ttsState.isPaused
+                          ? 'Resume speech'
+                          : 'Play latest response'
+                      }
+                      className={`w-11 h-11 rounded-full border flex items-center justify-center transition-all duration-200 cursor-pointer pointer-events-auto ${
+                        ttsState.isPlaying
+                          ? isDark
+                            ? 'bg-[#CECDC4] text-black border-[#CECDC4] shadow-md'
+                            : 'bg-[#141414] text-[#F9F9F7] border-[#141414] shadow-md'
+                          : isDark
+                          ? 'bg-[#141414] text-[#CECDC4] border-[#262626] hover:bg-[#1A1A1A] hover:border-[#383838]'
+                          : 'bg-[#EFEFEA] text-[#141414] border-[#DCDBCF] hover:bg-[#E5E4DC] hover:border-[#CBCAC0]'
+                      }`}
+                    >
+                      {ttsState.isPlaying ? (
+                        <Pause className="w-5 h-5 fill-current" />
+                      ) : (
+                        <Play className="w-5 h-5 fill-current ml-0.5" />
+                      )}
+                    </button>
+                  </div>
                 )}
               </div>
-            )}
+
+              {/* Editing Prompt Banner matching Android editing banner */}
+              {editingMessage && (
+                <div className={`mb-2 px-4 py-2 rounded-2xl border flex items-center justify-between text-xs font-sans pointer-events-auto shadow-md ${
+                  isDark
+                    ? 'bg-[#1A1A1A] border-[#262626] text-[#CECDC4]'
+                    : 'bg-[#EAE9E2] border-[#DCDBCF] text-[#141414]'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <Edit2 className="w-3.5 h-3.5 text-[#8E8E93]" />
+                    <span className="font-medium">Editing prompt</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      onCancelEdit?.()
+                      setInputText('')
+                      if (textareaRef.current) textareaRef.current.style.height = 'auto'
+                    }}
+                    className={`p-1 rounded transition-colors flex items-center gap-1 cursor-pointer ${
+                      isDark ? 'text-[#8E8E93] hover:text-white' : 'text-[#8E8E93] hover:text-black'
+                    }`}
+                    title="Cancel editing"
+                  >
+                    <span className="text-[11px]">Cancel</span>
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {renderStagedAttachments()}
+              {renderInputCapsule()}
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* OpenAI API Key Prompt Modal */}
       <OpenAiKeyModal

@@ -346,7 +346,11 @@ export function Sidebar({
                 <button
                   onClick={onCreateProject}
                   title="Create new project"
-                  className="w-12 h-7 rounded-lg bg-[#1C1C1E] hover:bg-[#2C2C2E] border border-[#2C2C2E] hover:border-[#3A3A3C] text-[#CECDC4] hover:text-white transition-all cursor-pointer flex items-center justify-center shadow-sm shrink-0"
+                  className={`w-12 h-7 rounded-lg transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+                    isDark
+                      ? 'text-[#CECDC4] hover:text-white'
+                      : 'text-[#141414] hover:text-black'
+                  }`}
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                 </button>
@@ -427,7 +431,11 @@ export function Sidebar({
                                 if (window.innerWidth < 768) onClose()
                               }}
                               title="New chat in project"
-                              className="w-12 h-7 rounded-lg bg-[#1C1C1E] hover:bg-[#2C2C2E] border border-[#2C2C2E] hover:border-[#3A3A3C] text-[#CECDC4] hover:text-white transition-all cursor-pointer flex items-center justify-center shadow-sm shrink-0"
+                              className={`w-12 h-7 rounded-[10px] transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+                                isDark
+                                  ? 'bg-[#202020] hover:bg-[#2A2A2A] text-[#CECDC4] hover:text-white'
+                                  : 'bg-[#E0DFDA] hover:bg-[#D5D4CE] text-[#141414] hover:text-black'
+                              }`}
                             >
                               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                             </button>

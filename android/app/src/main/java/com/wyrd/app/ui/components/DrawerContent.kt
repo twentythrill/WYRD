@@ -261,8 +261,6 @@ fun DrawerContent(
                             .height(30.dp)
                             .width(48.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF1E1E1E))
-                            .border(1.dp, Color(0xFF2E2E2E), RoundedCornerShape(8.dp))
                             .clickable {
                                 hapticManager?.tick()
                                 onCreateProject()
@@ -515,9 +513,11 @@ private fun ProjectItemRow(
                 modifier = Modifier
                     .height(30.dp)
                     .width(48.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF1E1E1E))
-                    .border(1.dp, Color(0xFF2E2E2E), RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        if (isAppThemeDark) Color(0xFF202020)
+                        else Color(0xFFE0DFDA)
+                    )
                     .clickable {
                         hapticManager?.tick()
                         onNewChat()

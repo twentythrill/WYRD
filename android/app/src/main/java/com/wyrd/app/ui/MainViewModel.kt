@@ -147,6 +147,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val activeModel: StateFlow<SupportedModel> = preferencesManager.activeModelFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, SupportedModel.MIMO_2_6_PRO)
 
+    val isThinkingEnabled: StateFlow<Boolean> = preferencesManager.isThinkingEnabledFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
     val reasoningEffort: StateFlow<ReasoningEffort> = preferencesManager.reasoningEffortFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, ReasoningEffort.MEDIUM)
 
@@ -581,6 +584,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setThinkingEnabled(enabled: Boolean) {
+        hapticManager.click()
+        viewModelScope.launch {
+            preferencesManager.setThinkingEnabled(enabled)
+        }
+    }
+
     fun setReasoningEffort(effort: ReasoningEffort) {
         hapticManager.click()
         viewModelScope.launch {
@@ -922,7 +932,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             mimoService.streamChatCompletion(
                 apiKey = apiKey,
                 model = activeModel.value,
-                reasoningEffort = reasoningEffort.value,
+                isThinkingEnabled = isThinkingEnabled.value,
                 systemPrompt = effectiveSystemPrompt,
                 messages = payloadList,
                 exaSearchService = if (isExaEnabled) exaSearchService else null,
@@ -973,7 +983,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Streaming finished cleanly, save assistant message
             publishStreamingText(force = true)
             val rawContent = contentBuilder.toString().trim()
-            val rawReasoning = if (reasoningEffort.value != ReasoningEffort.OFF) reasoningBuilder.toString().trim().ifBlank { null } else null
+            val rawReasoning = if (isThinkingEnabled.value) reasoningBuilder.toString().trim().ifBlank { null } else null
             val finalContent = sanitizeStreamedContent(rawContent)
             val finalReasoning = rawReasoning?.let { sanitizeReasoning(it) }
 
@@ -1070,7 +1080,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             autoReadNextAssistantMessage = false
             withContext(NonCancellable) {
                 val rawContent = contentBuilder.toString().trim()
-                val rawReasoning = if (reasoningEffort.value != ReasoningEffort.OFF) reasoningBuilder.toString().trim().ifBlank { null } else null
+                val rawReasoning = if (isThinkingEnabled.value) reasoningBuilder.toString().trim().ifBlank { null } else null
                 val partialContent = sanitizeStreamedContent(rawContent)
                 val partialReasoning = rawReasoning?.let { sanitizeReasoning(it) }
 
@@ -1105,7 +1115,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _errorMessage.value = errorMsg
 
             val rawContent = contentBuilder.toString().trim()
-            val rawReasoning = if (reasoningEffort.value != ReasoningEffort.OFF) reasoningBuilder.toString().trim().ifBlank { null } else null
+            val rawReasoning = if (isThinkingEnabled.value) reasoningBuilder.toString().trim().ifBlank { null } else null
             val partialContent = sanitizeStreamedContent(rawContent)
             val partialReasoning = rawReasoning?.let { sanitizeReasoning(it) }
 

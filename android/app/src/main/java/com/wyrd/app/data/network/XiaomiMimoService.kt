@@ -246,7 +246,31 @@ class XiaomiMimoService(
     fun streamChatCompletion(
         apiKey: String,
         model: SupportedModel,
-        reasoningEffort: ReasoningEffort = ReasoningEffort.MEDIUM,
+        reasoningEffort: ReasoningEffort,
+        systemPrompt: String,
+        messages: List<ChatMessagePayload>,
+        exaSearchService: ExaSearchService? = null,
+        exaApiKey: String? = null,
+        tavilySearchService: TavilySearchService? = null,
+        tavilyApiKey: String? = null,
+        customBaseUrl: String? = null
+    ): Flow<StreamEvent> = streamChatCompletion(
+        apiKey = apiKey,
+        model = model,
+        isThinkingEnabled = (reasoningEffort != ReasoningEffort.OFF),
+        systemPrompt = systemPrompt,
+        messages = messages,
+        exaSearchService = exaSearchService,
+        exaApiKey = exaApiKey,
+        tavilySearchService = tavilySearchService,
+        tavilyApiKey = tavilyApiKey,
+        customBaseUrl = customBaseUrl
+    )
+
+    fun streamChatCompletion(
+        apiKey: String,
+        model: SupportedModel,
+        isThinkingEnabled: Boolean = true,
         systemPrompt: String,
         messages: List<ChatMessagePayload>,
         exaSearchService: ExaSearchService? = null,
@@ -284,20 +308,6 @@ class XiaomiMimoService(
                 append("\n[Autonomous Web Search: You have access to a web search tool to ground your answers in verified external facts. You are in charge of deciding autonomously whether to use web search.")
                 append("\n- `web_search`: Searches the web for live facts, current events, official documentation, community discussions, and user reviews. Invoke with:\n<tool_call><function=web_search><parameter=query>your search query</parameter></function></tool_call>")
                 append("\nIf the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]")
-            }
-            when (reasoningEffort) {
-                ReasoningEffort.OFF -> {
-                    append("\n[Reasoning: Disabled. Answer directly and immediately with zero internal monologue or thinking scratchpad.]")
-                }
-                ReasoningEffort.LOW -> {
-                    append("\n[Reasoning Budget: Low (~1000 tokens). Strictly constrain your internal thinking/reasoning process to be brief, concise, and focused solely on core deductions. Keep internal thought under 250 words. Do not engage in lengthy internal monologues, exhaustive scenario mapping, or speculative tangents.]")
-                }
-                ReasoningEffort.MEDIUM -> {
-                    append("\n[Reasoning Budget: Medium (~8000 tokens). Keep your internal reasoning balanced, direct, and focused on essential analysis without excessive verbosity.]")
-                }
-                ReasoningEffort.HIGH -> {
-                    append("\n[Reasoning Budget: High (~32000 tokens). You have full allowance for thorough, deep chain-of-thought exploration, rigorous scenario analysis, and multi-perspective verification.]")
-                }
             }
         }
 
@@ -382,14 +392,13 @@ class XiaomiMimoService(
                     val payloads = buildCandidatePayloads(
                         candidateId = candidateId,
                         messagesJsonArray = currentMessages,
-                        reasoningEffort = reasoningEffort,
+                        isThinkingEnabled = isThinkingEnabled,
                         stream = true,
                         tools = currentWebTools
                     )
                     for (payload in payloads) {
                         val thinkingInfo = payload.optJSONObject("thinking")?.optString("type") ?: "none"
-                        val effortInfo = payload.optString("reasoning_effort", "none")
-                        Log.d(TAG, "Attempting stream endpoint: $endpoint with model: $candidateId, reasoningEffort=$reasoningEffort, thinking=$thinkingInfo, effort=$effortInfo")
+                        Log.d(TAG, "Attempting stream endpoint: $endpoint with model: $candidateId, isThinkingEnabled=$isThinkingEnabled, thinking=$thinkingInfo")
 
                         val request = Request.Builder()
                             .url(endpoint)
@@ -426,7 +435,7 @@ class XiaomiMimoService(
                                     emit(StreamEvent.Content(it))
                                 },
                                 onReasoning = {
-                                    if (reasoningEffort != ReasoningEffort.OFF) {
+                                    if (isThinkingEnabled) {
                                         tokenEmittedCount++
                                         emit(StreamEvent.Reasoning(it))
                                     }
@@ -468,7 +477,7 @@ class XiaomiMimoService(
                                                     !delta.isNull("reasoning") -> delta.optString("reasoning", "")
                                                     else -> ""
                                                 }
-                                                if (reasoningEffort != ReasoningEffort.OFF && reasoningToken.isNotEmpty() && reasoningToken != "null") {
+                                                if (isThinkingEnabled && reasoningToken.isNotEmpty() && reasoningToken != "null") {
                                                     tokenEmittedCount++
                                                     emit(StreamEvent.Reasoning(reasoningToken))
                                                 }
@@ -548,7 +557,7 @@ class XiaomiMimoService(
                         val payloads = buildCandidatePayloads(
                             candidateId = candidateId,
                             messagesJsonArray = currentMessages,
-                            reasoningEffort = reasoningEffort,
+                            isThinkingEnabled = isThinkingEnabled,
                             stream = false,
                             tools = currentWebTools
                         )
@@ -597,7 +606,7 @@ class XiaomiMimoService(
                                             toolCallArgs.append(fn?.optString("arguments", "") ?: "")
                                         }
 
-                                        if (reasoningEffort != ReasoningEffort.OFF && reasoning.isNotBlank() && reasoning != "null") {
+                                        if (isThinkingEnabled && reasoning.isNotBlank() && reasoning != "null") {
                                             emit(StreamEvent.Reasoning(reasoning))
                                         }
 
@@ -609,7 +618,7 @@ class XiaomiMimoService(
                                                     emit(StreamEvent.Content(it))
                                                 },
                                                 onReasoning = {
-                                                    if (reasoningEffort != ReasoningEffort.OFF) {
+                                                    if (isThinkingEnabled) {
                                                         tokenEmittedCount++
                                                         emit(StreamEvent.Reasoning(it))
                                                     }
@@ -917,55 +926,40 @@ class XiaomiMimoService(
     private fun buildCandidatePayloads(
         candidateId: String,
         messagesJsonArray: JSONArray,
-        reasoningEffort: ReasoningEffort,
+        isThinkingEnabled: Boolean,
         stream: Boolean,
         tools: JSONArray? = null
     ): List<JSONObject> {
         val list = mutableListOf<JSONObject>()
         val seenSignatures = mutableSetOf<String>()
+        val hasTools = tools != null && tools.length() > 0
 
         fun addPayload(
             thinkingType: String?, // "enabled", "disabled", or null
-            budgetTokens: Int?,
-            effort: String?,       // "low", "medium", "high", or null
             withTools: Boolean
         ) {
-            val maxTokens = when (reasoningEffort) {
-                ReasoningEffort.LOW -> 4096
-                ReasoningEffort.MEDIUM -> 16384
-                ReasoningEffort.HIGH -> 65536
-                ReasoningEffort.OFF -> 4096
-            }
+            val maxTokens = if (isThinkingEnabled) 32768 else 8192
+            val temp = if (isThinkingEnabled) 1.0 else 0.7
+
             val payload = JSONObject().apply {
                 put("model", candidateId)
                 put("messages", messagesJsonArray)
                 put("stream", stream)
-                put("temperature", 0.7)
+                put("temperature", temp)
                 put("max_completion_tokens", maxTokens)
 
-                // 1. Xiaomi MiMo / Anthropic standard thinking object
+                // 1. Xiaomi MiMo official standard thinking parameter
                 if (thinkingType != null) {
                     put("thinking", JSONObject().apply {
                         put("type", thinkingType)
-                        if (thinkingType == "enabled" && budgetTokens != null && budgetTokens > 0) {
-                            put("budget_tokens", budgetTokens)
-                        }
                     })
-                }
-
-                // 2. OpenAI reasoning_effort standard ("low", "medium", "high")
-                if (effort != null) {
-                    put("reasoning_effort", effort)
-                }
-
-                // 3. Top-level parameters for diverse gateways (vLLM / legacy proxies)
-                if (budgetTokens != null && budgetTokens > 0) {
-                    put("thinking_budget", budgetTokens)
-                }
-                if (thinkingType == "disabled") {
-                    put("enable_thinking", false)
-                } else if (thinkingType == "enabled") {
-                    put("enable_thinking", true)
+                    // Extra body for standard OpenAI SDK gateways
+                    put("extra_body", JSONObject().apply {
+                        put("thinking", JSONObject().apply {
+                            put("type", thinkingType)
+                        })
+                    })
+                    put("enable_thinking", thinkingType == "enabled")
                 }
 
                 if (withTools && tools != null && tools.length() > 0) {
@@ -978,66 +972,24 @@ class XiaomiMimoService(
             }
         }
 
-        val hasTools = tools != null && tools.length() > 0
+        if (isThinkingEnabled) {
+            // Official Xiaomi MiMo: thinking enabled
+            if (hasTools) addPayload(thinkingType = "enabled", withTools = true)
+            addPayload(thinkingType = "enabled", withTools = false)
 
-        when (reasoningEffort) {
-            ReasoningEffort.OFF -> {
-                // Completely bypass thinking scratchpad for direct instantaneous answers
-                if (hasTools) addPayload(thinkingType = "disabled", budgetTokens = null, effort = null, withTools = true)
-                addPayload(thinkingType = "disabled", budgetTokens = null, effort = null, withTools = false)
+            // Fallback: standard payload without thinking object
+            if (hasTools) addPayload(thinkingType = null, withTools = true)
+            addPayload(thinkingType = null, withTools = false)
+        } else {
+            // Official Xiaomi MiMo: thinking disabled
+            if (hasTools) addPayload(thinkingType = "disabled", withTools = true)
+            addPayload(thinkingType = "disabled", withTools = false)
 
-                // Fallback: omit thinking parameters entirely (standard non-thinking completion)
-                if (hasTools) addPayload(thinkingType = null, budgetTokens = null, effort = null, withTools = true)
-                addPayload(thinkingType = null, budgetTokens = null, effort = null, withTools = false)
-            }
-            ReasoningEffort.LOW -> {
-                // Tier 1: Strict token budget (1024 tokens) without reasoning_effort override
-                if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = 1024, effort = null, withTools = true)
-                addPayload(thinkingType = "enabled", budgetTokens = 1024, effort = null, withTools = false)
-
-                // Tier 2: Fallback with reasoning_effort string if gateway strictly requires it
-                if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = 1024, effort = "low", withTools = true)
-                addPayload(thinkingType = "enabled", budgetTokens = 1024, effort = "low", withTools = false)
-
-                // Fallback: Default server behavior
-                if (hasTools) addPayload(thinkingType = null, budgetTokens = null, effort = null, withTools = true)
-                addPayload(thinkingType = null, budgetTokens = null, effort = null, withTools = false)
-            }
-            ReasoningEffort.MEDIUM -> {
-                // Tier 1: Strict token budget (8192 tokens) without reasoning_effort override
-                if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = 8192, effort = null, withTools = true)
-                addPayload(thinkingType = "enabled", budgetTokens = 8192, effort = null, withTools = false)
-
-                // Tier 2: Fallback with reasoning_effort string if gateway requires it
-                if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = 8192, effort = "medium", withTools = true)
-                addPayload(thinkingType = "enabled", budgetTokens = 8192, effort = "medium", withTools = false)
-
-                // Fallback 1: thinking enabled without budget constraint
-                if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = null, effort = "medium", withTools = true)
-                addPayload(thinkingType = "enabled", budgetTokens = null, effort = "medium", withTools = false)
-
-                // Fallback 2: default server behavior
-                if (hasTools) addPayload(thinkingType = null, budgetTokens = null, effort = null, withTools = true)
-                addPayload(thinkingType = null, budgetTokens = null, effort = null, withTools = false)
-            }
-            ReasoningEffort.HIGH -> {
-                // Tier 1: Strict token budget (32768 tokens) without reasoning_effort override
-                if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = 32768, effort = null, withTools = true)
-                addPayload(thinkingType = "enabled", budgetTokens = 32768, effort = null, withTools = false)
-
-                // Tier 2: Fallback with reasoning_effort string if gateway requires it
-                if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = 32768, effort = "high", withTools = true)
-                addPayload(thinkingType = "enabled", budgetTokens = 32768, effort = "high", withTools = false)
-
-                // Fallback 1: thinking enabled without budget constraint
-                if (hasTools) addPayload(thinkingType = "enabled", budgetTokens = null, effort = "high", withTools = true)
-                addPayload(thinkingType = "enabled", budgetTokens = null, effort = "high", withTools = false)
-
-                // Fallback 2: default server behavior
-                if (hasTools) addPayload(thinkingType = null, budgetTokens = null, effort = null, withTools = true)
-                addPayload(thinkingType = null, budgetTokens = null, effort = null, withTools = false)
-            }
+            // Fallback: standard payload without thinking object
+            if (hasTools) addPayload(thinkingType = null, withTools = true)
+            addPayload(thinkingType = null, withTools = false)
         }
+
         return list
     }
 

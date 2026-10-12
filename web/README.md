@@ -1,4 +1,4 @@
-# WYRD Web (Desktop & Browser Companion) (v1.5.1)
+# WYRD Web (Desktop & Browser Companion) (v1.5.4)
 
 A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversations, settings, and cognitive states in real-time with the Android application via Supabase.
 
@@ -30,7 +30,7 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
    * Auto-refreshes message streams whenever updates occur on either client.
 5. **User Profiles & System Prompt**:
    * Global `username` and customizable `system_prompt` stored in the `profiles` table.
-   * Model preference selection (`mimo-v2.6-pro`, `mimo-v2.6-flash`, etc.) and `reasoning_effort` toggle (`Off`, `Low`, `Medium`, `High`).
+   * Model preference selection (`mimo-v2.6-pro`, `mimo-v2.6-flash`, etc.) and official Xiaomi MiMo **Thinking** toggle (on / off) without prompt injection.
 6. **Brutalist Chat Experience & Android Parity**:
    * **Message Bubble Actions (Android Parity)**: Hovering message bubbles reveals quick actions:
      * **Edit**: Loads user prompts back into the input capsule with autofocus and an "Editing prompt" cancel bar; submitting rewrites subsequent turns.
@@ -38,9 +38,9 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
      * **Branch**: Slices the conversation thread up to the selected message into a new isolated session titled `"<Title> (Branch)"`.
      * **Copy**: One-click prompt/response copying to clipboard with confirmation feedback.
    * **Client-Side Draft New Chat**: Clicking "New Chat" resets to a clean draft session without inserting phantom rows into the database. Threads are created on-demand upon sending the first prompt.
-   * **Clean Welcome Screen**: Zero-message and new chat states display the exact mobile app Welcome Screen (160px eye logo at 30% opacity, "Welcome Back, [Username]", and `(◕‿◕)`).
+   * **Clean Centered Welcome & Hero State**: Zero-message and new chat states display the exact mobile app Welcome Screen (160px eye logo at 30% opacity, "Welcome Back, [Username]", `(◕‿◕)`, and optional active project badge) unified with the text input capsule in a single block mathematically centered both horizontally and vertically on screen, providing complete symmetry when the left sidebar is closed.
    * **Condensed Typography Parity (Android Parity)**: Tight, condensed reading rhythm matching Android's 23sp line height (`leading-[24px]` for markdown content, `leading-[23px]` for user bubbles, and `leading-[18px]` for reasoning blocks), eliminating excessive line spacing while maintaining clean legibility.
-   * **Monochrome "Thinking" Block (Android Parity)**: Dedicated minimalist reasoning container titled "Thinking" with sleek Lightbulb icon and live streaming pulse indicator, collapsed by default to prevent visual jumping, and completely free of extraneous icons or colored emojis. Strictly suppressed when reasoning effort is "Off".
+   * **Monochrome "Thinking" Block (Android Parity)**: Dedicated minimalist reasoning container titled "Thinking" with sleek Lightbulb icon and live streaming pulse indicator, collapsed by default to prevent visual jumping, and completely free of extraneous icons or colored emojis. Strictly suppressed when Thinking is toggled off.
    * **Gemini-Style Top & Bottom Subtle Fade Gradients (No Solid Cut-Offs)**:
      * **Top**: Transparent TopBar sits directly over a 112px multi-stop subtle fade-to-background gradient, softly veiling text scrolling underneath without harsh solid bars.
      * **Bottom**: Floating controls and input capsule sit over a 176px multi-stop subtle fade gradient, dissolving messages smoothly behind the capsule with complete visual continuity.
@@ -78,7 +78,7 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
 9. **Projects & Knowledge Base Spaces**:
    * **Custom Project Colors & Palettes**: 9-color curated warm brutalist palette (Default Bone White, Orange, Amber, Emerald, Cyan, Electric Blue, Purple, Pink, Crimson Red) with swatches in the project modal. Selected project colors dynamically tint folder icons in the sidebar, nested chats, and top navigation bar breadcrumbs.
    * **Instant Settings Access (Hover Gear Icon & Right-Click)**: Hovering over any project row in the sidebar reveals a sleek gear icon (`Settings`) alongside the new-chat button to immediately access project settings. Right-clicking (`onContextMenu`) also opens the project settings context menu.
-   * **Unified Wide Plus Buttons**: Standardized wide `[ + ]` box buttons (`w-12 h-7 rounded-lg`) for both the "PROJECTS" header row and individual project rows with pixel-perfect right margin alignment.
+   * **Unified Wide Plus Buttons**: Uncontained `+` icon on the PROJECTS header, and borderless/shadowless wide `[ + ]` pill buttons (`w-12 h-7 rounded-[10px]`, `#202020` in dark mode, `#E0DFDA` in light mode) for individual project rows with pixel-perfect right margin alignment.
    * **Custom System Prompt Override**: Dedicated projects with custom instructions that strictly override the generic profile system prompt.
    * **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code files. Text is extracted client-side (using `pdfjs-dist` for PDFs) and injected into the LLM context for all chats within that project. Supports staging files during project creation with badge preview and deletion.
    * **Safe Storage Persistence**: Direct Supabase storage without shadow `localStorage` layers; project file storage paths (`project_files.storage_path`) are whitelisted in `cleanOrphanedStorageAttachments` to prevent premature purging.

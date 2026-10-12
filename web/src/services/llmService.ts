@@ -326,6 +326,7 @@ export async function* streamLlmCompletion({
   apiKey,
   baseUrl = '',
   model = 'mimo-v2.6-pro',
+  isThinkingEnabled,
   reasoningEffort = 'medium',
   systemPrompt = '',
   messages = [],
@@ -334,6 +335,7 @@ export async function* streamLlmCompletion({
   apiKey: string
   baseUrl?: string
   model?: string
+  isThinkingEnabled?: boolean
   reasoningEffort?: string
   systemPrompt?: string
   messages: Array<{
@@ -353,6 +355,10 @@ export async function* streamLlmCompletion({
     return
   }
 
+  const isThinking = typeof isThinkingEnabled === 'boolean'
+    ? isThinkingEnabled
+    : reasoningEffort !== 'off'
+
   const currentDateTimeStr = new Date().toLocaleString()
   const temporalContext = `Current Device Date and Time: ${currentDateTimeStr}`
 
@@ -365,16 +371,6 @@ export async function* streamLlmCompletion({
 - \`web_search\`: Searches the web for live facts, current events, official documentation, community discussions, and user reviews. Invoke with:
 <tool_call><function=web_search><parameter=query>your search query</parameter></function></tool_call>
 If the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]`
-
-  if (reasoningEffort === 'low') {
-    effectiveSystemPrompt += '\n[Reasoning Budget: Low (~1000 tokens). Strictly constrain your internal thinking/reasoning process to be brief, concise, and focused solely on core deductions. Keep internal thought under 250 words. Do not engage in lengthy internal monologues, exhaustive scenario mapping, or speculative tangents.]'
-  } else if (reasoningEffort === 'medium') {
-    effectiveSystemPrompt += '\n[Reasoning Budget: Medium (~8000 tokens). Keep your internal reasoning balanced, direct, and focused on essential analysis without excessive verbosity.]'
-  } else if (reasoningEffort === 'high') {
-    effectiveSystemPrompt += '\n[Reasoning Budget: High (~32000 tokens). You have full allowance for thorough, deep chain-of-thought exploration, rigorous scenario analysis, and multi-perspective verification.]'
-  } else if (reasoningEffort === 'off') {
-    effectiveSystemPrompt += '\n[Reasoning: Disabled. Answer directly and immediately with zero internal monologue or thinking scratchpad.]'
-  }
 
   // Retain recent context window (last 30 turns) matching Android MAX_CONTEXT_MESSAGES
   const historyToInclude = messages.length > 30 ? messages.slice(-30) : messages
@@ -407,21 +403,6 @@ If the request does not require external search, answer directly without invokin
     ...formattedHistory,
   ]
 
-  const budgetTokensMap: Record<string, number | null> = {
-    low: 1024,
-    medium: 8192,
-    high: 32768,
-    off: null,
-  }
-  const budget = budgetTokensMap[reasoningEffort] ?? (reasoningEffort === 'off' ? null : 8192)
-
-  const maxTokensMap: Record<string, number> = {
-    low: 4096,
-    medium: 16384,
-    high: 65536,
-    off: 4096,
-  }
-
   let toolExecutionRounds = 0
   const maxToolExecutionRounds = 3
 
@@ -432,8 +413,8 @@ If the request does not require external search, answer directly without invokin
       model,
       messages: currentMessages,
       stream: true,
-      temperature: 0.7,
-      max_completion_tokens: maxTokensMap[reasoningEffort] || 16384,
+      temperature: isThinking ? 1.0 : 0.7,
+      max_completion_tokens: isThinking ? 32768 : 8192,
     }
 
     if (toolExecutionRounds < maxToolExecutionRounds && !hasImagesInConversation) {
@@ -441,21 +422,14 @@ If the request does not require external search, answer directly without invokin
       bodyPayload.tool_choice = 'auto'
     }
 
-    if (reasoningEffort === 'off') {
-      bodyPayload.thinking = { type: 'disabled' }
-      bodyPayload.enable_thinking = false
-    } else {
-      bodyPayload.thinking = {
-        type: 'enabled',
-        ...(budget ? { budget_tokens: budget } : {}),
-      }
-      if (!budget) {
-        bodyPayload.reasoning_effort = reasoningEffort
-      }
-      if (budget) {
-        bodyPayload.thinking_budget = budget
-      }
+    if (isThinking) {
+      bodyPayload.thinking = { type: 'enabled' }
+      bodyPayload.extra_body = { thinking: { type: 'enabled' } }
       bodyPayload.enable_thinking = true
+    } else {
+      bodyPayload.thinking = { type: 'disabled' }
+      bodyPayload.extra_body = { thinking: { type: 'disabled' } }
+      bodyPayload.enable_thinking = false
     }
 
     const endpoints = getCandidateEndpoints(cleanKey, baseUrl)
@@ -548,7 +522,7 @@ If the request does not require external search, answer directly without invokin
 
                 // 2. Native reasoning delta
                 const reasoningText = delta.reasoning_content || delta.reasoning
-                if (reasoningEffort !== 'off' && reasoningText && reasoningText !== 'null') {
+                if (isThinking && reasoningText && reasoningText !== 'null') {
                   roundReasoningAccumulator += reasoningText
                   yield { reasoning: reasoningText }
                 }
@@ -564,7 +538,7 @@ If the request does not require external search, answer directly without invokin
                     (r) => reasoningChunks.push(r)
                   )
 
-                  if (reasoningEffort !== 'off') {
+                  if (isThinking) {
                     for (const r of reasoningChunks) {
                       roundReasoningAccumulator += r
                       yield { reasoning: r }
@@ -589,7 +563,7 @@ If the request does not require external search, answer directly without invokin
           (c) => remContent.push(c),
           (r) => remReasoning.push(r)
         )
-        if (reasoningEffort !== 'off') {
+        if (isThinking) {
           for (const r of remReasoning) {
             roundReasoningAccumulator += r
             yield { reasoning: r }

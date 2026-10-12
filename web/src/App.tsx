@@ -481,6 +481,18 @@ export function App() {
     await dbService.updateProfile(session.user.id, { active_model: modelId })
   }
 
+  const isThinkingEnabled = profile?.reasoning_effort ? profile.reasoning_effort !== 'off' : true
+
+  const handleToggleThinking = async (enabled: boolean) => {
+    const effortId = enabled ? 'on' : 'off'
+    if (!session?.user) {
+      setProfile((prev) => (prev ? { ...prev, reasoning_effort: effortId } : null))
+      return
+    }
+    setProfile((prev) => (prev ? { ...prev, reasoning_effort: effortId } : null))
+    await dbService.updateProfile(session.user.id, { reasoning_effort: effortId })
+  }
+
   const handleReasoningEffortSelected = async (effortId: string) => {
     if (!session?.user) return
     setProfile((prev) => (prev ? { ...prev, reasoning_effort: effortId } : null))
@@ -580,7 +592,7 @@ export function App() {
         apiKey,
         baseUrl,
         model: profile?.active_model || 'mimo-v2.6-pro',
-        reasoningEffort: profile?.reasoning_effort || 'medium',
+        isThinkingEnabled,
         systemPrompt: effectiveSystemPrompt,
         messages: conversationHistory,
         signal: controller.signal,
@@ -592,7 +604,7 @@ export function App() {
         if (chunk.clearContent) {
           fullContent = ''
           setCurrentStreamingContent('')
-          if (profile?.reasoning_effort !== 'off') {
+          if (isThinkingEnabled) {
             if (fullReasoning.trim().length > 0 && !fullReasoning.endsWith('\n\n')) {
               fullReasoning += '\n\n'
             }
@@ -605,7 +617,7 @@ export function App() {
         if (chunk.status) {
           setCurrentStreamingStatus(chunk.status)
         }
-        if (chunk.reasoning && profile?.reasoning_effort !== 'off') {
+        if (chunk.reasoning && isThinkingEnabled) {
           setCurrentStreamingStatus(null)
           fullReasoning += chunk.reasoning
           setCurrentStreamingReasoning(fullReasoning)
@@ -623,7 +635,7 @@ export function App() {
 
       // 3. Persist Assistant Message
       const rawContent = fullContent.trim()
-      const rawReasoning = profile?.reasoning_effort !== 'off' ? fullReasoning.trim() : ''
+      const rawReasoning = isThinkingEnabled ? fullReasoning.trim() : ''
       const finalContent = sanitizeStreamedContent(rawContent)
       const finalReasoning = rawReasoning ? sanitizeReasoning(rawReasoning) : null
 
@@ -902,6 +914,7 @@ export function App() {
         <div className="absolute top-0 left-0 right-0 z-30 pointer-events-auto">
           <TopBar
             activeModelId={profile?.active_model || 'mimo-v2.6-pro'}
+            isThinkingEnabled={isThinkingEnabled}
             reasoningEffortId={profile?.reasoning_effort || 'medium'}
             activeChatTitle={activeChat?.title}
             activeProjectName={activeProject?.name}
@@ -909,6 +922,7 @@ export function App() {
             isSidebarOpen={isSidebarOpen}
             isDark={isDark}
             onSelectModel={handleModelSelected}
+            onToggleThinking={handleToggleThinking}
             onSelectReasoningEffort={handleReasoningEffortSelected}
             onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
             onToggleTheme={handleToggleTheme}

@@ -1,4 +1,4 @@
-# WYRD (v1.5.1)
+# WYRD (v1.5.4)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -13,15 +13,15 @@ WYRD/
 ├── android/          # Native Android AI Client (Kotlin + Jetpack Compose)
 │   ├── app/          # App source, UI components, Room database, network services
 │   ├── build.gradle.kts
-│   └── README.md     # Android client architecture & documentation (v1.5.0)
+│   └── README.md     # Android client architecture & documentation (v1.5.3)
 │
 ├── web/              # Desktop & Browser Companion (React 19 + TypeScript + Vite)
 │   ├── src/          # React components, services, Supabase integration
 │   ├── package.json
-│   └── README.md     # Web client architecture & documentation (v1.5.0)
+│   └── README.md     # Web client architecture & documentation (v1.5.3)
 │
 ├── .gitignore        # Unified repository ignore rules
-└── README.md         # Master repository overview (v1.5.0)
+└── README.md         # Master repository overview (v1.5.3)
 ```
 
 ---
@@ -36,7 +36,7 @@ WYRD/
 
 ### 2. Dual-Engine LLM Intelligence & Autonomous Web Grounding (Tavily + Exa)
 * **Xiaomi MiMo Streaming**: Direct SSE token streaming with automatic cluster routing based on API key tier (`Token Plan` vs `Pay-As-You-Go`).
-* **Reasoning Control & Budget Guardrails**: Native thinking parameter with prompt steering and strict token budget enforcement (`Off`, `Low` 1024, `Medium` 8192, `High` 32768).
+* **Official Xiaomi MiMo Thinking Toggle**: Native request parameterization matching the official Xiaomi MiMo specification (`thinking: { type: "enabled" | "disabled" }`, `temperature: 1.0` when enabled / `0.7` when disabled, and dynamic token allocations of 32k/8k). Artificial prompt injection budget overrides are completely eliminated in favor of a sleek on/off Thinking switch inside the model selector across both MiMo 2.6 Flash and Pro.
 * **Autonomous Dual-Engine Web Search Grounding**:
   * **Tavily AI Search (`tavily_search`)**: Keyword-based real-time search engine for breaking news, current events, recent releases/updates, official websites, and live factual data.
   * **Exa AI Search (`exa_search`)**: Neural semantic search engine for community discussions, forum opinions, user reviews, sentiment analysis, long-form articles, and in-depth research.
@@ -58,7 +58,7 @@ WYRD/
 
 ### 5. Projects & Knowledge Base Spaces (Web & Android)
 * **Custom Project Colors & Palettes**: 9-color curated warm brutalist palette (Default Bone White, Orange, Amber, Emerald, Cyan, Electric Blue, Purple, Pink, Crimson Red) with swatches in project dialogs. Selected project colors dynamically tint folder icons in the drawer/sidebar and top navigation bar breadcrumbs.
-* **Streamlined Side Panel / Drawer Experience**: Removed chat counter badges and gear buttons for a minimal, hyper-clean look, and added unified wide `[ + ]` box buttons across headers and item rows for easy tapping and clicking.
+* **Streamlined Side Panel / Drawer Experience**: Removed chat counter badges and gear buttons for a minimal look, clean uncontained `+` icon on the PROJECTS header, and borderless/shadowless pill buttons (`#202020` in dark mode, `#E0DFDA` in light mode) on project rows.
 * **Instant Settings Access**: Projects can be configured effortlessly: on Android, long-pressing any project row brings up a native settings dropdown; on Web, a sleek gear icon appears on row hover (mirroring chat hover actions) and right-clicking opens the settings context menu.
 * **Custom System Prompt Override**: Dedicated project spaces with custom system prompts that strictly override the generic global system prompt for focused domain tasks.
 * **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any project. The text content is extracted client-side and injected as contextual knowledge base memory during LLM completions. Staging files during project creation is supported on both Web and Android.
@@ -78,6 +78,9 @@ WYRD/
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.5.4** | 2026-10-12 | Centered Web Hero Layout: Integrated logo, welcome greetings, and prompt input capsule into a single mathematically centered block (50% horizontal and 50% vertical screen alignment), with elevated input bar positioning closer to greetings, full light/dark theme styling, and pure symmetry when sidebar is collapsed. |
+| **v1.5.3** | 2026-10-12 | Official Xiaomi MiMo Thinking Toggle: Removed prompt injection budget overrides in favor of official Xiaomi MiMo request specification (thinking type 'enabled'/'disabled', temperature 1.0/0.7, token budget allocation), and streamlined model selector with a sleek Thinking on/off switch across Android and Web. |
+| **v1.5.2** | 2026-10-12 | Minimalist project plus button redesign: removed border and shadow, removed header container/bubble for a clean icon, and updated project row bubbles to #202020 (Dark) and #E0DFDA (Light) across Android and Web. |
 | **v1.5.1** | 2026-10-12 | Unified side panel button geometry, two-way Supabase project color sync, hover gear icon for Web project settings, concentric color swatch containment, and cleaned redundant dialog text. |
 | **v1.5.0** | 2026-10-12 | Side panel/drawer projects redesign: removed counters and gear buttons, enlarged new chat button, added long-press (Android) and right-click (Web) settings dropdown, 9-color project palette customization, Room v9 migration, and Supabase sync parity. |
 | **v1.4.0** | 2026-10-11 | Complete architecture overhaul of Projects (isolated scoping, storage orphan protection, creation file staging, clean navigation toggles) and native Markdown Table rendering engine with 1:1 TTS word-sync parity across Web and Android. |

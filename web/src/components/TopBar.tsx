@@ -20,20 +20,23 @@ const REASONING_EFFORTS = [
 
 interface TopBarProps {
   activeModelId: string
-  reasoningEffortId: string
+  isThinkingEnabled?: boolean
+  reasoningEffortId?: string
   activeChatTitle?: string
   activeProjectName?: string
   activeProjectColor?: string | null
   isSidebarOpen?: boolean
   isDark?: boolean
   onSelectModel: (modelId: string) => void
-  onSelectReasoningEffort: (effortId: string) => void
+  onToggleThinking?: (enabled: boolean) => void
+  onSelectReasoningEffort?: (effortId: string) => void
   onToggleSidebar: () => void
   onToggleTheme?: () => void
 }
 
 export function TopBar({
   activeModelId,
+  isThinkingEnabled,
   reasoningEffortId,
   activeChatTitle,
   activeProjectName,
@@ -41,6 +44,7 @@ export function TopBar({
   isSidebarOpen,
   isDark = true,
   onSelectModel,
+  onToggleThinking,
   onSelectReasoningEffort,
   onToggleSidebar,
   onToggleTheme,
@@ -50,8 +54,15 @@ export function TopBar({
 
   const activeModel =
     SUPPORTED_MODELS.find((m) => m.id === activeModelId) || SUPPORTED_MODELS[1]
-  const activeEffort =
-    REASONING_EFFORTS.find((e) => e.id === reasoningEffortId) || REASONING_EFFORTS[2]
+
+  const isThinking = typeof isThinkingEnabled === 'boolean'
+    ? isThinkingEnabled
+    : (reasoningEffortId ? reasoningEffortId !== 'off' : true)
+
+  const handleToggleThinking = (newVal: boolean) => {
+    onToggleThinking?.(newVal)
+    onSelectReasoningEffort?.(newVal ? 'on' : 'off')
+  }
 
   const modelBase = 'MiMo 2.6'
   const modelSuffix = activeModel.id.includes('flash') ? ' Flash' : ' Pro'
@@ -82,7 +93,7 @@ export function TopBar({
       )}
 
       <div className="relative" ref={dropdownRef}>
-        {/* Model + Reasoning Effort Selector */}
+        {/* Model + Thinking Selector */}
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-[#141414] transition-colors text-left"
@@ -93,9 +104,11 @@ export function TopBar({
           <span className="text-[17px] font-normal text-[#CECDC4] font-sans">
             {modelSuffix}
           </span>
-          <span className="text-[15px] font-normal text-[#8E8E93] font-sans">
-            {' · ' + activeEffort.displayName}
-          </span>
+          {isThinking && (
+            <span className="text-[15px] font-normal text-[#8E8E93] font-sans">
+              {' · Thinking'}
+            </span>
+          )}
           <ChevronDown className="w-4 h-4 text-[#8E8E93] ml-1 stroke-[2]" />
         </button>
 
@@ -128,33 +141,39 @@ export function TopBar({
               )
             })}
 
-            <div className="my-1.5 border-t border-[#0A0A0A]" />
+            <div className="my-1.5 border-t border-[#262626]" />
 
-            <div className="px-3.5 py-1.5 text-[10px] font-semibold tracking-wider text-[#636366] uppercase font-sans">
-              REASONING EFFORT
+            <div
+              onClick={() => handleToggleThinking(!isThinking)}
+              className="px-3.5 py-2 flex items-center justify-between cursor-pointer hover:bg-[#262626]/60 transition-colors"
+            >
+              <div className="flex flex-col">
+                <span className="font-sans text-sm font-medium text-[#CECDC4]">
+                  Thinking
+                </span>
+                <span className="font-sans text-[11px] text-[#8E8E93]">
+                  Deep reasoning mode
+                </span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isThinking}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleToggleThinking(!isThinking)
+                }}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  isThinking ? 'bg-[#CECDC4]' : 'bg-[#2C2C2E]'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[#141414] shadow ring-0 transition duration-200 ease-in-out ${
+                    isThinking ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
             </div>
-            {REASONING_EFFORTS.map((effort) => {
-              const isSelected = effort.id === reasoningEffortId
-              return (
-                <button
-                  key={effort.id}
-                  onClick={() => {
-                    onSelectReasoningEffort(effort.id)
-                    setDropdownOpen(false)
-                  }}
-                  className="w-full px-3.5 py-2 flex items-center justify-between text-left hover:bg-[#262626]/60 transition-colors"
-                >
-                  <span
-                    className={`font-sans text-sm ${
-                      isSelected ? 'font-bold text-[#CECDC4]' : 'font-normal text-[#8E8E93]'
-                    }`}
-                  >
-                    {effort.displayName}
-                  </span>
-                  {isSelected && <Check className="w-4 h-4 text-[#CECDC4]" />}
-                </button>
-              )
-            })}
           </div>
         )}
       </div>

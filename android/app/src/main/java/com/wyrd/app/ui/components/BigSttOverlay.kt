@@ -69,9 +69,9 @@ fun BigSttOverlay(
     isRecording: Boolean,
     isTranscribing: Boolean,
     activeModel: SupportedModel,
-    reasoningEffort: ReasoningEffort,
+    isThinkingEnabled: Boolean,
     onModelSelected: (SupportedModel) -> Unit,
-    onReasoningEffortSelected: (ReasoningEffort) -> Unit,
+    onToggleThinking: (Boolean) -> Unit,
     onSendRecording: () -> Unit,
     onStopToEdit: () -> Unit,
     onCancel: () -> Unit,
@@ -157,12 +157,12 @@ fun BigSttOverlay(
                     .navigationBarsPadding()
                     .padding(32.dp)
             ) {
-                // Model and Reasoning Effort Selector pill directly above the big button
+                // Model and Thinking Selector pill directly above the big button
                 ModelAndEffortSelector(
                     activeModel = activeModel,
-                    reasoningEffort = reasoningEffort,
+                    isThinkingEnabled = isThinkingEnabled,
                     onModelSelected = onModelSelected,
-                    onReasoningEffortSelected = onReasoningEffortSelected,
+                    onToggleThinking = onToggleThinking,
                     enabled = !isTranscribing,
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                     modifier = Modifier
@@ -283,3 +283,32 @@ fun BigSttOverlay(
         }
     }
 }
+
+@Composable
+fun BigSttOverlay(
+    visible: Boolean,
+    isRecording: Boolean,
+    isTranscribing: Boolean,
+    activeModel: SupportedModel,
+    reasoningEffort: ReasoningEffort,
+    onModelSelected: (SupportedModel) -> Unit,
+    onReasoningEffortSelected: (ReasoningEffort) -> Unit,
+    onSendRecording: () -> Unit,
+    onStopToEdit: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) = BigSttOverlay(
+    visible = visible,
+    isRecording = isRecording,
+    isTranscribing = isTranscribing,
+    activeModel = activeModel,
+    isThinkingEnabled = (reasoningEffort != ReasoningEffort.OFF),
+    onModelSelected = onModelSelected,
+    onToggleThinking = { enabled ->
+        onReasoningEffortSelected(if (enabled) ReasoningEffort.MEDIUM else ReasoningEffort.OFF)
+    },
+    onSendRecording = onSendRecording,
+    onStopToEdit = onStopToEdit,
+    onCancel = onCancel,
+    modifier = modifier
+)
