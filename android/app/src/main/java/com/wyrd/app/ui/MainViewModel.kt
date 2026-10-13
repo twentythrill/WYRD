@@ -654,7 +654,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 currentChatId = chatDao.insertChat(newChat)
                 _activeChatId.value = currentChatId
             } else if (editingMsg != null) {
-                val toDelete = messageDao.getMessagesListForChat(currentChatId).filter { it.timestamp >= editingMsg.timestamp }
+                val chat = chatDao.getChatById(currentChatId)
+                val chatSyncId = chat?.syncId
+                val allChatMessages = messageDao.getMessagesListForChat(currentChatId)
+                val toDelete = allChatMessages.filter {
+                    it.timestamp > editingMsg.timestamp || (it.timestamp == editingMsg.timestamp && it.id >= editingMsg.id)
+                }
+                val syncIds = toDelete.mapNotNull { it.syncId.takeIf { s -> s.isNotBlank() } }
+                if (!chatSyncId.isNullOrBlank()) {
+                    supabaseSyncManager.deleteMessagesRemotely(chatSyncId, syncIds, editingMsg.timestamp, inclusive = true)
+                }
                 com.wyrd.app.util.AttachmentHelper.cleanupAttachments(app, toDelete)
                 messageDao.deleteMessagesFrom(currentChatId, editingMsg.timestamp, editingMsg.id)
             }
@@ -708,8 +717,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         generationJob = app.applicationScope.launch(Dispatchers.IO) {
             val chatId = fromUserMessage.chatId
             _activeChatId.value = chatId
+            val chat = chatDao.getChatById(chatId)
+            val chatSyncId = chat?.syncId
             // Delete all messages after this user message
-            val toDelete = messageDao.getMessagesListForChat(chatId).filter { it.timestamp > fromUserMessage.timestamp }
+            val allChatMessages = messageDao.getMessagesListForChat(chatId)
+            val toDelete = allChatMessages.filter {
+                it.timestamp > fromUserMessage.timestamp || (it.timestamp == fromUserMessage.timestamp && it.id > fromUserMessage.id)
+            }
+            val syncIds = toDelete.mapNotNull { it.syncId.takeIf { s -> s.isNotBlank() } }
+            if (!chatSyncId.isNullOrBlank()) {
+                supabaseSyncManager.deleteMessagesRemotely(chatSyncId, syncIds, fromUserMessage.timestamp, inclusive = false)
+            }
             com.wyrd.app.util.AttachmentHelper.cleanupAttachments(app, toDelete)
             messageDao.deleteMessagesAfter(chatId, fromUserMessage.timestamp, fromUserMessage.id)
             chatDao.updatePinned(chatId, chatDao.getChatById(chatId)?.isPinned ?: false, System.currentTimeMillis())

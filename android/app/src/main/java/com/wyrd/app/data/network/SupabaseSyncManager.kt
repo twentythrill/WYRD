@@ -41,6 +41,7 @@ class SupabaseSyncManager(
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
     private val syncMutex = Mutex()
+    private val deletedMessageSyncIds = java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
     private fun parseIsoDate(isoStr: String?): Long {
         if (isoStr.isNullOrBlank()) return 0L
@@ -1030,19 +1031,139 @@ class SupabaseSyncManager(
         }
     }
 
+    suspend fun deleteMessagesRemotely(
+        chatSyncId: String,
+        messageSyncIds: List<String>,
+        fromTimestamp: Long? = null,
+        inclusive: Boolean = false
+    ) = withContext(Dispatchers.IO) {
+        val token = getValidAccessToken() ?: return@withContext
+        val userId = secureKeyStorage.getSupabaseUserId()
+        if (userId.isBlank() || chatSyncId.isBlank()) return@withContext
+
+        // Mark immediately so any concurrent or future sync passes ignore them
+        deletedMessageSyncIds.addAll(messageSyncIds)
+
+        try {
+            // 1. Delete storage attachments if any
+            if (messageSyncIds.isNotEmpty()) {
+                val idsParam = messageSyncIds.joinToString(",")
+                val getAttReq = Request.Builder()
+                    .url("$SUPABASE_URL/rest/v1/messages?id=in.($idsParam)&select=attachments")
+                    .addHeader("apikey", SUPABASE_KEY)
+                    .addHeader("Authorization", "Bearer $token")
+                    .get()
+                    .build()
+
+                val storagePaths = mutableListOf<String>()
+                try {
+                    client.newCall(getAttReq).execute().use { resp ->
+                        if (resp.isSuccessful) {
+                            val arr = JSONArray(resp.body?.string() ?: "[]")
+                            for (i in 0 until arr.length()) {
+                                val msgObj = arr.getJSONObject(i)
+                                val attArr = msgObj.optJSONArray("attachments") ?: JSONArray()
+                                for (j in 0 until attArr.length()) {
+                                    val item = attArr.optJSONObject(j) ?: continue
+                                    val uri = item.optString("uri", "")
+                                    extractStoragePath(uri)?.let { storagePaths.add(it) }
+                                }
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+
+                if (storagePaths.isNotEmpty()) {
+                    deleteStorageAttachments(storagePaths)
+                }
+
+                // 2. Delete messages by syncId in Supabase
+                val delReq = Request.Builder()
+                    .url("$SUPABASE_URL/rest/v1/messages?id=in.($idsParam)")
+                    .addHeader("apikey", SUPABASE_KEY)
+                    .addHeader("Authorization", "Bearer $token")
+                    .delete()
+                    .build()
+                client.newCall(delReq).execute().use { resp ->
+                    Log.d(TAG, "deleteMessagesRemotely by id response: ${resp.code}")
+                }
+            }
+
+            // 3. Also delete by timestamp in Supabase (if provided) to ensure any other turns on remote are wiped
+            if (fromTimestamp != null && fromTimestamp > 0L) {
+                val iso = formatIsoDate(fromTimestamp)
+                val op = if (inclusive) "gte" else "gt"
+                val delTimeReq = Request.Builder()
+                    .url("$SUPABASE_URL/rest/v1/messages?chat_id=eq.$chatSyncId&created_at=$op.$iso")
+                    .addHeader("apikey", SUPABASE_KEY)
+                    .addHeader("Authorization", "Bearer $token")
+                    .delete()
+                    .build()
+                client.newCall(delTimeReq).execute().use { resp ->
+                    Log.d(TAG, "deleteMessagesRemotely by time response: ${resp.code}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "deleteMessagesRemotely error", e)
+        }
+    }
+
     private suspend fun syncMessages(token: String, userId: String) {
         val chatDao = database.chatDao()
         val messageDao = database.messageDao()
         val localChats = chatDao.getAllChatsList()
+        val knownSynced = secureKeyStorage.getKnownSyncedChatIds()
 
         for (chat in localChats) {
             val syncId = chat.syncId
             if (syncId.isBlank()) continue
 
-            // 1. Upload local messages for this chat
+            // 1. Download remote messages for this chat first so we know what remote contains
+            val getReq = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/messages?chat_id=eq.$syncId&select=*&order=created_at.asc")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+
+            val remoteMsgs = try {
+                client.newCall(getReq).execute().use { resp ->
+                    if (!resp.isSuccessful) {
+                        val err = resp.body?.string() ?: ""
+                        Log.e(TAG, "syncMessages download failed for chat ${chat.id}: ${resp.code} $err")
+                        null
+                    } else {
+                        val body = resp.body?.string() ?: ""
+                        JSONArray(body)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "syncMessages fetch remote error for chat ${chat.id}", e)
+                null
+            } ?: continue
+
+            val remoteSyncIds = HashSet<String>()
+            for (i in 0 until remoteMsgs.length()) {
+                remoteSyncIds.add(remoteMsgs.getJSONObject(i).getString("id"))
+            }
+
+            // 2. Upload local messages for this chat (filtering out deleted messages)
             val localMsgs = messageDao.getMessagesListForChat(chat.id)
             val uploadArr = JSONArray()
             for (msg in localMsgs) {
+                if (deletedMessageSyncIds.contains(msg.syncId)) {
+                    messageDao.deleteMessageById(msg.id)
+                    continue
+                }
+
+                // If msg was already synced to remote before, but remote no longer has it (e.g. deleted via redo/edit on Web),
+                // remove it locally instead of resurrecting it to remote!
+                if (msg.syncId.isNotBlank() && knownSynced.contains(syncId) && !remoteSyncIds.contains(msg.syncId)) {
+                    Log.d(TAG, "syncMessages: Local message ${msg.id} was deleted on remote. Removing locally.")
+                    messageDao.deleteMessageById(msg.id)
+                    continue
+                }
+
                 var msgSyncId = msg.syncId
                 if (msgSyncId.isBlank()) {
                     msgSyncId = UUID.randomUUID().toString()
@@ -1068,8 +1189,6 @@ class SupabaseSyncManager(
                             modified = true
                             if (j == 0) finalAttachmentUri = publicUrl
                         } else {
-                            // Fallback: if Storage upload failed, encode compressed image to base64 data URI
-                            // so that cross-device sync renders the image immediately without breaking
                             if (!uri.startsWith("data:")) {
                                 val b64 = com.wyrd.app.util.AttachmentHelper.getBase64FromPath(uri)
                                 if (!b64.isNullOrBlank()) {
@@ -1127,56 +1246,43 @@ class SupabaseSyncManager(
                 }
             }
 
-            // 2. Download remote messages for this chat
-            val getReq = Request.Builder()
-                .url("$SUPABASE_URL/rest/v1/messages?chat_id=eq.$syncId&select=*&order=created_at.asc")
-                .addHeader("apikey", SUPABASE_KEY)
-                .addHeader("Authorization", "Bearer $token")
-                .get()
-                .build()
-
-            client.newCall(getReq).execute().use { resp ->
-                if (!resp.isSuccessful) {
-                    val err = resp.body?.string() ?: ""
-                    Log.e(TAG, "syncMessages download failed for chat ${chat.id}: ${resp.code} $err")
-                    return@use
+            // 3. Insert remote messages into Room if not present locally and not in deletedMessageSyncIds
+            for (i in 0 until remoteMsgs.length()) {
+                val rMsg = remoteMsgs.getJSONObject(i)
+                val rMsgId = rMsg.getString("id")
+                if (deletedMessageSyncIds.contains(rMsgId)) {
+                    continue
                 }
-                val body = resp.body?.string() ?: ""
-                val remoteMsgs = JSONArray(body)
-                for (i in 0 until remoteMsgs.length()) {
-                    val rMsg = remoteMsgs.getJSONObject(i)
-                    val rMsgId = rMsg.getString("id")
-                    val role = rMsg.getString("role")
-                    val content = rMsg.optString("content", "")
-                    val reasoning = if (rMsg.has("reasoning") && !rMsg.isNull("reasoning")) {
-                        rMsg.getString("reasoning")
-                    } else null
-                    val attachmentsArr = rMsg.optJSONArray("attachments")
-                    val attachmentsJson = if (attachmentsArr != null && attachmentsArr.length() > 0) attachmentsArr.toString() else null
-                    val firstAtt = if (attachmentsArr != null && attachmentsArr.length() > 0) attachmentsArr.getJSONObject(0) else null
-                    val attachmentUri = firstAtt?.optString("uri")
-                    val attachmentType = firstAtt?.optString("type")
-                    val attachmentName = firstAtt?.optString("name")
-                    val rawTimestamp = parseIsoDate(rMsg.optString("created_at"))
-                    val timestamp = if (rawTimestamp > 0L) rawTimestamp else System.currentTimeMillis()
+                val role = rMsg.getString("role")
+                val content = rMsg.optString("content", "")
+                val reasoning = if (rMsg.has("reasoning") && !rMsg.isNull("reasoning")) {
+                    rMsg.getString("reasoning")
+                } else null
+                val attachmentsArr = rMsg.optJSONArray("attachments")
+                val attachmentsJson = if (attachmentsArr != null && attachmentsArr.length() > 0) attachmentsArr.toString() else null
+                val firstAtt = if (attachmentsArr != null && attachmentsArr.length() > 0) attachmentsArr.getJSONObject(0) else null
+                val attachmentUri = firstAtt?.optString("uri")
+                val attachmentType = firstAtt?.optString("type")
+                val attachmentName = firstAtt?.optString("name")
+                val rawTimestamp = parseIsoDate(rMsg.optString("created_at"))
+                val timestamp = if (rawTimestamp > 0L) rawTimestamp else System.currentTimeMillis()
 
-                    val existingMsg = messageDao.getMessageBySyncId(rMsgId)
-                    if (existingMsg == null) {
-                        messageDao.insertMessage(
-                            MessageEntity(
-                                chatId = chat.id,
-                                role = role,
-                                content = content,
-                                reasoning = reasoning,
-                                timestamp = timestamp,
-                                attachmentUri = attachmentUri,
-                                attachmentType = attachmentType,
-                                attachmentName = attachmentName,
-                                attachmentsJson = attachmentsJson,
-                                syncId = rMsgId
-                            )
+                val existingMsg = messageDao.getMessageBySyncId(rMsgId)
+                if (existingMsg == null) {
+                    messageDao.insertMessage(
+                        MessageEntity(
+                            chatId = chat.id,
+                            role = role,
+                            content = content,
+                            reasoning = reasoning,
+                            timestamp = timestamp,
+                            attachmentUri = attachmentUri,
+                            attachmentType = attachmentType,
+                            attachmentName = attachmentName,
+                            attachmentsJson = attachmentsJson,
+                            syncId = rMsgId
                         )
-                    }
+                    )
                 }
             }
         }

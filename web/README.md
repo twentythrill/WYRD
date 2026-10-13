@@ -1,4 +1,4 @@
-# WYRD Web (Desktop & Browser Companion) (v1.5.7)
+# WYRD Web (Desktop & Browser Companion) (v1.5.8)
 
 A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversations, settings, and cognitive states in real-time with the Android application via Supabase.
 
@@ -27,6 +27,7 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
    * **Floating Play/Pause Controller & Real-Time Streaming TTS**: Brutalist 50px circular button anchored above the send button on the right (matching Android's 54dp circle). Tapping Play while the model is actively streaming immediately begins reading the response out loud in real time from incoming tokens, chaining new sentence utterances seamlessly as generation continues with synchronized word highlighting. Smoothly toggles Play and Pause states without textual clutter or pill badges.
 4. **Cross-Device Cloud Sync**:
    * Synchronizes `chats`, `messages`, and user `profiles` in real-time with the WYRD Android app.
+   * **Deterministic Message Truncation (Edit & Redo)**: Editing or redoing prompts permanently truncates all subsequent turns locally and deletes them from Supabase (by exact message IDs and timestamps), preventing message resurrection or chain overlapping. Realtime subscription deletions instantly reflect deletions initiated from the Android client.
    * Auto-refreshes message streams whenever updates occur on either client.
 5. **User Profiles & System Prompt**:
    * Global `username` and customizable `system_prompt` stored in the `profiles` table.
@@ -34,8 +35,8 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
 6. **Brutalist Chat Experience & Android Parity**:
    * **Message Bubble Actions & Pointer-Anchored Dropdown (Android Parity)**:
      * **Double-Click Pointer Dropdown**: Double-clicking anywhere on a user prompt opens the action context menu anchored precisely at the mouse pointer location (with smart viewport boundary clamping and automatic dismiss on scroll, resize, Escape, or outside click), clearing accidental word selections and rendering via a React portal.
-     * **Edit**: Loads user prompts back into the input capsule with autofocus and an "Editing prompt" cancel bar; submitting rewrites subsequent turns.
-     * **Redo**: Truncates following assistant responses and re-streams a fresh generation from the model.
+     * **Edit**: Loads user prompts back into the input capsule with autofocus and an "Editing prompt" cancel bar; submitting permanently truncates subsequent conversation turns locally and in Supabase before streaming a new response.
+     * **Redo**: Permanently deletes following assistant responses locally and in Supabase, and re-streams a fresh generation from the model.
      * **Branch**: Slices the conversation thread up to the selected message into a new isolated session titled `"<Title> (Branch)"`.
      * **Copy**: One-click prompt/response copying to clipboard with confirmation feedback.
    * **Client-Side Draft New Chat**: Clicking "New Chat" resets to a clean draft session without inserting phantom rows into the database. Threads are created on-demand upon sending the first prompt.

@@ -355,6 +355,7 @@ export const dbService = {
       .select('*')
       .eq('chat_id', chatId)
       .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
 
     if (error) {
       console.error('Error fetching messages:', error)
@@ -459,62 +460,116 @@ export const dbService = {
     return true
   },
 
-  async deleteMessagesFrom(chatId: string, createdAt: string): Promise<boolean> {
+  async deleteMessagesFrom(chatId: string, createdAt?: string, messageIds?: string[]): Promise<boolean> {
     try {
-      const { data: msgs } = await supabase
-        .from('messages')
-        .select('attachments')
-        .eq('chat_id', chatId)
-        .gte('created_at', createdAt)
+      if (messageIds && messageIds.length > 0) {
+        const { data: msgs } = await supabase
+          .from('messages')
+          .select('attachments')
+          .in('id', messageIds)
 
-      if (msgs && msgs.length > 0) {
-        const paths = extractStoragePathsFromMessages(msgs)
-        if (paths.length > 0) {
-          await deleteStorageAttachments(paths)
+        if (msgs && msgs.length > 0) {
+          const paths = extractStoragePathsFromMessages(msgs)
+          if (paths.length > 0) {
+            await deleteStorageAttachments(paths)
+          }
+        }
+
+        const { error: idError } = await supabase
+          .from('messages')
+          .delete()
+          .in('id', messageIds)
+
+        if (idError) {
+          console.error('Error deleting messages by id:', idError)
         }
       }
-    } catch (_e) {}
 
-    const { error } = await supabase
-      .from('messages')
-      .delete()
-      .eq('chat_id', chatId)
-      .gte('created_at', createdAt)
+      if (createdAt) {
+        const { data: msgs } = await supabase
+          .from('messages')
+          .select('attachments')
+          .eq('chat_id', chatId)
+          .gte('created_at', createdAt)
 
-    if (error) {
-      console.error('Error deleting messages from timestamp:', error)
+        if (msgs && msgs.length > 0) {
+          const paths = extractStoragePathsFromMessages(msgs)
+          if (paths.length > 0) {
+            await deleteStorageAttachments(paths)
+          }
+        }
+
+        const { error: timeError } = await supabase
+          .from('messages')
+          .delete()
+          .eq('chat_id', chatId)
+          .gte('created_at', createdAt)
+
+        if (timeError) {
+          console.error('Error deleting messages by timestamp:', timeError)
+        }
+      }
+      return true
+    } catch (e) {
+      console.error('Error in deleteMessagesFrom:', e)
       return false
     }
-    return true
   },
 
-  async deleteMessagesAfter(chatId: string, createdAt: string): Promise<boolean> {
+  async deleteMessagesAfter(chatId: string, createdAt?: string, messageIds?: string[]): Promise<boolean> {
     try {
-      const { data: msgs } = await supabase
-        .from('messages')
-        .select('attachments')
-        .eq('chat_id', chatId)
-        .gt('created_at', createdAt)
+      if (messageIds && messageIds.length > 0) {
+        const { data: msgs } = await supabase
+          .from('messages')
+          .select('attachments')
+          .in('id', messageIds)
 
-      if (msgs && msgs.length > 0) {
-        const paths = extractStoragePathsFromMessages(msgs)
-        if (paths.length > 0) {
-          await deleteStorageAttachments(paths)
+        if (msgs && msgs.length > 0) {
+          const paths = extractStoragePathsFromMessages(msgs)
+          if (paths.length > 0) {
+            await deleteStorageAttachments(paths)
+          }
+        }
+
+        const { error: idError } = await supabase
+          .from('messages')
+          .delete()
+          .in('id', messageIds)
+
+        if (idError) {
+          console.error('Error deleting messages by id:', idError)
         }
       }
-    } catch (_e) {}
 
-    const { error } = await supabase
-      .from('messages')
-      .delete()
-      .eq('chat_id', chatId)
-      .gt('created_at', createdAt)
+      if (createdAt) {
+        const { data: msgs } = await supabase
+          .from('messages')
+          .select('attachments')
+          .eq('chat_id', chatId)
+          .gt('created_at', createdAt)
 
-    if (error) {
-      console.error('Error deleting messages after timestamp:', error)
+        if (msgs && msgs.length > 0) {
+          const paths = extractStoragePathsFromMessages(msgs)
+          if (paths.length > 0) {
+            await deleteStorageAttachments(paths)
+          }
+        }
+
+        const { error: timeError } = await supabase
+          .from('messages')
+          .delete()
+          .eq('chat_id', chatId)
+          .gt('created_at', createdAt)
+
+        if (timeError) {
+          console.error('Error deleting messages after timestamp:', timeError)
+        }
+      }
+      return true
+    } catch (e) {
+      console.error('Error in deleteMessagesAfter:', e)
       return false
     }
-    return true
   },
 
   // --- Real-time Subscriptions ---

@@ -738,12 +738,14 @@ export function App() {
 
       // If user was editing a prompt, delete subsequent turns from that turn onward
       if (editingMessage && currentChatId) {
-        await dbService.deleteMessagesFrom(currentChatId, editingMessage.created_at)
         const targetIdx = messages.findIndex((m) => m.id === editingMessage.id)
+        const toDeleteIds = targetIdx !== -1 ? messages.slice(targetIdx).map((m) => m.id) : [editingMessage.id]
         if (targetIdx !== -1) {
           updatedMessages = messages.slice(0, targetIdx)
         }
+        setMessages(updatedMessages)
         setEditingMessage(null)
+        await dbService.deleteMessagesFrom(currentChatId, editingMessage.created_at, toDeleteIds)
       }
 
       // Process and upload attachments to Supabase Storage if present
@@ -848,14 +850,15 @@ export function App() {
   const handleRedoMessage = async (fromUserMsg: Message) => {
     if (!session?.user || isGeneratingRef.current || !activeChatId) return
 
-    // Delete messages after this user message in Supabase
-    await dbService.deleteMessagesAfter(activeChatId, fromUserMsg.created_at)
-
-    // Truncate messages in local state
+    // Truncate messages in local state immediately
     const targetIdx = messages.findIndex((m) => m.id === fromUserMsg.id)
     if (targetIdx === -1) return
+    const toDeleteIds = messages.slice(targetIdx + 1).map((m) => m.id)
     const truncatedMessages = messages.slice(0, targetIdx + 1)
     setMessages(truncatedMessages)
+
+    // Delete messages after this user message in Supabase
+    await dbService.deleteMessagesAfter(activeChatId, fromUserMsg.created_at, toDeleteIds)
 
     // Re-run stream with history up to this user message
     await executeAssistantStream(activeChatId, truncatedMessages)

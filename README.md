@@ -1,4 +1,4 @@
-# WYRD (v1.5.7)
+# WYRD (v1.5.8)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -13,15 +13,15 @@ WYRD/
 ├── android/          # Native Android AI Client (Kotlin + Jetpack Compose)
 │   ├── app/          # App source, UI components, Room database, network services
 │   ├── build.gradle.kts
-│   └── README.md     # Android client architecture & documentation (v1.5.7)
+│   └── README.md     # Android client architecture & documentation (v1.5.8)
 │
 ├── web/              # Desktop & Browser Companion (React 19 + TypeScript + Vite)
 │   ├── src/          # React components, services, Supabase integration
 │   ├── package.json
-│   └── README.md     # Web client architecture & documentation (v1.5.7)
+│   └── README.md     # Web client architecture & documentation (v1.5.8)
 │
 ├── .gitignore        # Unified repository ignore rules
-└── README.md         # Master repository overview (v1.5.7)
+└── README.md         # Master repository overview (v1.5.8)
 ```
 
 ---
@@ -53,6 +53,7 @@ WYRD/
 
 ### 4. Cloud Synchronization (Supabase)
 * **Real-Time Two-Way Sync**: PostgreSQL database with Row-Level Security, PostgREST APIs, and realtime replication.
+* **Deterministic Chain Truncation (Edit & Redo)**: Editing or redoing prompts permanently truncates all subsequent turns across both local stores (Android Room SQLite & Web state) and Supabase cloud storage (by exact message IDs and timestamps). Added deleted sync ID tracking (`deletedMessageSyncIds`) in Android's `SupabaseSyncManager` to prevent incoming sync cycles from re-inserting deleted turns, and implemented remote deletion detection to automatically prune locally cached messages when deleted remotely from another client, ensuring zero message resurrection loops.
 * **Supabase Object Storage (`attachments`)**: Uploaded images and documents are stored in the public `attachments` bucket; database records only lightweight public URLs.
 * **Automated Storage Cleanup**: Deleting conversations or editing turns proactively purges orphaned remote files and local caches.
 
@@ -78,6 +79,7 @@ WYRD/
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.5.8** | 2026-10-13 | Edit & Redo Truncation Fix & Cloud Sync Reconciliation: Solved message resurrection and overlap bugs when editing or redoing prompts. In both Android and Web, redoing or editing a prompt now permanently purges subsequent conversation turns locally and deletes them from Supabase (by exact message IDs and timestamps). Added deleted sync ID tracking (`deletedMessageSyncIds`) in Android's `SupabaseSyncManager` to prevent incoming sync cycles from re-inserting deleted turns, and implemented remote deletion detection to automatically prune locally cached messages when deleted remotely from another client, ensuring perfectly consistent conversation chains across devices. |
 | **v1.5.7** | 2026-10-13 | Real-Time Mid-Stream TTS Playback & Touch-Anchored Dropdowns: Tapping the floating Play button while the model is actively streaming an answer immediately begins speech synthesis in real time from whatever tokens have arrived so far, dynamically enqueuing incoming sentence and clause chunks as generation continues, with live word-by-word brutalist highlighting tracking the stream seamlessly across Android and Web. On Android, double-tapping any message bubble now anchors the action context menu (Copy, Edit, Branch, Redo) precisely at the user's touch contact point with automatic screen boundary clamping. |
 | **v1.5.6** | 2026-10-12 | Save Button Contrast, Pointer Dropdowns & Rock-Solid Top-Snapped Prompts: Completely resolved white-on-white and black-on-black button text collisions across Android and Web. Unified modal Save buttons (#141414 with #F9F9F7 text in Light mode, #CECDC4 with #000000 text in Dark mode). On Web, updated user prompt double-click action menu to anchor dynamically at the exact mouse pointer coordinates with smart boundary clamping. In both Web and Android, implemented Rock-Solid Top-Snapped Prompts on send: prompt smoothly snaps to the top on submit, eliminating scroll fighting, jerkiness, and artificial empty black voids, allowing responses to stream seamlessly downwards with complete manual scroll freedom. |
 | **v1.5.5** | 2026-10-12 | Full Android-Web Component & Token Harmonization: Enforced canonical 11-token palette from Android Color.kt across all Web components, eliminated rogue and iOS hexes (#1C1C1E, #2C2C2E, #3A3A3C, #DCDBCF, #EFEFEA, #EAE9E2, #E5E4DC, #F2F1EC, #30D158, #E53935), harmonized Send (54px), Copy (48px), Floating TTS (54px), Scroll-to-bottom (44px), and Project plus (30px) button dimensions, embedded image/file attachments directly inside user message bubble cards, removed borders and drop-shadows from input capsule and message cards, converted Reasoning block typography to Space Grotesk with elevated backgrounds, and achieved full Light/Dark mode parity in SettingsModal, ProjectModal, Sidebar, and TopBar. |

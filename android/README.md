@@ -1,4 +1,4 @@
-# WYRD — Native Android AI Client (v1.5.7)
+# WYRD — Native Android AI Client (v1.5.8)
 
 WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo) with dual web search engines (Tavily AI for live web and Exa AI for semantic exploration), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (Whisper), and complete local session persistence.
 
@@ -155,6 +155,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
   - Synchronizes user `profiles` (`username` and `system_prompt`), `chats`, and `messages` between the Android app and the Desktop Web companion.
   - Safe Room migration (`MIGRATION_5_6`, database version 6) adding unique `syncId` UUIDs across all existing and new chats and messages without data loss.
   - **Conflict-Free Upsert & Deletion Propagation**: PostgREST endpoints ensure duplicate-free insertion and updating. Tracks previously synced chat IDs (`knownSyncedChatIds`) alongside an in-flight creation grace period so newly created chats streaming LLM responses are never prematurely deleted before their first remote push, eliminating foreign key race conditions.
+  - **Deterministic Message Truncation (Edit & Redo)**: When a message is edited or redone, all subsequent conversation turns are permanently deleted locally from Room SQLite (`deleteMessagesFrom` / `deleteMessagesAfter`) and remotely from Supabase (`deleteMessagesRemotely`) via message IDs and timestamp thresholds. Deleted message UUIDs are immediately registered in `deletedMessageSyncIds` to prevent subsequent sync passes from re-inserting them. Furthermore, local messages previously marked as synced that are no longer present in Supabase (e.g. truncated from the Web client) are automatically pruned from Room SQLite without re-uploading, eliminating resurrection loops across devices.
   - **Two-Way Deletions**: Deleting individual chats or bulk-wiping unpinned conversations cleanly removes associated messages and threads across both Supabase and Room, updating tracked sync IDs.
 - **Continuous Lifecycle & Background Sync**:
   - Automatic synchronization on app launch, whenever the user brings the app to the foreground (`onResume()`), whenever the user sends a prompt, and whenever an assistant generation completes.
