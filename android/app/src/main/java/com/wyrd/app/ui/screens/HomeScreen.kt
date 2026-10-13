@@ -988,11 +988,15 @@ fun HomeScreen(
                                             } else if (isPaused) {
                                                 viewModel.resumeTts()
                                             } else {
-                                                // Play latest assistant message
-                                                val targetMsg = messages.lastOrNull { it.role == "assistant" }
-                                                if (targetMsg != null) {
-                                                    val readingContent = formatMarkdownForReading(targetMsg.content)
-                                                    viewModel.playTts(targetMsg.id, readingContent.plainText, 0)
+                                                if (isGenerating) {
+                                                    viewModel.startStreamingTts()
+                                                } else {
+                                                    // Play latest assistant message
+                                                    val targetMsg = messages.lastOrNull { it.role == "assistant" }
+                                                    if (targetMsg != null) {
+                                                        val readingContent = formatMarkdownForReading(targetMsg.content)
+                                                        viewModel.playTts(targetMsg.id, readingContent.plainText, 0)
+                                                    }
                                                 }
                                             }
                                         },

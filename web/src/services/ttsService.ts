@@ -49,6 +49,52 @@ export function stripMarkdownForSpeech(markdown: string): string {
   return text
 }
 
+export function findStreamingCutPoint(unvoiced: string, isFirstChunk: boolean): number {
+  if (!unvoiced) return 0
+
+  // Priority 1: Sentence boundaries (. , ! , ? , .\n, !\n, ?\n, or \n\n)
+  const sentenceRegex = /[.!?](\s|\n)|(\n\n)/
+  const sentenceMatch = sentenceRegex.exec(unvoiced)
+  if (sentenceMatch && sentenceMatch.index !== undefined) {
+    return sentenceMatch.index + sentenceMatch[0].length
+  }
+
+  // Priority 2: For first chunk, allow earlier clause break (: , ; , , , or \n) if at least 8 chars
+  if (isFirstChunk) {
+    const clauseRegex = /([:;,\n])\s*/
+    const clauseMatch = clauseRegex.exec(unvoiced)
+    if (clauseMatch && clauseMatch.index !== undefined && clauseMatch.index >= 8) {
+      return clauseMatch.index + clauseMatch[0].length
+    }
+
+    // If no punctuation yet, but we've accumulated at least 35 chars, break at nearest word boundary
+    if (unvoiced.length >= 35) {
+      const maxSearch = Math.min(45, unvoiced.length - 1)
+      const spaceIndex = unvoiced.lastIndexOf(' ', maxSearch)
+      if (spaceIndex >= 15) {
+        return spaceIndex + 1
+      }
+    }
+  } else {
+    // Subsequent chunks: if sentence is very long (> 120 chars) without terminal punctuation, break at clause or word
+    if (unvoiced.length >= 120) {
+      const clauseRegex = /([:;,\n])\s*/
+      const sliceAfter50 = unvoiced.slice(50)
+      const clauseMatch = clauseRegex.exec(sliceAfter50)
+      if (clauseMatch && clauseMatch.index !== undefined) {
+        return 50 + clauseMatch.index + clauseMatch[0].length
+      }
+      const maxSearch = Math.min(140, unvoiced.length - 1)
+      const spaceIndex = unvoiced.lastIndexOf(' ', maxSearch)
+      if (spaceIndex >= 70) {
+        return spaceIndex + 1
+      }
+    }
+  }
+
+  return 0
+}
+
 class NativeTtsService {
   private state: TtsPlaybackState = {
     isPlaying: false,
@@ -65,6 +111,14 @@ class NativeTtsService {
   private currentUtterance: SpeechSynthesisUtterance | null = null
   private currentSessionId: number = 0
   private speakTimeoutTimer: number | null = null
+
+  // Streaming speech state
+  private isStreamingActive: boolean = false
+  private streamingSpokenCursor: number = 0
+  private streamingUtteranceQueueCount: number = 0
+  private streamingFinished: boolean = false
+  private streamingFinalMessageId: string | null = null
+  private streamingFullText: string = ''
 
   constructor() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -349,6 +403,178 @@ class NativeTtsService {
     }, 50)
   }
 
+  public startStreaming(messageId: string = 'streaming') {
+    if (!this.isSupported()) return
+    this.stop()
+    this.isStreamingActive = true
+    this.streamingSpokenCursor = 0
+    this.streamingUtteranceQueueCount = 0
+    this.streamingFinished = false
+    this.streamingFinalMessageId = null
+    this.streamingFullText = ''
+
+    this.state = {
+      isPlaying: true,
+      isPaused: false,
+      activeMessageId: messageId,
+      currentText: '',
+      currentRange: [0, 0],
+      startOffset: 0,
+    }
+    this.notify()
+  }
+
+  public isStreaming(): boolean {
+    return this.isStreamingActive
+  }
+
+  public updateStreamingContent(markdownText: string) {
+    if (!this.isSupported() || !this.isStreamingActive || this.state.isPaused) return
+
+    const formatted = formatMarkdownForReading(markdownText)
+    const plainText = formatted.plainText.trim() ? formatted.plainText : markdownText.trim()
+    this.streamingFullText = plainText
+
+    while (true) {
+      const safeCursor = Math.max(0, Math.min(this.streamingSpokenCursor, plainText.length))
+      if (plainText.length <= safeCursor) break
+
+      const unvoiced = plainText.slice(safeCursor)
+      const cutLength = findStreamingCutPoint(unvoiced, safeCursor === 0)
+      if (cutLength > 0) {
+        const chunkText = unvoiced.slice(0, cutLength).trim()
+        const chunkOffset = safeCursor
+        this.streamingSpokenCursor = safeCursor + cutLength
+        if (chunkText) {
+          this.enqueueStreamingUtterance(chunkText, chunkOffset, plainText)
+        }
+      } else {
+        break
+      }
+    }
+  }
+
+  private enqueueStreamingUtterance(chunkText: string, chunkOffset: number, fullTextSoFar: string) {
+    if (!this.isSupported() || !chunkText.trim()) return
+
+    const targetLang = this.detectLanguage(fullTextSoFar || chunkText)
+    const utterance = new SpeechSynthesisUtterance(chunkText)
+    utterance.lang = targetLang
+
+    const voice = this.getBestVoice(targetLang)
+    if (voice) {
+      utterance.voice = voice
+    }
+    utterance.rate = 1.0
+    utterance.pitch = 1.0
+
+    const sessionId = this.currentSessionId
+    this.streamingUtteranceQueueCount++
+
+    utterance.onstart = () => {
+      if (this.currentSessionId !== sessionId) return
+      this.currentUtterance = utterance
+      this.state.isPlaying = true
+      this.state.isPaused = false
+      this.notify()
+      this.startChromeKeepAlive()
+    }
+
+    utterance.onboundary = (event: SpeechSynthesisEvent) => {
+      if (this.currentSessionId !== sessionId) return
+      if (event.name === 'word') {
+        const charIndex = event.charIndex
+        let charLength = event.charLength || 0
+
+        if (!charLength || charLength <= 0) {
+          const slice = chunkText.slice(charIndex)
+          const match = slice.match(/^[\p{L}\p{N}'’\-_]+/u) || slice.match(/^\S+/)
+          charLength = match ? match[0].length : 1
+        }
+
+        const globalStart = chunkOffset + charIndex
+        const globalEnd = globalStart + charLength
+
+        this.state = {
+          ...this.state,
+          isPlaying: true,
+          isPaused: false,
+          activeMessageId: this.streamingFinalMessageId || 'streaming',
+          currentText: fullTextSoFar,
+          currentRange: [globalStart, globalEnd],
+        }
+        this.notify()
+      }
+    }
+
+    utterance.onpause = () => {
+      if (this.currentSessionId !== sessionId) return
+      this.state.isPlaying = false
+      this.state.isPaused = true
+      this.notify()
+      this.stopChromeKeepAlive()
+    }
+
+    utterance.onresume = () => {
+      if (this.currentSessionId !== sessionId) return
+      this.state.isPlaying = true
+      this.state.isPaused = false
+      this.notify()
+      this.startChromeKeepAlive()
+    }
+
+    utterance.onend = () => {
+      if (this.currentSessionId !== sessionId) return
+      this.streamingUtteranceQueueCount--
+      if (this.streamingFinished && this.streamingUtteranceQueueCount <= 0) {
+        this.stop()
+      }
+    }
+
+    utterance.onerror = (e) => {
+      if (this.currentSessionId !== sessionId) return
+      this.streamingUtteranceQueueCount--
+      if (e.error !== 'canceled' && e.error !== 'interrupted') {
+        console.warn('SpeechSynthesis streaming error:', e)
+      }
+      if (this.streamingFinished && this.streamingUtteranceQueueCount <= 0) {
+        this.stop()
+      }
+    }
+
+    try {
+      window.speechSynthesis.speak(utterance)
+    } catch (err) {
+      console.error('Failed to queue streaming utterance:', err)
+      this.streamingUtteranceQueueCount--
+    }
+  }
+
+  public finishStreaming(finalMessageId: string, finalMarkdown: string) {
+    if (!this.isSupported() || !this.isStreamingActive) return
+
+    const formatted = formatMarkdownForReading(finalMarkdown)
+    const plainText = formatted.plainText.trim() ? formatted.plainText : finalMarkdown.trim()
+    const safeCursor = Math.max(0, Math.min(this.streamingSpokenCursor, plainText.length))
+
+    if (plainText.length > safeCursor) {
+      const remaining = plainText.slice(safeCursor).trim()
+      if (remaining) {
+        this.streamingSpokenCursor = plainText.length
+        this.enqueueStreamingUtterance(remaining, safeCursor, plainText)
+      }
+    }
+
+    this.streamingFinished = true
+    this.streamingFinalMessageId = finalMessageId
+    this.state.activeMessageId = finalMessageId
+    this.notify()
+
+    if (this.streamingUtteranceQueueCount <= 0) {
+      this.stop()
+    }
+  }
+
   public pause() {
     if (!this.isSupported()) return
     try {
@@ -368,11 +594,20 @@ class NativeTtsService {
       this.state.isPaused = false
       this.notify()
       this.startChromeKeepAlive()
+      if (this.isStreamingActive && this.streamingFullText) {
+        this.updateStreamingContent(this.streamingFullText)
+      }
     } catch {}
   }
 
   public stop() {
     this.currentSessionId++
+    this.isStreamingActive = false
+    this.streamingSpokenCursor = 0
+    this.streamingUtteranceQueueCount = 0
+    this.streamingFinished = false
+    this.streamingFinalMessageId = null
+    this.streamingFullText = ''
     if (this.speakTimeoutTimer !== null) {
       clearTimeout(this.speakTimeoutTimer)
       this.speakTimeoutTimer = null

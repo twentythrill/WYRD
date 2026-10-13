@@ -535,9 +535,13 @@ class NativeTtsManager(private val context: Context) : TextToSpeech.OnInitListen
     fun resume() {
         val s = _playbackState.value
         isStreamingPaused = false
-        if (s.isPaused && currentFullText.isNotEmpty()) {
-            val targetId = s.messageId ?: currentMessageId ?: STREAMING_MESSAGE_ID
-            speak(targetId, currentFullText, startOffset = savedOffset)
+        if (s.isPaused) {
+            if (currentFullText.isNotEmpty()) {
+                val targetId = s.messageId ?: currentMessageId ?: STREAMING_MESSAGE_ID
+                speak(targetId, currentFullText, startOffset = savedOffset)
+            } else {
+                _playbackState.value = s.copy(isPlaying = true, isPaused = false)
+            }
         }
     }
 

@@ -171,6 +171,9 @@ export function ChatArea({
   const isSubmittingRef = useRef<boolean>(false)
   const isProgrammaticScrollRef = useRef<boolean>(false)
   const isSnappingToPromptRef = useRef<boolean>(false)
+  const isTtsStreamingRequestedRef = useRef<boolean>(false)
+  const prevIsGeneratingRef = useRef<boolean>(false)
+  const prevStreamingContentLenRef = useRef<number>(0)
 
   // Voice Recording (STT via OpenAI Whisper) State
   const [isRecording, setIsRecording] = useState(false)
@@ -426,8 +429,39 @@ export function ChatArea({
 
   // Stop TTS speech when switching chats
   useEffect(() => {
+    isTtsStreamingRequestedRef.current = false
     ttsService.stop()
   }, [chat?.id])
+
+  // Synchronize streaming TTS chunks as LLM tokens arrive
+  useEffect(() => {
+    if (isGenerating && isTtsStreamingRequestedRef.current) {
+      if (currentStreamingContent) {
+        // If content was cleared mid-stream (e.g. tool execution / re-prompt), restart TTS stream
+        if (prevStreamingContentLenRef.current > 0 && currentStreamingContent.length < prevStreamingContentLenRef.current) {
+          ttsService.startStreaming('streaming')
+        }
+        ttsService.updateStreamingContent(currentStreamingContent)
+      }
+    }
+    prevStreamingContentLenRef.current = currentStreamingContent ? currentStreamingContent.length : 0
+  }, [isGenerating, currentStreamingContent])
+
+  // Finalize streaming TTS when generation completes
+  useEffect(() => {
+    if (prevIsGeneratingRef.current && !isGenerating) {
+      if (isTtsStreamingRequestedRef.current) {
+        isTtsStreamingRequestedRef.current = false
+        const latestAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
+        if (latestAssistant) {
+          ttsService.finishStreaming(latestAssistant.id, latestAssistant.content)
+        } else {
+          ttsService.stop()
+        }
+      }
+    }
+    prevIsGeneratingRef.current = isGenerating
+  }, [isGenerating, messages])
 
   const handleToggleFloatingTts = () => {
     if (ttsState.isPlaying) {
@@ -435,9 +469,17 @@ export function ChatArea({
     } else if (ttsState.isPaused) {
       ttsService.resume()
     } else {
-      const latestAssistant = [...displayedMessages].reverse().find((m) => m.role === 'assistant')
-      if (latestAssistant) {
-        ttsService.speak(latestAssistant.id, latestAssistant.content, 0)
+      if (isGenerating) {
+        isTtsStreamingRequestedRef.current = true
+        ttsService.startStreaming('streaming')
+        if (currentStreamingContent) {
+          ttsService.updateStreamingContent(currentStreamingContent)
+        }
+      } else {
+        const latestAssistant = [...displayedMessages].reverse().find((m) => m.role === 'assistant')
+        if (latestAssistant) {
+          ttsService.speak(latestAssistant.id, latestAssistant.content, 0)
+        }
       }
     }
   }
@@ -539,6 +581,8 @@ export function ChatArea({
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
+    isTtsStreamingRequestedRef.current = false
+    ttsService.stop()
     onSendMessage(text, attachmentsPayload)
     setTimeout(() => {
       setIsSubmitting(false)
@@ -875,7 +919,11 @@ export function ChatArea({
           {/* Right Action Button: Send or Stop matching Android ChatInputBubble exactly (54dp circle) */}
           {isGenerating ? (
             <button
-              onClick={onStopGeneration}
+              onClick={() => {
+                isTtsStreamingRequestedRef.current = false
+                ttsService.stop()
+                onStopGeneration()
+              }}
               title="Stop Generation"
               style={{
                 backgroundColor: isDark ? '#CECDC4' : '#141414',

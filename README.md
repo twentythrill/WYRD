@@ -1,4 +1,4 @@
-# WYRD (v1.5.6)
+# WYRD (v1.5.7)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -13,15 +13,15 @@ WYRD/
 ├── android/          # Native Android AI Client (Kotlin + Jetpack Compose)
 │   ├── app/          # App source, UI components, Room database, network services
 │   ├── build.gradle.kts
-│   └── README.md     # Android client architecture & documentation (v1.5.5)
+│   └── README.md     # Android client architecture & documentation (v1.5.7)
 │
 ├── web/              # Desktop & Browser Companion (React 19 + TypeScript + Vite)
 │   ├── src/          # React components, services, Supabase integration
 │   ├── package.json
-│   └── README.md     # Web client architecture & documentation (v1.5.5)
+│   └── README.md     # Web client architecture & documentation (v1.5.7)
 │
 ├── .gitignore        # Unified repository ignore rules
-└── README.md         # Master repository overview (v1.5.5)
+└── README.md         # Master repository overview (v1.5.7)
 ```
 
 ---
@@ -47,8 +47,8 @@ WYRD/
 
 ### 3. Voice & Audio Pipelines
 * **Speech Synthesis (TTS)**:
-  * **Android**: Native `android.speech.tts.TextToSpeech` with real-time streaming playback (speaks from first tokens), word-by-word brutalist highlighting, upper-third viewport snapping, tap-to-seek, and floating Play/Pause controls.
-  * **Web**: Native Web Speech API (`window.speechSynthesis`) with word-by-word brutalist highlighting, double-click word-seek, upper/lower viewport auto-scrolling, and bilingual voice detection.
+  * **Android**: Native `android.speech.tts.TextToSpeech` with real-time streaming playback (speaks from first tokens when tapping floating Play during generation or via conversational STT), word-by-word brutalist highlighting, upper-third viewport snapping, tap-to-seek, and floating Play/Pause controls.
+  * **Web**: Native Web Speech API (`window.speechSynthesis`) with real-time streaming playback on floating Play click, word-by-word brutalist highlighting, double-click word-seek, upper/lower viewport auto-scrolling, and bilingual voice detection.
 * **Speech-to-Text (STT)**: Spring-loaded pull-to-record interface powered by OpenAI Whisper (`whisper-1`) with mid-speech model and reasoning level selection.
 
 ### 4. Cloud Synchronization (Supabase)
@@ -78,6 +78,7 @@ WYRD/
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.5.7** | 2026-10-13 | Real-Time Mid-Stream TTS Playback: Tapping the floating Play button while the model is actively streaming an answer immediately begins speech synthesis in real time from whatever tokens have arrived so far, dynamically enqueuing incoming sentence and clause chunks as generation continues, with live word-by-word brutalist highlighting tracking the stream seamlessly across Android and Web. |
 | **v1.5.6** | 2026-10-12 | Save Button Contrast, Pointer Dropdowns & Rock-Solid Top-Snapped Prompts: Completely resolved white-on-white and black-on-black button text collisions across Android and Web. Unified modal Save buttons (#141414 with #F9F9F7 text in Light mode, #CECDC4 with #000000 text in Dark mode). On Web, updated user prompt double-click action menu to anchor dynamically at the exact mouse pointer coordinates with smart boundary clamping. In both Web and Android, implemented Rock-Solid Top-Snapped Prompts on send: prompt smoothly snaps to the top on submit, eliminating scroll fighting, jerkiness, and artificial empty black voids, allowing responses to stream seamlessly downwards with complete manual scroll freedom. |
 | **v1.5.5** | 2026-10-12 | Full Android-Web Component & Token Harmonization: Enforced canonical 11-token palette from Android Color.kt across all Web components, eliminated rogue and iOS hexes (#1C1C1E, #2C2C2E, #3A3A3C, #DCDBCF, #EFEFEA, #EAE9E2, #E5E4DC, #F2F1EC, #30D158, #E53935), harmonized Send (54px), Copy (48px), Floating TTS (54px), Scroll-to-bottom (44px), and Project plus (30px) button dimensions, embedded image/file attachments directly inside user message bubble cards, removed borders and drop-shadows from input capsule and message cards, converted Reasoning block typography to Space Grotesk with elevated backgrounds, and achieved full Light/Dark mode parity in SettingsModal, ProjectModal, Sidebar, and TopBar. |
 | **v1.5.4** | 2026-10-12 | Centered Web Hero Layout: Integrated logo, welcome greetings, and prompt input capsule into a single mathematically centered block (50% horizontal and 50% vertical screen alignment), with elevated input bar positioning closer to greetings, full light/dark theme styling, and pure symmetry when sidebar is collapsed. |

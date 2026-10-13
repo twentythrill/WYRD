@@ -1,4 +1,4 @@
-# WYRD Web (Desktop & Browser Companion) (v1.5.6)
+# WYRD Web (Desktop & Browser Companion) (v1.5.7)
 
 A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversations, settings, and cognitive states in real-time with the Android application via Supabase.
 
@@ -24,7 +24,7 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
    * **Voice Input (STT)**: Microphone button in prompt capsule records audio via `MediaRecorder` with live recording timer and waveforms, then transcribes into text using OpenAI Whisper API (`whisper-1`).
    * **Word-by-Word Highlighting (Android Parity)**: Synchronous ElevenReader-style brutalist pill highlighting as `window.speechSynthesis` speaks assistant responses. In Dark Mode, spoken words are wrapped in a high-contrast `#CECDC4` pill with black text; in Light Mode, an inverted `#141414` pill with `#F9F9F7` text. Metric-stable design (`rounded-[3px] px-0.5 -mx-0.5`) ensures zero text jitter or line wrapping shifts. Automatically auto-scrolls with smooth center-snap positioning whenever the reading cursor or scrolling moves out of the comfortable reading zone.
    * **Double-Click Word to Hear (TTS Word-Seek)**: Parity with Android's tap-to-read feature. Double-clicking any word in an assistant response initiates browser speech synthesis directly from that exact word onwards with 1:1 character index accuracy and clean audio buffer reset, instantly centering the active word on screen. Includes smart bilingual detection (Italian vs English) and natural voice selection.
-   * **Floating Play/Pause Controller**: Brutalist 50px circular button anchored above the send button on the right (matching Android's 54dp circle). Smoothly toggles Play and Pause states without textual clutter or pill badges.
+   * **Floating Play/Pause Controller & Real-Time Streaming TTS**: Brutalist 50px circular button anchored above the send button on the right (matching Android's 54dp circle). Tapping Play while the model is actively streaming immediately begins reading the response out loud in real time from incoming tokens, chaining new sentence utterances seamlessly as generation continues with synchronized word highlighting. Smoothly toggles Play and Pause states without textual clutter or pill badges.
 4. **Cross-Device Cloud Sync**:
    * Synchronizes `chats`, `messages`, and user `profiles` in real-time with the WYRD Android app.
    * Auto-refreshes message streams whenever updates occur on either client.

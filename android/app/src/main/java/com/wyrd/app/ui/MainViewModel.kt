@@ -179,6 +179,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isTranscribing: StateFlow<Boolean> = _isTranscribing.asStateFlow()
     private var transcriptionJob: Job? = null
     private var autoReadNextAssistantMessage: Boolean = false
+    @Volatile
+    private var isTtsStreamingRequested: Boolean = false
+    @Volatile
+    private var currentStreamTtsCallback: (() -> Unit)? = null
 
     // TTS state
     val ttsPlaybackState: StateFlow<TtsPlaybackState> = nativeTtsManager.playbackState
@@ -304,6 +308,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!_isGenerating.value && generationJob == null) return
         hapticManager.click()
         autoReadNextAssistantMessage = false
+        isTtsStreamingRequested = false
+        currentStreamTtsCallback = null
         nativeTtsManager.stop()
         generationJob?.cancel()
         generationJob = null
@@ -615,6 +621,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         hapticManager.click()
+        nativeTtsManager.stop()
         inputPrompt.value = TextFieldValue("")
         _currentAttachments.value = emptyList()
         val editingMsg = _editingMessage.value
@@ -893,12 +900,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val liveTavilyApiKey = secureKeyStorage.getTavilyApiKey().ifBlank { null }
         val isTavilyEnabled = isTavilySearchEnabled.value && !liveTavilyApiKey.isNullOrBlank()
 
-        val shouldAutoRead = autoReadNextAssistantMessage
+        isTtsStreamingRequested = autoReadNextAssistantMessage
         var isTtsStreamingActive = false
         var ttsSpokenPlainCursor = 0
 
         fun processStreamingTtsChunk() {
-            if (!shouldAutoRead) return
+            if (!isTtsStreamingRequested) return
             if (!isTtsStreamingActive) {
                 isTtsStreamingActive = true
                 ttsSpokenPlainCursor = 0
@@ -911,21 +918,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
 
-            val currentMarkdown = contentBuilder.toString()
-            val plainText = formatMarkdownForReading(currentMarkdown).plainText
-            val safeCursor = ttsSpokenPlainCursor.coerceIn(0, plainText.length)
-            if (plainText.length <= safeCursor) return
+            while (true) {
+                val currentMarkdown = contentBuilder.toString()
+                val plainText = formatMarkdownForReading(currentMarkdown).plainText
+                val safeCursor = ttsSpokenPlainCursor.coerceIn(0, plainText.length)
+                if (plainText.length <= safeCursor) break
 
-            val unvoiced = plainText.substring(safeCursor)
-            val cutLength = findStreamingCutPoint(unvoiced, isFirstChunk = (safeCursor == 0))
-            if (cutLength > 0) {
-                val chunkText = unvoiced.substring(0, cutLength).trim()
-                val globalOffset = safeCursor
-                ttsSpokenPlainCursor = safeCursor + cutLength
-                if (chunkText.isNotBlank()) {
-                    nativeTtsManager.enqueueStreamingChunk(chunkText, globalOffset, fullTextSoFar = plainText)
+                val unvoiced = plainText.substring(safeCursor)
+                val cutLength = findStreamingCutPoint(unvoiced, isFirstChunk = (safeCursor == 0))
+                if (cutLength > 0) {
+                    val chunkText = unvoiced.substring(0, cutLength).trim()
+                    val globalOffset = safeCursor
+                    ttsSpokenPlainCursor = safeCursor + cutLength
+                    if (chunkText.isNotBlank()) {
+                        nativeTtsManager.enqueueStreamingChunk(chunkText, globalOffset, fullTextSoFar = plainText)
+                    }
+                } else {
+                    break
                 }
             }
+        }
+
+        currentStreamTtsCallback = {
+            processStreamingTtsChunk()
         }
 
         try {
@@ -948,7 +963,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         publishStreamingText()
                         hapticManager.streamTokenTick()
                         updateBackgroundServiceStatus("Generating response...")
-                        if (shouldAutoRead) {
+                        if (isTtsStreamingRequested) {
                             processStreamingTtsChunk()
                         }
                     }
@@ -1031,7 +1046,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     hapticManager.completionSnap()
                 }
 
-                if (shouldAutoRead) {
+                if (isTtsStreamingRequested) {
+                    isTtsStreamingRequested = false
                     autoReadNextAssistantMessage = false
                     val readingContent = formatMarkdownForReading(effectiveContent)
                     val finalPlain = readingContent.plainText
@@ -1051,6 +1067,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 }
+                currentStreamTtsCallback = null
 
                 // Generate clean title in background AFTER stream completes, with zero competition
                 if (isFirstMessageInChat && firstUserPromptForTitle != null && effectiveContent.isNotBlank() && effectiveContent != "...") {
@@ -1078,6 +1095,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } catch (e: CancellationException) {
             Log.d("MainViewModel", "LLM generation cancelled by user")
             autoReadNextAssistantMessage = false
+            isTtsStreamingRequested = false
+            currentStreamTtsCallback = null
             withContext(NonCancellable) {
                 val rawContent = contentBuilder.toString().trim()
                 val rawReasoning = if (isThinkingEnabled.value) reasoningBuilder.toString().trim().ifBlank { null } else null
@@ -1107,6 +1126,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         } catch (e: Exception) {
             autoReadNextAssistantMessage = false
+            isTtsStreamingRequested = false
+            currentStreamTtsCallback = null
             if (isTtsStreamingActive) {
                 nativeTtsManager.stop()
             }
@@ -1142,6 +1163,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         } finally {
             withContext(NonCancellable) {
+                isTtsStreamingRequested = false
+                currentStreamTtsCallback = null
                 _streamingContent.value = ""
                 _streamingReasoning.value = ""
                 _streamingStatus.value = null
@@ -1163,6 +1186,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun playTts(messageId: Long, text: String, startOffset: Int = 0) {
         hapticManager.click()
         nativeTtsManager.speak(messageId, text, startOffset)
+    }
+
+    fun startStreamingTts() {
+        hapticManager.click()
+        isTtsStreamingRequested = true
+        currentStreamTtsCallback?.invoke()
     }
 
     fun pauseTts() {

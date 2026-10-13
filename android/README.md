@@ -1,4 +1,4 @@
-# WYRD — Native Android AI Client (v1.5.6)
+# WYRD — Native Android AI Client (v1.5.7)
 
 WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo) with dual web search engines (Tavily AI for live web and Exa AI for semantic exploration), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (Whisper), and complete local session persistence.
 
@@ -83,8 +83,8 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 ### 3. Speech Synthesis (TTS) & Highlighting
 - **Native Android Engine**: Built entirely on `android.speech.tts.TextToSpeech` with instant initialization, application-scoped lifecycle, and local offline voice priority.
 - **Real-Time Streaming Playback**:
-  - In conversational STT mode, speech synthesis starts speaking as soon as the very first tokens arrive rather than waiting for the entire multi-paragraph completion to finish.
-  - Dynamically extracts semantic speech chunks at sentence and clause boundaries in real-time, chaining subsequent chunks seamlessly via `TextToSpeech.QUEUE_ADD` without gaps or stuttering while the LLM continues generating in the background.
+  - In conversational STT mode, or whenever tapping the floating Play button while the model is actively streaming an answer, speech synthesis starts speaking as soon as the initial tokens arrive without waiting for generation to complete.
+  - Dynamically extracts semantic speech chunks at sentence and clause boundaries in real-time via `findStreamingCutPoint`, chaining subsequent chunks seamlessly via `TextToSpeech.QUEUE_ADD` without gaps or stuttering while the LLM continues generating in the background.
   - Streaming word-by-word brutalist highlighting illuminates spoken words live on the active streaming card (`StreamingAssistantMessageItem`) and transitions smoothly to the finalized message bubble upon completion.
   - **Streaming Pause & Resume Stability**: Pausing during live token streaming immediately halts speech synthesis and locks the playback state (`isStreamingPaused`), buffering subsequent incoming tokens without auto-resuming playback. Playback stays paused until the user explicitly hits Resume or taps a word in the text.
 - **Continuous Background Playback**: Audio continues uninterrupted across app switches or device screen locks, stopping only upon explicit pause, tap-to-read, or chat navigation.
