@@ -9,7 +9,8 @@ import java.util.UUID
     tableName = "chats",
     indices = [
         Index(value = ["projectId"]),
-        Index(value = ["projectSyncId"])
+        Index(value = ["projectSyncId"]),
+        Index(value = ["syncId"])
     ]
 )
 data class ChatEntity(

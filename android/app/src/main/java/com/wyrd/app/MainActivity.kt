@@ -30,6 +30,7 @@ enum class Screen {
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
+    private var isFirstResume = true
 
     private val requestNotificationPermissionLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -91,8 +92,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (viewModel.supabaseSyncManager.isUserSignedIn()) {
-            viewModel.syncWithCloud()
+        if (isFirstResume) {
+            isFirstResume = false
+            return
         }
+        viewModel.refreshSync()
     }
 }
+

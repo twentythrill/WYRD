@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { ArrowLeft, Check, Trash2, Upload, FileText, X, AlertTriangle, Plus } from 'lucide-react'
 import { type Project, type ProjectFile } from '@/lib/supabase'
 import { dbService } from '@/services/dbService'
+import { extractTextFromPdf } from '@/utils/pdfExtractor'
 
 export const PROJECT_COLOR_PRESETS = [
   { hex: '', name: 'Default', bg: '#CECDC4' },
@@ -27,6 +28,10 @@ interface ProjectModalProps {
 
 async function extractTextFromFile(file: File): Promise<string | undefined> {
   try {
+    if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
+      const pdfText = await extractTextFromPdf(file)
+      return pdfText.trim() ? pdfText : undefined
+    }
     const maxBytes = 150 * 1024 // 150 KB max per file for context
     const slice = file.slice(0, maxBytes)
     const text = await slice.text()

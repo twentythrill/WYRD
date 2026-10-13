@@ -1,4 +1,4 @@
-# WYRD (v1.5.8)
+# WYRD (v1.6.0)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -13,15 +13,15 @@ WYRD/
 ├── android/          # Native Android AI Client (Kotlin + Jetpack Compose)
 │   ├── app/          # App source, UI components, Room database, network services
 │   ├── build.gradle.kts
-│   └── README.md     # Android client architecture & documentation (v1.5.8)
+│   └── README.md     # Android client architecture & documentation (v1.6.0)
 │
 ├── web/              # Desktop & Browser Companion (React 19 + TypeScript + Vite)
 │   ├── src/          # React components, services, Supabase integration
 │   ├── package.json
-│   └── README.md     # Web client architecture & documentation (v1.5.8)
+│   └── README.md     # Web client architecture & documentation (v1.6.0)
 │
 ├── .gitignore        # Unified repository ignore rules
-└── README.md         # Master repository overview (v1.5.8)
+└── README.md         # Master repository overview (v1.6.0)
 ```
 
 ---
@@ -34,14 +34,13 @@ WYRD/
 * **Typographic & Code Block Pipeline**: Space Grotesk variable typography and JetBrains Mono monospace code formatting with condensed line-height parity (23sp on Android, leading-[24px]/[23px] on Web). Native fenced code blocks render inside dedicated Warm Brutalist cards (`CodeBlockCard` on Android, `CodeBlockItem` on Web) featuring a language badge, one-tap copy button with haptic feedback, automatic soft line-wrapping (eliminating horizontal scrolling), and 1:1 TTS word-seek highlight synchronization.
 * **Top & Bottom Fade Gradients**: Transparent bars with multi-stop vertical gradients that softly dissolve scrolling text without harsh solid bars.
 
-### 2. Dual-Engine LLM Intelligence & Autonomous Web Grounding (Tavily + Exa)
+### 2. Dual-Engine LLM Intelligence & Parallel Web Grounding (Tavily + Exa)
 * **Xiaomi MiMo Streaming**: Direct SSE token streaming with automatic cluster routing based on API key tier (`Token Plan` vs `Pay-As-You-Go`).
 * **Official Xiaomi MiMo Thinking Toggle**: Native request parameterization matching the official Xiaomi MiMo specification (`thinking: { type: "enabled" | "disabled" }`, `temperature: 1.0` when enabled / `0.7` when disabled, and dynamic token allocations of 32k/8k). Artificial prompt injection budget overrides are completely eliminated in favor of a sleek on/off Thinking switch inside the model selector across both MiMo 2.6 Flash and Pro.
-* **Autonomous Dual-Engine Web Search Grounding**:
-  * **Tavily AI Search (`tavily_search`)**: Keyword-based real-time search engine for breaking news, current events, recent releases/updates, official websites, and live factual data.
-  * **Exa AI Search (`exa_search`)**: Neural semantic search engine for community discussions, forum opinions, user reviews, sentiment analysis, long-form articles, and in-depth research.
-  * **Autonomous Multi-Round Search & Tool Combination**: Enables up to 3 sequential tool execution rounds with iterative ReAct evaluation, allowing the model to combine factual search with community discussions or switch tools when initial results are incomplete.
-  * **Zero-Result & Failure Fallback Cascade**: High-availability resilience between search engines. If a search engine yields zero results or encounters an error, the system automatically checks the alternative engine.
+* **Smart 4-Word Auto-Generated Chat Titles**: Both Android and Web automatically generate concise 3–4 word conversation titles via background LLM completion after the first assistant reply.
+* **Autonomous Parallel Dual-Engine Web Search Grounding (`web_search`)**:
+  * **Parallel Execution When Both Active**: When both Tavily and Exa are enabled in Settings, both Android (`coroutineScope { async }`) and Web (`Promise.all`) execute **Tavily AI Search** (live factual web & breaking news) and **Exa AI Search** (neural semantic & community discussions) in parallel and merge their structured results into a unified grounding block.
+  * **Automatic Fallback**: If only one engine is active or configured, `web_search` routes to the active engine and automatically falls back to Exa if Tavily returns zero results or encounters an error.
   * **Snippet Highlights & Verification Guards**: Structured source blocks (`URL`, `Publication Date`, `Highlights / Snippets`), tool-boundary zero-result guards, and strict verification trailers to eliminate hallucinations.
 * **Zero-Leak Stream Demuxer (`ThinkAndToolParser`)**: Isolates `<think>` reasoning and `<tool_call>` definitions, completely preventing raw tool XML from leaking into user-facing content.
 
@@ -49,25 +48,25 @@ WYRD/
 * **Speech Synthesis (TTS)**:
   * **Android**: Native `android.speech.tts.TextToSpeech` with real-time streaming playback (speaks from first tokens when tapping floating Play during generation or via conversational STT), word-by-word brutalist highlighting, upper-third viewport snapping, tap-to-seek, and floating Play/Pause controls.
   * **Web**: Native Web Speech API (`window.speechSynthesis`) with real-time streaming playback on floating Play click, word-by-word brutalist highlighting, double-click word-seek, upper/lower viewport auto-scrolling, and bilingual voice detection.
-* **Speech-to-Text (STT)**: Spring-loaded pull-to-record interface powered by OpenAI Whisper (`whisper-1`) with mid-speech model and reasoning level selection.
+* **Speech-to-Text (STT)**: Unified across Android and Web using OpenAI's **`gpt-4o-mini-transcribe`** model via dedicated OpenAI API key configuration.
 
 ### 4. Cloud Synchronization (Supabase)
-* **Real-Time Two-Way Sync**: PostgreSQL database with Row-Level Security, PostgREST APIs, and realtime replication.
-* **Deterministic Chain Truncation (Edit & Redo)**: Editing or redoing prompts permanently truncates all subsequent turns across both local stores (Android Room SQLite & Web state) and Supabase cloud storage (by exact message IDs and timestamps). Added deleted sync ID tracking (`deletedMessageSyncIds`) in Android's `SupabaseSyncManager` to prevent incoming sync cycles from re-inserting deleted turns, and implemented remote deletion detection to automatically prune locally cached messages when deleted remotely from another client, ensuring zero message resurrection loops.
+* **Real-Time Two-Way Sync**: PostgreSQL database with Row-Level Security, PostgREST APIs, and realtime replication for `profiles` (`username`, `system_prompt`, `active_model`, `reasoning_effort`), `projects`, `project_files`, `chats`, and `messages` (including `model_name`).
+* **Batch Sync & Remote Deletion Reconciliation**: Android fetches messages in a single batched PostgREST query (`chat_id=in.(...)`), batch-upserts unsynced messages, and reconciles remote deletions of chats, projects, and project files across devices.
+* **Deterministic Chain Truncation & Shared Attachment Protection (Edit, Redo & Branch)**: Editing or redoing prompts permanently truncates all subsequent turns across local stores and Supabase while preserving attachments still referenced by edited prompts or branched conversations.
 * **Supabase Object Storage (`attachments`)**: Uploaded images and documents are stored in the public `attachments` bucket; database records only lightweight public URLs.
-* **Automated Storage Cleanup**: Deleting conversations or editing turns proactively purges orphaned remote files and local caches.
 
-### 5. Projects & Knowledge Base Spaces (Web & Android)
+### 5. Projects, PDF Parsing & Knowledge Base Spaces (Web & Android)
 * **Custom Project Colors & Palettes**: 9-color curated warm brutalist palette (Default Bone White, Orange, Amber, Emerald, Cyan, Electric Blue, Purple, Pink, Crimson Red) with swatches in project dialogs. Selected project colors dynamically tint folder icons in the drawer/sidebar and top navigation bar breadcrumbs.
 * **Streamlined Side Panel / Drawer Experience**: Removed chat counter badges and gear buttons for a minimal look, clean uncontained `+` icon on the PROJECTS header, and borderless/shadowless pill buttons (`#202020` in dark mode, `#E0DFDA` in light mode) on project rows.
 * **Instant Settings Access**: Projects can be configured effortlessly: on Android, long-pressing any project row brings up a native settings dropdown; on Web, a sleek gear icon appears on row hover (mirroring chat hover actions) and right-clicking opens the settings context menu.
 * **Custom System Prompt Override**: Dedicated project spaces with custom system prompts that strictly override the generic global system prompt for focused domain tasks.
-* **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any project. The text content is extracted client-side and injected as contextual knowledge base memory during LLM completions. Staging files during project creation is supported on both Web and Android.
-* **Safe Storage Persistence**: Whitelisted project files in Supabase Storage prevent active project knowledge attachments from being purged during orphan cleanup passes.
+* **Native PDF Text Extraction & Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any chat or project knowledge base. Both Android (`PdfTextExtractor` + `PdfRenderer` page rasterization) and Web (`pdfExtractor.ts` using browser `DecompressionStream` and CMap `/ToUnicode` parsing) extract text from PDF documents client-side and inject it into LLM context.
+* **Safe Storage Persistence**: Whitelisted project files and shared branch attachments in Supabase Storage prevent active attachments from being purged during cleanup passes.
 * **Strict Context Scoping**: Strict project context isolation ensures project system instructions and knowledge base files never leak into generic chat sessions.
 * **Folder-Like Organization**: Folders in the sidebar (Web) and drawer (Android) grouping nested conversation threads. Header clicks cleanly toggle folder expansion; conversations created within a project stay inside its folder; chats outside live in the generic HISTORY section.
 * **Breadcrumb Navigation**: Dynamic folder indicator displaying the active project name directly in the top navigation bar and drafting state.
-* **Full Cloud & Offline Sync**: Full Room database support (v9 migration with `color` column and composite index optimization) and Supabase tables (`projects`, `project_files`, `chats.project_id`) with real-time bidirectional synchronization across Android and Web.
+* **Full Cloud & Offline Sync**: Full Room database support (v10 migration with `modelName`, canonical UUID normalization, and 6 foreign-key/syncId indices) and Supabase tables (`projects`, `project_files`, `chats.project_id`) with real-time bidirectional synchronization across Android and Web.
 
 ### 6. Full Markdown Tables & Typography Engine
 * **Brutalist Tables Rendering**: Parses standard Markdown tables (`| Col 1 | Col 2 |`) into clean, responsive tabular cards with header distinctions, column alignment (`left`, `center`, `right`), horizontal scrolling, and custom borders.
@@ -79,6 +78,7 @@ WYRD/
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.6.0** | 2026-10-14 | Full Cross-Platform Audit & Performance Overhaul: Unified STT on `gpt-4o-mini-transcribe` across Android and Web; aligned `web_search` to execute Tavily and Exa in parallel when both are active in Settings; added smart 4-word LLM chat title generation to Web; implemented zero-dependency client-side PDF text extraction on both Android (`PdfTextExtractor.kt`) and Web (`pdfExtractor.ts`); upgraded Android Room database to v10 (`modelName` column, 6 missing indices, canonical UUID normalization); replaced `material-icons-extended` with custom `WyrdIcons` and enabled R8 minification + resource shrinking; added batched Supabase message sync, full 4-field profile sync, remote deletion reconciliation, and shared attachment protection across branched/edited chats; added LRU + subsampled `AttachmentImageLoader` on Android and memoized event-delegated `FormattedMessage` on Web. |
 | **v1.5.8** | 2026-10-13 | Edit & Redo Truncation Fix & Cloud Sync Reconciliation: Solved message resurrection and overlap bugs when editing or redoing prompts. In both Android and Web, redoing or editing a prompt now permanently purges subsequent conversation turns locally and deletes them from Supabase (by exact message IDs and timestamps). Added deleted sync ID tracking (`deletedMessageSyncIds`) in Android's `SupabaseSyncManager` to prevent incoming sync cycles from re-inserting deleted turns, and implemented remote deletion detection to automatically prune locally cached messages when deleted remotely from another client, ensuring perfectly consistent conversation chains across devices. |
 | **v1.5.7** | 2026-10-13 | Real-Time Mid-Stream TTS Playback & Touch-Anchored Dropdowns: Tapping the floating Play button while the model is actively streaming an answer immediately begins speech synthesis in real time from whatever tokens have arrived so far, dynamically enqueuing incoming sentence and clause chunks as generation continues, with live word-by-word brutalist highlighting tracking the stream seamlessly across Android and Web. On Android, double-tapping any message bubble now anchors the action context menu (Copy, Edit, Branch, Redo) precisely at the user's touch contact point with automatic screen boundary clamping. |
 | **v1.5.6** | 2026-10-12 | Save Button Contrast, Pointer Dropdowns & Rock-Solid Top-Snapped Prompts: Completely resolved white-on-white and black-on-black button text collisions across Android and Web. Unified modal Save buttons (#141414 with #F9F9F7 text in Light mode, #CECDC4 with #000000 text in Dark mode). On Web, updated user prompt double-click action menu to anchor dynamically at the exact mouse pointer coordinates with smart boundary clamping. In both Web and Android, implemented Rock-Solid Top-Snapped Prompts on send: prompt smoothly snaps to the top on submit, eliminating scroll fighting, jerkiness, and artificial empty black voids, allowing responses to stream seamlessly downwards with complete manual scroll freedom. |

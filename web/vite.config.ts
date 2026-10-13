@@ -18,5 +18,16 @@ export default defineConfig({
     // Provide fallback support for NEXT_PUBLIC_ variables
     'process.env.NEXT_PUBLIC_SUPABASE_URL': JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ncxbhueublthjfawkkvy.supabase.co'),
     'process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY': JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_lZa8oy7FwdDOKvv4Jrj26A_skhlS325'),
-  }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('@supabase')) {
+            return 'supabase'
+          }
+        },
+      },
+    },
+  },
 })

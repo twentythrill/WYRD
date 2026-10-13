@@ -18,7 +18,7 @@ interface FormattedMessageProps {
   onSeek?: (plainText: string, charOffset: number) => void
 }
 
-export function FormattedMessage({
+export const FormattedMessage = React.memo(function FormattedMessage({
   content,
   messageId,
   activeHighlightRange = null,
@@ -55,6 +55,19 @@ export function FormattedMessage({
     }
   }, [activeHighlightRange])
 
+  const handleContainerDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-word-start]')
+    if (!target) return
+    const rawStart = target.getAttribute('data-word-start')
+    const startOffset = rawStart !== null ? parseInt(rawStart, 10) : NaN
+    if (Number.isNaN(startOffset)) return
+
+    e.stopPropagation()
+    window.getSelection()?.removeAllRanges()
+    onSeek?.(plainText, startOffset)
+    target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+  }
+
   const textColor = isDark ? 'text-[#CECDC4]' : 'text-[#141414]'
   const mutedColor = isDark ? 'text-[#8E8E93]' : 'text-[#636366]'
   const quoteBorder = isDark ? 'border-[#8E8E93]' : 'border-[#636366]'
@@ -63,45 +76,40 @@ export function FormattedMessage({
     <div
       className={`text-[17px] leading-[24px] font-sans ${textColor} select-text w-full transition-colors`}
       data-message-id={messageId}
+      onDoubleClick={handleContainerDoubleClick}
     >
       {blocks.map((block, bIdx) => (
         <RenderBlock
           key={bIdx}
           block={block}
-          plainText={plainText}
           activeHighlightRange={activeHighlightRange}
           isDark={isDark}
           textColor={textColor}
           mutedColor={mutedColor}
           quoteBorder={quoteBorder}
           activeWordRef={activeWordRef}
-          onSeek={onSeek}
         />
       ))}
     </div>
   )
-}
+})
 
 function RenderBlock({
   block,
-  plainText,
   activeHighlightRange,
   isDark,
   textColor,
   mutedColor,
   quoteBorder,
   activeWordRef,
-  onSeek,
 }: {
   block: ReadingBlock
-  plainText: string
   activeHighlightRange: [number, number] | null
   isDark: boolean
   textColor: string
   mutedColor: string
   quoteBorder: string
   activeWordRef: React.MutableRefObject<HTMLSpanElement | null>
-  onSeek?: (plainText: string, charOffset: number) => void
 }) {
   switch (block.type) {
     case 'header': {
@@ -117,11 +125,9 @@ function RenderBlock({
         <div className={headerClass}>
           <RenderSpans
             spans={block.spans}
-            plainText={plainText}
             activeHighlightRange={activeHighlightRange}
             isDark={isDark}
             activeWordRef={activeWordRef}
-            onSeek={onSeek}
           />
         </div>
       )
@@ -134,11 +140,9 @@ function RenderBlock({
         >
           <RenderSpans
             spans={block.spans}
-            plainText={plainText}
             activeHighlightRange={activeHighlightRange}
             isDark={isDark}
             activeWordRef={activeWordRef}
-            onSeek={onSeek}
           />
         </blockquote>
       )
@@ -150,11 +154,9 @@ function RenderBlock({
           <div className="flex-1">
             <RenderSpans
               spans={block.spans}
-              plainText={plainText}
               activeHighlightRange={activeHighlightRange}
               isDark={isDark}
               activeWordRef={activeWordRef}
-              onSeek={onSeek}
             />
           </div>
         </div>
@@ -169,11 +171,9 @@ function RenderBlock({
           <div className="flex-1">
             <RenderSpans
               spans={block.spans}
-              plainText={plainText}
               activeHighlightRange={activeHighlightRange}
               isDark={isDark}
               activeWordRef={activeWordRef}
-              onSeek={onSeek}
             />
           </div>
         </div>
@@ -185,11 +185,9 @@ function RenderBlock({
           language={block.language || 'code'}
           rawCode={block.rawCode || ''}
           words={block.words}
-          plainText={plainText}
           activeHighlightRange={activeHighlightRange}
           isDark={isDark}
           activeWordRef={activeWordRef}
-          onSeek={onSeek}
         />
       )
 
@@ -199,11 +197,9 @@ function RenderBlock({
           headers={block.tableHeaders || []}
           alignments={block.tableAlignments || []}
           rows={block.tableRows || []}
-          plainText={plainText}
           activeHighlightRange={activeHighlightRange}
           isDark={isDark}
           activeWordRef={activeWordRef}
-          onSeek={onSeek}
         />
       )
 
@@ -213,11 +209,9 @@ function RenderBlock({
         <p className="mb-3.5 last:mb-0 leading-[24px]">
           <RenderSpans
             spans={block.spans}
-            plainText={plainText}
             activeHighlightRange={activeHighlightRange}
             isDark={isDark}
             activeWordRef={activeWordRef}
-            onSeek={onSeek}
           />
         </p>
       )
@@ -226,18 +220,14 @@ function RenderBlock({
 
 function RenderSpans({
   spans,
-  plainText,
   activeHighlightRange,
   isDark,
   activeWordRef,
-  onSeek,
 }: {
   spans: InlineSpan[]
-  plainText: string
   activeHighlightRange: [number, number] | null
   isDark: boolean
   activeWordRef: React.MutableRefObject<HTMLSpanElement | null>
-  onSeek?: (plainText: string, charOffset: number) => void
 }) {
   return (
     <>
@@ -260,11 +250,9 @@ function RenderSpans({
               <WordItem
                 key={wIdx}
                 word={w}
-                plainText={plainText}
                 activeHighlightRange={activeHighlightRange}
                 isDark={isDark}
                 activeWordRef={activeWordRef}
-                onSeek={onSeek}
               />
             ))}
           </span>
@@ -292,18 +280,14 @@ function RenderSpans({
 
 function WordItem({
   word,
-  plainText,
   activeHighlightRange,
   isDark,
   activeWordRef,
-  onSeek,
 }: {
   word: FormattedWord
-  plainText: string
   activeHighlightRange: [number, number] | null
   isDark: boolean
   activeWordRef: React.MutableRefObject<HTMLSpanElement | null>
-  onSeek?: (plainText: string, charOffset: number) => void
 }) {
   // Check if this word overlaps the active TTS speech range
   const isActive =
@@ -320,17 +304,9 @@ function WordItem({
     ? 'bg-[#CECDC4] text-black font-medium rounded-[3px] px-0.5 -mx-0.5 shadow-xs'
     : 'bg-[#141414] text-[#F9F9F7] font-medium rounded-[3px] px-0.5 -mx-0.5 shadow-xs'
 
-  const handleDoubleClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    window.getSelection()?.removeAllRanges()
-    onSeek?.(plainText, word.start)
-    const target = e.currentTarget as HTMLElement
-    target?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
-  }
-
   return (
     <span
-      onDoubleClick={handleDoubleClick}
+      data-word-start={word.start}
       title="Double click to read from here"
       className="cursor-pointer select-text inline break-words [overflow-wrap:anywhere]"
     >
@@ -353,20 +329,16 @@ function CodeBlockItem({
   language,
   rawCode,
   words,
-  plainText,
   activeHighlightRange,
   isDark,
   activeWordRef,
-  onSeek,
 }: {
   language: string
   rawCode: string
   words: FormattedWord[]
-  plainText: string
   activeHighlightRange: [number, number] | null
   isDark: boolean
   activeWordRef: React.MutableRefObject<HTMLSpanElement | null>
-  onSeek?: (plainText: string, charOffset: number) => void
 }) {
   const [copied, setCopied] = useState(false)
 
@@ -402,11 +374,9 @@ function CodeBlockItem({
             <WordItem
               key={wIdx}
               word={w}
-              plainText={plainText}
               activeHighlightRange={activeHighlightRange}
               isDark={isDark}
               activeWordRef={activeWordRef}
-              onSeek={onSeek}
             />
           ))}
         </code>
@@ -419,20 +389,16 @@ function TableBlockItem({
   headers,
   alignments,
   rows,
-  plainText,
   activeHighlightRange,
   isDark,
   activeWordRef,
-  onSeek,
 }: {
   headers: TableCell[]
   alignments: ColumnAlignment[]
   rows: TableRow[]
-  plainText: string
   activeHighlightRange: [number, number] | null
   isDark: boolean
   activeWordRef: React.MutableRefObject<HTMLSpanElement | null>
-  onSeek?: (plainText: string, charOffset: number) => void
 }) {
   const containerBg = isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#E8E7E1] border-[#CECDC4]'
   const headerBg = isDark ? 'bg-[#1A1A1A] border-[#262626]' : 'bg-[#DFDED8] border-[#CECDC4]'
@@ -469,11 +435,9 @@ function TableBlockItem({
                   >
                     <RenderSpans
                       spans={h.spans}
-                      plainText={plainText}
                       activeHighlightRange={activeHighlightRange}
                       isDark={isDark}
                       activeWordRef={activeWordRef}
-                      onSeek={onSeek}
                     />
                   </th>
                 )
@@ -496,11 +460,9 @@ function TableBlockItem({
                   >
                     <RenderSpans
                       spans={cell.spans}
-                      plainText={plainText}
                       activeHighlightRange={activeHighlightRange}
                       isDark={isDark}
                       activeWordRef={activeWordRef}
-                      onSeek={onSeek}
                     />
                   </td>
                 )

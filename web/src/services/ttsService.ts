@@ -16,53 +16,43 @@ export interface TtsPlaybackState {
 
 type TtsListener = (state: TtsPlaybackState) => void
 
-export function stripMarkdownForSpeech(markdown: string): string {
-  if (!markdown) return ''
+const SENTENCE_BOUNDARY_REGEX = /[.!?](\s|\n)|(\n\n)/
+const CLAUSE_BOUNDARY_REGEX = /([:;,\n])\s*/
+const WORD_CHARS_REGEX = /[^a-zàèéìòù]/gi
+const WHITESPACE_SPLIT_REGEX = /\s+/
 
-  let text = markdown
-    // Remove multi-line code blocks
-    .replace(/```[\s\S]*?```/g, ' [code block omitted] ')
-    // Replace inline code with its text content
-    .replace(/`([^`]+)`/g, '$1')
-    // Remove markdown links: [label](url) -> label
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    // Remove markdown images: ![alt](url) -> ''
-    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
-    // Remove bold/italics
-    .replace(/(\*\*|__)(.*?)\1/g, '$2')
-    .replace(/(\*|_)(.*?)\1/g, '$2')
-    // Remove headers: # Header -> Header
-    .replace(/^#{1,6}\s+(.*)$/gm, '$1. ')
-    // Remove blockquotes: > Quote -> Quote
-    .replace(/^\s*>\s+(.*)$/gm, '$1')
-    // Remove bullet points / list markers
-    .replace(/^\s*[\*\-\+]\s+/gm, '')
-    .replace(/^\s*\d+\.\s+/gm, '')
-    // Remove HTML tags
-    .replace(/<[^>]*>/g, '')
-    // Collapse extra spaces & line breaks into clean sentence pauses
-    .replace(/\n{2,}/g, '. ')
-    .replace(/\n/g, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim()
+const ITALIAN_STOPWORDS = new Set([
+  'il', 'la', 'lo', 'i', 'gli', 'le', 'un', 'uno', 'una',
+  'di', 'a', 'da', 'in', 'con', 'su', 'per', 'tra', 'fra',
+  'del', 'dello', 'della', 'dei', 'degli', 'delle',
+  'al', 'allo', 'alla', 'ai', 'agli', 'alle',
+  'nel', 'nello', 'nella', 'nei', 'negli', 'nelle',
+  'sul', 'sullo', 'sulla', 'sui', 'sugli', 'sulle',
+  'che', 'non', 'sono', 'è', 'e', 'ho', 'ha', 'hanno',
+  'questo', 'questa', 'questi', 'queste', 'quello', 'quella',
+  'come', 'perché', 'cosa', 'quando', 'anche', 'più', 'tutto', 'tutti'
+])
 
-  return text
-}
+const ENGLISH_STOPWORDS = new Set([
+  'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have',
+  'i', 'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you',
+  'do', 'at', 'this', 'but', 'his', 'by', 'from', 'they',
+  'we', 'say', 'her', 'she', 'or', 'an', 'will', 'my', 'one',
+  'all', 'would', 'there', 'their', 'what', 'so', 'up', 'out'
+])
 
 export function findStreamingCutPoint(unvoiced: string, isFirstChunk: boolean): number {
   if (!unvoiced) return 0
 
   // Priority 1: Sentence boundaries (. , ! , ? , .\n, !\n, ?\n, or \n\n)
-  const sentenceRegex = /[.!?](\s|\n)|(\n\n)/
-  const sentenceMatch = sentenceRegex.exec(unvoiced)
+  const sentenceMatch = SENTENCE_BOUNDARY_REGEX.exec(unvoiced)
   if (sentenceMatch && sentenceMatch.index !== undefined) {
     return sentenceMatch.index + sentenceMatch[0].length
   }
 
   // Priority 2: For first chunk, allow earlier clause break (: , ; , , , or \n) if at least 8 chars
   if (isFirstChunk) {
-    const clauseRegex = /([:;,\n])\s*/
-    const clauseMatch = clauseRegex.exec(unvoiced)
+    const clauseMatch = CLAUSE_BOUNDARY_REGEX.exec(unvoiced)
     if (clauseMatch && clauseMatch.index !== undefined && clauseMatch.index >= 8) {
       return clauseMatch.index + clauseMatch[0].length
     }
@@ -78,9 +68,8 @@ export function findStreamingCutPoint(unvoiced: string, isFirstChunk: boolean): 
   } else {
     // Subsequent chunks: if sentence is very long (> 120 chars) without terminal punctuation, break at clause or word
     if (unvoiced.length >= 120) {
-      const clauseRegex = /([:;,\n])\s*/
       const sliceAfter50 = unvoiced.slice(50)
-      const clauseMatch = clauseRegex.exec(sliceAfter50)
+      const clauseMatch = CLAUSE_BOUNDARY_REGEX.exec(sliceAfter50)
       if (clauseMatch && clauseMatch.index !== undefined) {
         return 50 + clauseMatch.index + clauseMatch[0].length
       }
@@ -153,32 +142,14 @@ class NativeTtsService {
 
   private detectLanguage(text: string): 'it-IT' | 'en-US' {
     const sample = text.slice(0, 500).toLowerCase()
-    const words = sample.split(/\s+/)
-    const italianStopwords = new Set([
-      'il', 'la', 'lo', 'i', 'gli', 'le', 'un', 'uno', 'una',
-      'di', 'a', 'da', 'in', 'con', 'su', 'per', 'tra', 'fra',
-      'del', 'dello', 'della', 'dei', 'degli', 'delle',
-      'al', 'allo', 'alla', 'ai', 'agli', 'alle',
-      'nel', 'nello', 'nella', 'nei', 'negli', 'nelle',
-      'sul', 'sullo', 'sulla', 'sui', 'sugli', 'sulle',
-      'che', 'non', 'sono', 'è', 'e', 'ho', 'ha', 'hanno',
-      'questo', 'questa', 'questi', 'queste', 'quello', 'quella',
-      'come', 'perché', 'cosa', 'quando', 'anche', 'più', 'tutto', 'tutti'
-    ])
-    const englishStopwords = new Set([
-      'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have',
-      'i', 'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you',
-      'do', 'at', 'this', 'but', 'his', 'by', 'from', 'they',
-      'we', 'say', 'her', 'she', 'or', 'an', 'will', 'my', 'one',
-      'all', 'would', 'there', 'their', 'what', 'so', 'up', 'out'
-    ])
+    const words = sample.split(WHITESPACE_SPLIT_REGEX)
 
     let itCount = 0
     let enCount = 0
     for (const w of words) {
-      const clean = w.replace(/[^a-zàèéìòù]/gi, '').toLowerCase()
-      if (italianStopwords.has(clean)) itCount++
-      if (englishStopwords.has(clean)) enCount++
+      const clean = w.replace(WORD_CHARS_REGEX, '').toLowerCase()
+      if (ITALIAN_STOPWORDS.has(clean)) itCount++
+      if (ENGLISH_STOPWORDS.has(clean)) enCount++
     }
 
     if (itCount > enCount) return 'it-IT'

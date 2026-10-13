@@ -246,30 +246,6 @@ class XiaomiMimoService(
     fun streamChatCompletion(
         apiKey: String,
         model: SupportedModel,
-        reasoningEffort: ReasoningEffort,
-        systemPrompt: String,
-        messages: List<ChatMessagePayload>,
-        exaSearchService: ExaSearchService? = null,
-        exaApiKey: String? = null,
-        tavilySearchService: TavilySearchService? = null,
-        tavilyApiKey: String? = null,
-        customBaseUrl: String? = null
-    ): Flow<StreamEvent> = streamChatCompletion(
-        apiKey = apiKey,
-        model = model,
-        isThinkingEnabled = (reasoningEffort != ReasoningEffort.OFF),
-        systemPrompt = systemPrompt,
-        messages = messages,
-        exaSearchService = exaSearchService,
-        exaApiKey = exaApiKey,
-        tavilySearchService = tavilySearchService,
-        tavilyApiKey = tavilyApiKey,
-        customBaseUrl = customBaseUrl
-    )
-
-    fun streamChatCompletion(
-        apiKey: String,
-        model: SupportedModel,
         isThinkingEnabled: Boolean = true,
         systemPrompt: String,
         messages: List<ChatMessagePayload>,
@@ -418,6 +394,9 @@ class XiaomiMimoService(
                                 response.close()
                                 lastErrorMsg = "HTTP $code from $endpoint: $errBody"
                                 Log.w(TAG, "Request failed: $lastErrorMsg")
+                                if (code == 401 || code == 403) {
+                                    break
+                                }
                                 continue
                             }
 
@@ -521,6 +500,7 @@ class XiaomiMimoService(
                                             }
                                         }
                                     } catch (e: Exception) {
+                                        if (e is kotlinx.coroutines.CancellationException) throw e
                                         if (e is IllegalStateException && e.message?.startsWith("API error:") == true) {
                                             throw e
                                         }
@@ -540,106 +520,11 @@ class XiaomiMimoService(
                                 Log.w(TAG, "Stream ended with 0 tokens. Testing fallback...")
                             }
                         } catch (e: Exception) {
+                            if (e is kotlinx.coroutines.CancellationException) throw e
                             lastErrorMsg = e.message ?: "Stream network exception"
                             Log.w(TAG, "Stream attempt error: $lastErrorMsg", e)
                         } finally {
                             try { response?.close() } catch (ignored: Throwable) {}
-                        }
-                    }
-                }
-            }
-
-            // Non-Streaming Fallback (rescues cases where SSE streaming is blocked, buffered, or dropped)
-            if (!isStreamSuccess) {
-                Log.d(TAG, "Initiating non-streaming fallback...")
-                outerNonStream@ for (endpoint in candidateEndpoints) {
-                    for (candidateId in candidateModels) {
-                        val payloads = buildCandidatePayloads(
-                            candidateId = candidateId,
-                            messagesJsonArray = currentMessages,
-                            isThinkingEnabled = isThinkingEnabled,
-                            stream = false,
-                            tools = currentWebTools
-                        )
-                        for (payload in payloads) {
-                            val request = Request.Builder()
-                                .url(endpoint)
-                                .addHeader("Authorization", "Bearer $cleanKey")
-                                .addHeader("api-key", cleanKey)
-                                .addHeader("Content-Type", "application/json")
-                                .addHeader("Accept", "application/json")
-                                .post(payload.toString().toRequestBody(jsonMediaType))
-                                .build()
-
-                            try {
-                                client.newCall(request).execute().use { resp ->
-                                    if (!resp.isSuccessful) {
-                                        val code = resp.code
-                                        val errBody = resp.body?.string() ?: ""
-                                        lastErrorMsg = "HTTP $code from $endpoint: $errBody"
-                                        Log.w(TAG, "Non-streaming attempt failed: $lastErrorMsg")
-                                        return@use
-                                    }
-
-                                    val bodyStr = resp.body?.string() ?: return@use
-                                    val json = JSONObject(bodyStr)
-                                    if (json.has("error")) {
-                                        val errObj = json.optJSONObject("error")
-                                        val msg = errObj?.optString("message") ?: json.optString("error")
-                                        lastErrorMsg = "API error: $msg"
-                                        return@use
-                                    }
-
-                                    val choices = json.optJSONArray("choices")
-                                    if (choices != null && choices.length() > 0) {
-                                        val choice = choices.getJSONObject(0)
-                                        val msg = choice.optJSONObject("message")
-                                        val reasoning = msg?.optString("reasoning_content", "") ?: ""
-                                        val content = msg?.optString("content", "") ?: choice.optString("text", "")
-
-                                        val msgToolCalls = msg?.optJSONArray("tool_calls")
-                                        if (msgToolCalls != null && msgToolCalls.length() > 0) {
-                                            val firstTc = msgToolCalls.getJSONObject(0)
-                                            toolCallId = firstTc.optString("id", "call_1")
-                                            val fn = firstTc.optJSONObject("function")
-                                            toolCallName = fn?.optString("name", "") ?: ""
-                                            toolCallArgs.append(fn?.optString("arguments", "") ?: "")
-                                        }
-
-                                        if (isThinkingEnabled && reasoning.isNotBlank() && reasoning != "null") {
-                                            emit(StreamEvent.Reasoning(reasoning))
-                                        }
-
-                                        if (content.isNotBlank() && content != "null") {
-                                            val parser = ThinkAndToolParser(
-                                                onContent = {
-                                                    tokenEmittedCount++
-                                                    streamedContentAccumulator.append(it)
-                                                    emit(StreamEvent.Content(it))
-                                                },
-                                                onReasoning = {
-                                                    if (isThinkingEnabled) {
-                                                        tokenEmittedCount++
-                                                        emit(StreamEvent.Reasoning(it))
-                                                    }
-                                                }
-                                            )
-                                            activeParser = parser
-                                            parser.feed(content)
-                                            parser.flush()
-                                        }
-
-                                        lastWorkingEndpoint = endpoint
-                                        isStreamSuccess = true
-                                    }
-                                }
-                                if (isStreamSuccess) {
-                                    break@outerNonStream
-                                }
-                            } catch (e: Exception) {
-                                lastErrorMsg = e.message ?: "Non-streaming error"
-                                Log.w(TAG, "Non-streaming exception: $lastErrorMsg", e)
-                            }
                         }
                     }
                 }
@@ -677,6 +562,7 @@ class XiaomiMimoService(
                             try {
                                 tavilySearchService?.searchWeb(toolCall.query, apiKey = tavilyApiKey)
                             } catch (e: Exception) {
+                                if (e is kotlinx.coroutines.CancellationException) throw e
                                 Result.failure(e)
                             }
                         }
@@ -684,6 +570,7 @@ class XiaomiMimoService(
                             try {
                                 exaSearchService?.searchWeb(toolCall.query, apiKey = exaApiKey)
                             } catch (e: Exception) {
+                                if (e is kotlinx.coroutines.CancellationException) throw e
                                 Result.failure(e)
                             }
                         }
@@ -777,7 +664,7 @@ class XiaomiMimoService(
         customBaseUrl: String? = null
     ): String = withContext(Dispatchers.IO) {
         val cleanKey = apiKey.trim()
-        val defaultWords = firstUserPrompt.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }.take(4).joinToString(" ")
+        val defaultWords = firstUserPrompt.trim().split(WHITESPACE_REGEX).filter { it.isNotBlank() }.take(4).joinToString(" ")
         val fallbackTitle = if (defaultWords.isNotBlank()) defaultWords else "New Chat"
         if (cleanKey.isBlank()) return@withContext fallbackTitle
 
@@ -833,7 +720,7 @@ class XiaomiMimoService(
                         }
                     }
                 } catch (e: Exception) {
-                    // try next candidate
+                    if (e is kotlinx.coroutines.CancellationException) throw e
                 }
             }
         }
@@ -842,13 +729,11 @@ class XiaomiMimoService(
 
     fun sanitizeChatTitle(raw: String): String {
         var text = raw.trim()
-        // Strip reasoning tags if present
-        text = text.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("<thought>[\\s\\S]*?</thought>", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("<thinking>[\\s\\S]*?</thinking>", RegexOption.IGNORE_CASE), "")
+        text = text.replace(THINK_TAG_REGEX, "")
+            .replace(THOUGHT_TAG_REGEX, "")
+            .replace(THINKING_TAG_REGEX, "")
             .trim()
 
-        // Strip common prefixes
         val prefixes = listOf(
             "title:", "summary:", "topic:", "chat title:", "subject:",
             "here is a title:", "here's a title:", "here is the title:",
@@ -861,7 +746,6 @@ class XiaomiMimoService(
             }
         }
 
-        // Strip quotes, markdown, and punctuation
         text = text.replace("\"", "")
             .replace("'", "")
             .replace("`", "")
@@ -876,10 +760,9 @@ class XiaomiMimoService(
             .replace("\n", " ")
             .trim()
 
-        val words = text.split("\\s+".toRegex()).filter { it.isNotBlank() }
+        val words = text.split(WHITESPACE_REGEX).filter { it.isNotBlank() }
         if (words.isEmpty()) return ""
 
-        // Strictly clamp to maximum 4 words (3 or 4 words)
         return words.take(4).joinToString(" ")
     }
 
@@ -911,16 +794,7 @@ class XiaomiMimoService(
     }
 
     private fun getCandidateModelIds(model: SupportedModel): List<String> {
-        return when (model) {
-            SupportedModel.MIMO_2_6_PRO -> listOf(
-                "mimo-v2.6-pro",
-                "mimo-v2.6-flash"
-            )
-            SupportedModel.MIMO_2_6_FLASH -> listOf(
-                "mimo-v2.6-flash",
-                "mimo-v2.6-pro"
-            )
-        }
+        return listOf(model.id)
     }
 
     private fun buildCandidatePayloads(
@@ -935,7 +809,7 @@ class XiaomiMimoService(
         val hasTools = tools != null && tools.length() > 0
 
         fun addPayload(
-            thinkingType: String?, // "enabled", "disabled", or null
+            thinkingType: String?,
             withTools: Boolean
         ) {
             val maxTokens = if (isThinkingEnabled) 32768 else 8192
@@ -948,12 +822,10 @@ class XiaomiMimoService(
                 put("temperature", temp)
                 put("max_completion_tokens", maxTokens)
 
-                // 1. Xiaomi MiMo official standard thinking parameter
                 if (thinkingType != null) {
                     put("thinking", JSONObject().apply {
                         put("type", thinkingType)
                     })
-                    // Extra body for standard OpenAI SDK gateways
                     put("extra_body", JSONObject().apply {
                         put("thinking", JSONObject().apply {
                             put("type", thinkingType)
@@ -972,23 +844,11 @@ class XiaomiMimoService(
             }
         }
 
-        if (isThinkingEnabled) {
-            // Official Xiaomi MiMo: thinking enabled
-            if (hasTools) addPayload(thinkingType = "enabled", withTools = true)
-            addPayload(thinkingType = "enabled", withTools = false)
-
-            // Fallback: standard payload without thinking object
-            if (hasTools) addPayload(thinkingType = null, withTools = true)
-            addPayload(thinkingType = null, withTools = false)
-        } else {
-            // Official Xiaomi MiMo: thinking disabled
-            if (hasTools) addPayload(thinkingType = "disabled", withTools = true)
-            addPayload(thinkingType = "disabled", withTools = false)
-
-            // Fallback: standard payload without thinking object
-            if (hasTools) addPayload(thinkingType = null, withTools = true)
-            addPayload(thinkingType = null, withTools = false)
+        val thinkingType = if (isThinkingEnabled) "enabled" else "disabled"
+        if (hasTools) {
+            addPayload(thinkingType = thinkingType, withTools = true)
         }
+        addPayload(thinkingType = thinkingType, withTools = false)
 
         return list
     }
@@ -1026,43 +886,33 @@ class XiaomiMimoService(
 
         val tool = "web_search"
 
-        // 1. XML parameter syntax: <parameter=query>...</parameter> or <parameter name="query">...</parameter>
-        val paramRegex = Regex("""<parameter(?:=|\s+name=["'])query["']?>([\s\S]*?)</parameter>""", RegexOption.IGNORE_CASE)
-        paramRegex.find(trimmed)?.let { m ->
+        PARAM_REGEX.find(trimmed)?.let { m ->
             val q = m.groupValues[1].trim()
             if (q.isNotBlank()) return ExtractedToolCall(tool, q)
         }
 
-        // 2. Direct tag syntax: <query>...</query> or <search_query>...</search_query>
-        val tagRegex = Regex("""<(?:query|search_query)>([\s\S]*?)</(?:query|search_query)>""", RegexOption.IGNORE_CASE)
-        tagRegex.find(trimmed)?.let { m ->
+        TAG_REGEX.find(trimmed)?.let { m ->
             val q = m.groupValues[1].trim()
             if (q.isNotBlank()) return ExtractedToolCall(tool, q)
         }
 
-        // 3. JSON format: {"query": "..."} or {"search_query": "..."}
         try {
             val json = JSONObject(trimmed)
             val q = json.optString("query", "").ifBlank { json.optString("search_query", "") }
             if (q.isNotBlank()) return ExtractedToolCall(tool, q.trim())
         } catch (_: Exception) {}
 
-        val jsonRegex = Regex("""(?:"query"|"search_query")\s*:\s*"([^"]+)"""")
-        jsonRegex.find(trimmed)?.let { m ->
+        JSON_QUERY_REGEX.find(trimmed)?.let { m ->
             val q = m.groupValues[1].trim()
             if (q.isNotBlank()) return ExtractedToolCall(tool, q)
         }
 
-        // 4. Function call syntax: tavily_search("...") or exa_search("...") or web_search("...")
-        val fnRegex = Regex("""(?:call:)?(?:tavily_search|exa_search|web_search)\s*\(\s*(?:(?:query|q)\s*=\s*)?["']([^"'\n\r]+)["']\s*\)""", RegexOption.IGNORE_CASE)
-        fnRegex.find(trimmed)?.let { m ->
+        FN_CALL_REGEX.find(trimmed)?.let { m ->
             val q = m.groupValues[1].trim()
             if (q.isNotBlank()) return ExtractedToolCall(tool, q)
         }
 
-        // 5. Action bracket syntax: [tavily_search: ...] or [ACTION: exa_search("...")]
-        val bracketRegex = Regex("""\[(?:ACTION:\s*)?(?:tavily_search|exa_search|web_search)[\s:\(]+["']?([^"'\]\)\n\r]+)["']?[\)\]]""", RegexOption.IGNORE_CASE)
-        bracketRegex.find(trimmed)?.let { m ->
+        BRACKET_CALL_REGEX.find(trimmed)?.let { m ->
             val q = m.groupValues[1].trim()
             if (q.isNotBlank()) return ExtractedToolCall(tool, q)
         }
@@ -1070,11 +920,20 @@ class XiaomiMimoService(
         return null
     }
 
-    fun extractToolQuery(text: String): String? = extractToolInvocation(text)?.query
-
     companion object {
         private const val TAG = "WyrdLLM"
         const val PAY_AS_YOU_GO_ENDPOINT = "https://api.xiaomimimo.com/v1/chat/completions"
         const val TOKEN_PLAN_ENDPOINT = "https://token-plan-cn.xiaomimimo.com/v1/chat/completions"
+
+        private val WHITESPACE_REGEX = Regex("\\s+")
+        private val THINK_TAG_REGEX = Regex("<think>[\\s\\S]*?</think>", RegexOption.IGNORE_CASE)
+        private val THOUGHT_TAG_REGEX = Regex("<thought>[\\s\\S]*?</thought>", RegexOption.IGNORE_CASE)
+        private val THINKING_TAG_REGEX = Regex("<thinking>[\\s\\S]*?</thinking>", RegexOption.IGNORE_CASE)
+        private val PARAM_REGEX = Regex("""<parameter(?:=|\s+name=["'])query["']?>([\s\S]*?)</parameter>""", RegexOption.IGNORE_CASE)
+        private val TAG_REGEX = Regex("""<(?:query|search_query)>([\s\S]*?)</(?:query|search_query)>""", RegexOption.IGNORE_CASE)
+        private val JSON_QUERY_REGEX = Regex("""(?:"query"|"search_query")\s*:\s*"([^"]+)"""")
+        private val FN_CALL_REGEX = Regex("""(?:call:)?(?:tavily_search|exa_search|web_search)\s*\(\s*(?:(?:query|q)\s*=\s*)?["']([^"'\n\r]+)["']\s*\)""", RegexOption.IGNORE_CASE)
+        private val BRACKET_CALL_REGEX = Regex("""\[(?:ACTION:\s*)?(?:tavily_search|exa_search|web_search)[\s:\(]+["']?([^"'\]\)\n\r]+)["']?[\)\]]""", RegexOption.IGNORE_CASE)
     }
 }
+

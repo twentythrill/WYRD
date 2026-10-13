@@ -32,7 +32,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,7 +52,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wyrd.app.R
-import com.wyrd.app.data.preferences.ReasoningEffort
 import com.wyrd.app.data.preferences.SupportedModel
 import com.wyrd.app.ui.theme.Black
 import com.wyrd.app.ui.theme.DarkBorder
@@ -62,6 +60,7 @@ import com.wyrd.app.ui.theme.SpaceGrotesk
 import com.wyrd.app.ui.theme.TextGray
 import com.wyrd.app.ui.theme.TextWhite
 import com.wyrd.app.ui.theme.White
+import com.wyrd.app.ui.theme.WyrdIcons
 
 @Composable
 fun BigSttOverlay(
@@ -272,7 +271,7 @@ fun BigSttOverlay(
                             .border(0.8.dp, DarkBorder, CircleShape)
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Stop,
+                            imageVector = WyrdIcons.Stop,
                             contentDescription = "Stop and insert text into prompt",
                             tint = TextWhite,
                             modifier = Modifier.size(24.dp)
@@ -284,31 +283,3 @@ fun BigSttOverlay(
     }
 }
 
-@Composable
-fun BigSttOverlay(
-    visible: Boolean,
-    isRecording: Boolean,
-    isTranscribing: Boolean,
-    activeModel: SupportedModel,
-    reasoningEffort: ReasoningEffort,
-    onModelSelected: (SupportedModel) -> Unit,
-    onReasoningEffortSelected: (ReasoningEffort) -> Unit,
-    onSendRecording: () -> Unit,
-    onStopToEdit: () -> Unit,
-    onCancel: () -> Unit,
-    modifier: Modifier = Modifier
-) = BigSttOverlay(
-    visible = visible,
-    isRecording = isRecording,
-    isTranscribing = isTranscribing,
-    activeModel = activeModel,
-    isThinkingEnabled = (reasoningEffort != ReasoningEffort.OFF),
-    onModelSelected = onModelSelected,
-    onToggleThinking = { enabled ->
-        onReasoningEffortSelected(if (enabled) ReasoningEffort.MEDIUM else ReasoningEffort.OFF)
-    },
-    onSendRecording = onSendRecording,
-    onStopToEdit = onStopToEdit,
-    onCancel = onCancel,
-    modifier = modifier
-)

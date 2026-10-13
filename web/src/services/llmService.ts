@@ -17,44 +17,6 @@ export interface ExtractedToolCall {
   query: string
 }
 
-export const TAVILY_SEARCH_TOOL = {
-  type: 'function',
-  function: {
-    name: 'tavily_search',
-    description:
-      'Keyword-based real-time search engine. Best for breaking news, current events, recent releases/updates, official company/product websites, and live factual data.',
-    parameters: {
-      type: 'object',
-      properties: {
-        query: {
-          type: 'string',
-          description: 'The search query to look up on the live web via Tavily',
-        },
-      },
-      required: ['query'],
-    },
-  },
-}
-
-export const EXA_SEARCH_TOOL = {
-  type: 'function',
-  function: {
-    name: 'exa_search',
-    description:
-      'Neural semantic search engine. Best for community discussions, forum opinions, user reviews, sentiment analysis, long-form articles, and in-depth research.',
-    parameters: {
-      type: 'object',
-      properties: {
-        query: {
-          type: 'string',
-          description: 'The search query to look up on the web semantically via Exa',
-        },
-      },
-      required: ['query'],
-    },
-  },
-}
-
 export const WEB_SEARCH_TOOL = {
   type: 'function',
   function: {
@@ -74,11 +36,16 @@ export const WEB_SEARCH_TOOL = {
   },
 }
 
+const PARAM_QUERY_REGEX = /<parameter\s*(?:=|name\s*=\s*["']?)query["']?>\s*([^<]+)\s*<\/parameter>/i
+const QUERY_TAG_REGEX = /<(?:query|search_query)>\s*([^<]+)\s*<\/(?:query|search_query)>/i
+const JSON_QUERY_REGEX = /["'](?:query|search_query)["']\s*:\s*["']([^"'\n\r]+)["']/i
+const FN_QUERY_REGEX = /(?:call:)?(?:tavily_search|exa_search|web_search)\s*\(\s*(?:(?:query|q)\s*=\s*)?["']([^"'\n\r]+)["']\s*\)/i
+const BRACKET_QUERY_REGEX = /\[(?:ACTION:\s*)?(?:tavily_search|exa_search|web_search)[\s:(]+["']?([^"'\])\n\r]+)["']?[)\]]/i
+
 export function extractToolCall(text: string, explicitToolName?: string): ExtractedToolCall | null {
   const trimmed = text.trim()
   if (!trimmed) return null
 
-  // Determine tool function name if explicitly present
   let tool: SearchToolType = 'web_search'
   if (explicitToolName && /exa_search/i.test(explicitToolName)) {
     tool = 'exa_search'
@@ -90,46 +57,32 @@ export function extractToolCall(text: string, explicitToolName?: string): Extrac
     tool = 'tavily_search'
   }
 
-  // 1. XML parameter syntax: <parameter=query>...</parameter> or <parameter name="query">...</parameter>
-  const paramRegex = /<parameter\s*(?:=|name\s*=\s*["']?)query["']?>\s*([^<]+)\s*<\/parameter>/i
-  const paramMatch = trimmed.match(paramRegex)
+  const paramMatch = trimmed.match(PARAM_QUERY_REGEX)
   if (paramMatch?.[1]?.trim()) {
     return { tool, query: paramMatch[1].trim() }
   }
 
-  // 2. Direct tag syntax: <query>...</query> or <search_query>...</search_query>
-  const queryTagRegex = /<(?:query|search_query)>\s*([^<]+)\s*<\/(?:query|search_query)>/i
-  const queryTagMatch = trimmed.match(queryTagRegex)
+  const queryTagMatch = trimmed.match(QUERY_TAG_REGEX)
   if (queryTagMatch?.[1]?.trim()) {
     return { tool, query: queryTagMatch[1].trim() }
   }
 
-  // 3. JSON function arguments syntax: {"query": "..."}
-  const jsonQueryRegex = /["'](?:query|search_query)["']\s*:\s*["']([^"'\n\r]+)["']/i
-  const jsonMatch = trimmed.match(jsonQueryRegex)
+  const jsonMatch = trimmed.match(JSON_QUERY_REGEX)
   if (jsonMatch?.[1]?.trim()) {
     return { tool, query: jsonMatch[1].trim() }
   }
 
-  // 4. Function call syntax: tavily_search("...") or exa_search("...") or web_search("...")
-  const fnRegex = /(?:call:)?(?:tavily_search|exa_search|web_search)\s*\(\s*(?:(?:query|q)\s*=\s*)?["']([^"'\n\r]+)["']\s*\)/i
-  const fnMatch = trimmed.match(fnRegex)
+  const fnMatch = trimmed.match(FN_QUERY_REGEX)
   if (fnMatch?.[1]?.trim()) {
     return { tool, query: fnMatch[1].trim() }
   }
 
-  // 5. Action bracket syntax: [tavily_search: ...] or [ACTION: exa_search("...")]
-  const bracketRegex = /\[(?:ACTION:\s*)?(?:tavily_search|exa_search|web_search)[\s:(]+["']?([^"'\])\n\r]+)["']?[)\]]/i
-  const bracketMatch = trimmed.match(bracketRegex)
+  const bracketMatch = trimmed.match(BRACKET_QUERY_REGEX)
   if (bracketMatch?.[1]?.trim()) {
     return { tool, query: bracketMatch[1].trim() }
   }
 
   return null
-}
-
-export function extractToolQuery(text: string): string | null {
-  return extractToolCall(text)?.query ?? null
 }
 
 /**
@@ -359,6 +312,12 @@ export async function* streamLlmCompletion({
     ? isThinkingEnabled
     : reasoningEffort !== 'off'
 
+  const isTavilyActive =
+    localStorage.getItem('wyrd_tavily_enabled') !== 'false' &&
+    Boolean(localStorage.getItem('wyrd_tavily_api_key')?.trim())
+  const isExaActive = localStorage.getItem('wyrd_exa_enabled') !== 'false'
+  const isSearchEnabled = isTavilyActive || isExaActive
+
   const currentDateTimeStr = new Date().toLocaleString()
   const temporalContext = `Current Device Date and Time: ${currentDateTimeStr}`
 
@@ -367,10 +326,12 @@ export async function* streamLlmCompletion({
     effectiveSystemPrompt += `${systemPrompt.trim()}\n\n`
   }
   effectiveSystemPrompt += `[Context: ${temporalContext}]`
-  effectiveSystemPrompt += `\n[Autonomous Web Search: You have access to a web search tool to ground your answers in verified external facts. You are in charge of deciding autonomously whether to use web search.
+  if (isSearchEnabled) {
+    effectiveSystemPrompt += `\n[Autonomous Web Search: You have access to a web search tool to ground your answers in verified external facts. You are in charge of deciding autonomously whether to use web search.
 - \`web_search\`: Searches the web for live facts, current events, official documentation, community discussions, and user reviews. Invoke with:
 <tool_call><function=web_search><parameter=query>your search query</parameter></function></tool_call>
 If the request does not require external search, answer directly without invoking tools. Never tell the user to use manual search commands like /search.]`
+  }
 
   // Retain recent context window (last 30 turns) matching Android MAX_CONTEXT_MESSAGES
   const historyToInclude = messages.length > 30 ? messages.slice(-30) : messages
@@ -398,18 +359,18 @@ If the request does not require external search, answer directly without invokin
     return { role: m.role, content: m.content || '...' }
   })
 
-  let currentMessages: Array<{ role: string; content: any }> = [
+  let currentMessages: Array<{ role: string; content: unknown }> = [
     { role: 'system', content: effectiveSystemPrompt },
     ...formattedHistory,
   ]
 
   let toolExecutionRounds = 0
-  const maxToolExecutionRounds = 3
+  const maxToolExecutionRounds = isSearchEnabled ? 3 : 0
 
   while (toolExecutionRounds <= maxToolExecutionRounds) {
     if (signal?.aborted) return
 
-    const bodyPayload: Record<string, any> = {
+    const bodyPayload: Record<string, unknown> = {
       model,
       messages: currentMessages,
       stream: true,
@@ -417,7 +378,7 @@ If the request does not require external search, answer directly without invokin
       max_completion_tokens: isThinking ? 32768 : 8192,
     }
 
-    if (toolExecutionRounds < maxToolExecutionRounds && !hasImagesInConversation) {
+    if (isSearchEnabled && toolExecutionRounds < maxToolExecutionRounds && !hasImagesInConversation) {
       bodyPayload.tools = [WEB_SEARCH_TOOL]
       bodyPayload.tool_choice = 'auto'
     }
@@ -435,7 +396,6 @@ If the request does not require external search, answer directly without invokin
     const endpoints = getCandidateEndpoints(cleanKey, baseUrl)
     let lastError = ''
     let roundContentAccumulator = ''
-    let roundReasoningAccumulator = ''
     let toolCallName = ''
     let toolCallArgs = ''
     let isStreamSuccess = false
@@ -462,6 +422,9 @@ If the request does not require external search, answer directly without invokin
           const errText = await response.text()
           lastError = `API Error (${response.status}) from ${endpoint}: ${errText}`
           console.warn(lastError)
+          if (response.status === 401 || response.status === 403) {
+            break
+          }
           continue
         }
 
@@ -523,7 +486,6 @@ If the request does not require external search, answer directly without invokin
                 // 2. Native reasoning delta
                 const reasoningText = delta.reasoning_content || delta.reasoning
                 if (isThinking && reasoningText && reasoningText !== 'null') {
-                  roundReasoningAccumulator += reasoningText
                   yield { reasoning: reasoningText }
                 }
 
@@ -540,7 +502,6 @@ If the request does not require external search, answer directly without invokin
 
                   if (isThinking) {
                     for (const r of reasoningChunks) {
-                      roundReasoningAccumulator += r
                       yield { reasoning: r }
                     }
                   }
@@ -565,7 +526,6 @@ If the request does not require external search, answer directly without invokin
         )
         if (isThinking) {
           for (const r of remReasoning) {
-            roundReasoningAccumulator += r
             yield { reasoning: r }
           }
         }
@@ -577,11 +537,11 @@ If the request does not require external search, answer directly without invokin
         if (isStreamSuccess) {
           break
         }
-      } catch (err: any) {
-        if (err.name === 'AbortError' || signal?.aborted) {
+      } catch (err: unknown) {
+        if ((err instanceof Error && err.name === 'AbortError') || signal?.aborted) {
           return
         }
-        lastError = err.message || 'Network request failed'
+        lastError = err instanceof Error ? err.message : 'Network request failed'
         console.warn(`Attempt with ${endpoint} failed:`, err)
       }
     }
@@ -595,18 +555,17 @@ If the request does not require external search, answer directly without invokin
     }
 
     // Check if model autonomously invoked web search tool (either via native args, parser XML buffer, or content)
-    let extracted = extractToolCall(toolCallArgs, toolCallName)
-    if (!extracted && parserToolContent) {
+    let extracted = isSearchEnabled ? extractToolCall(toolCallArgs, toolCallName) : null
+    if (isSearchEnabled && !extracted && parserToolContent) {
       extracted = extractToolCall(parserToolContent, toolCallName)
     }
-    if (!extracted) {
+    if (isSearchEnabled && !extracted) {
       extracted = extractToolCall(roundContentAccumulator, toolCallName)
     }
 
     if (extracted && toolExecutionRounds < maxToolExecutionRounds) {
       toolExecutionRounds++
       const { query } = extracted
-      const hasTavilyKey = Boolean(localStorage.getItem('wyrd_tavily_api_key')?.trim())
 
       // Clear any partial content from round 1 so XML or preamble never leaks
       yield { clearContent: true }
@@ -615,7 +574,7 @@ If the request does not require external search, answer directly without invokin
       yield { status: `${statusPrefix}"${shortQuery}"...` }
 
       let searchOutput = ''
-      if (hasTavilyKey) {
+      if (isTavilyActive && isExaActive) {
         const [tavilyRes, exaRes] = await Promise.all([
           searchTavilyWeb(query).catch((e) => ({ success: false, content: '', error: String(e) })),
           searchExaWeb(query).catch((e) => ({ success: false, content: '', error: String(e) })),
@@ -644,7 +603,10 @@ If the request does not require external search, answer directly without invokin
         } else {
           searchOutput = tavilyRes.content || exaRes.content || TAVILY_ZERO_RESULTS_MESSAGE
         }
-      } else {
+      } else if (isTavilyActive) {
+        const tavilyRes = await searchTavilyWeb(query).catch((e) => ({ success: false, content: '', error: String(e) }))
+        searchOutput = tavilyRes.content || TAVILY_ZERO_RESULTS_MESSAGE
+      } else if (isExaActive) {
         const exaRes = await searchExaWeb(query).catch((e) => ({ success: false, content: '', error: String(e) }))
         searchOutput = exaRes.content || ZERO_RESULTS_MESSAGE
       }
@@ -680,19 +642,112 @@ If the request does not require external search, answer directly without invokin
   yield { done: true }
 }
 
+const THINK_BLOCK_REGEX = /<think>[\s\S]*?<\/think>/gi
+const THOUGHT_BLOCK_REGEX = /<thought>[\s\S]*?<\/thought>/gi
+const THINKING_BLOCK_REGEX = /<thinking>[\s\S]*?<\/thinking>/gi
+const TOOL_CALL_BLOCK_REGEX = /<tool_call>[\s\S]*?<\/tool_call>/gi
+const FUNCTION_CALL_BLOCK_REGEX = /<function_call>[\s\S]*?<\/function_call>/gi
+const RESIDUAL_TAGS_REGEX = /<\/?(?:think|thought|thinking|tool_call|function_call|function|parameter)[^>]*>/gi
+const REASONING_TAGS_REGEX = /<\/?(?:think|thought|thinking)[^>]*>/gi
+const TITLE_CLEAN_REGEX = /["'*`_#[\]()]/g
+const TRAILING_PUNCT_REGEX = /^[.,:;!?-]+|[.,:;!?-]+$/g
+
 export function sanitizeStreamedContent(text: string): string {
-  let cleaned = text
-  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '')
-  cleaned = cleaned.replace(/<thought>[\s\S]*?<\/thought>/gi, '')
-  cleaned = cleaned.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
-  cleaned = cleaned.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, '')
-  cleaned = cleaned.replace(/<function_call>[\s\S]*?<\/function_call>/gi, '')
-  cleaned = cleaned.replace(/<\/?(?:think|thought|thinking|tool_call|function_call|function|parameter)[^>]*>/gi, '')
-  return cleaned.trim()
+  return text
+    .replace(THINK_BLOCK_REGEX, '')
+    .replace(THOUGHT_BLOCK_REGEX, '')
+    .replace(THINKING_BLOCK_REGEX, '')
+    .replace(TOOL_CALL_BLOCK_REGEX, '')
+    .replace(FUNCTION_CALL_BLOCK_REGEX, '')
+    .replace(RESIDUAL_TAGS_REGEX, '')
+    .trim()
 }
 
 export function sanitizeReasoning(text: string): string {
-  let cleaned = text
-  cleaned = cleaned.replace(/<\/?(?:think|thought|thinking)[^>]*>/gi, '')
-  return cleaned.trim()
+  return text.replace(REASONING_TAGS_REGEX, '').trim()
+}
+
+export function sanitizeChatTitle(raw: string): string {
+  const withoutTags = sanitizeStreamedContent(raw)
+  const firstLine =
+    withoutTags
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => l.length > 0) || ''
+  const cleaned = firstLine
+    .replace(TITLE_CLEAN_REGEX, '')
+    .replace(/^Title:\s*/i, '')
+    .trim()
+  const words = cleaned
+    .split(/\s+/)
+    .filter((w) => w.length > 0)
+    .slice(0, 4)
+  if (words.length === 0) return 'New Chat'
+  return words.join(' ').replace(TRAILING_PUNCT_REGEX, '').trim() || 'New Chat'
+}
+
+export async function generateChatTitle({
+  apiKey,
+  firstUserPrompt,
+  baseUrl = '',
+  model = 'mimo-v2.6-pro',
+}: {
+  apiKey: string
+  firstUserPrompt: string
+  baseUrl?: string
+  model?: string
+}): Promise<string> {
+  const cleanKey = apiKey?.trim() || ''
+  if (!cleanKey || !firstUserPrompt.trim()) return 'New Chat'
+
+  const endpoints = getCandidateEndpoints(cleanKey, baseUrl)
+  const bodyPayload = {
+    model,
+    stream: false,
+    temperature: 0.3,
+    max_tokens: 16,
+    thinking: { type: 'disabled' },
+    extra_body: { thinking: { type: 'disabled' } },
+    enable_thinking: false,
+    messages: [
+      {
+        role: 'system',
+        content:
+          'Generate a concise 2 to 4 word title summarizing the user message. Output ONLY the raw title words. No quotes, no punctuation, no markdown.',
+      },
+      {
+        role: 'user',
+        content: firstUserPrompt.slice(0, 400),
+      },
+    ],
+  }
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${cleanKey}`,
+          'api-key': cleanKey,
+        },
+        body: JSON.stringify(bodyPayload),
+      })
+
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) break
+        continue
+      }
+
+      const data = await response.json()
+      const rawContent = data?.choices?.[0]?.message?.content
+      if (typeof rawContent === 'string' && rawContent.trim()) {
+        return sanitizeChatTitle(rawContent)
+      }
+    } catch {
+      // Try next endpoint or fallback
+    }
+  }
+
+  return 'New Chat'
 }

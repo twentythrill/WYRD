@@ -131,9 +131,4 @@ class HapticManager(private val context: Context) {
             // ignore
         }
     }
-
-    /**
-     * Backward-compatible alias for completionSnap.
-     */
-    fun completionBuzz() = completionSnap()
 }

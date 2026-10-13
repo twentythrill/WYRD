@@ -266,12 +266,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _currentAttachments.value = emptyList()
     }
 
-    fun setAttachment(item: com.wyrd.app.util.AttachedItem?) {
-        if (item != null) addAttachments(listOf(item)) else clearAttachments()
-    }
-
-    fun clearAttachment() = clearAttachments()
-
     // Input state
     val inputPrompt = MutableStateFlow(TextFieldValue(""))
 
@@ -284,6 +278,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         autoReadNextAssistantMessage = false
         nativeTtsManager.stop()
         _editingMessage.value = message
+        val restoredAttachments = message.getAttachmentList().map { info ->
+            val isImg = info.type == "image"
+            com.wyrd.app.util.AttachedItem(
+                uriString = info.uri,
+                name = info.name,
+                mimeType = if (isImg) "image/jpeg" else "application/octet-stream",
+                sizeBytes = info.size,
+                isImage = isImg
+            )
+        }
+        _currentAttachments.value = restoredAttachments
         inputPrompt.value = TextFieldValue(
             text = message.content,
             selection = TextRange(message.content.length)
@@ -293,6 +298,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun cancelEditingMessage() {
         hapticManager.click()
         _editingMessage.value = null
+        _currentAttachments.value = emptyList()
         inputPrompt.value = TextFieldValue("")
     }
 
@@ -524,7 +530,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         hapticManager.click()
         viewModelScope.launch(Dispatchers.IO) {
             val msgs = messageDao.getMessagesListForChat(chat.id)
-            com.wyrd.app.util.AttachmentHelper.cleanupAttachments(app, msgs)
+            val otherChatUris = messageDao.getAllMessages()
+                .asSequence()
+                .filter { it.chatId != chat.id }
+                .flatMap { it.getAttachmentList().asSequence() }
+                .map { it.uri }
+                .filter { it.isNotBlank() }
+                .toSet()
+            com.wyrd.app.util.AttachmentHelper.cleanupAttachments(app, msgs, excludeUris = otherChatUris)
             chatDao.deleteChatById(chat.id)
             messageDao.deleteMessagesForChat(chat.id)
             if (supabaseSyncManager.isUserSignedIn() && chat.syncId.isNotBlank()) {
@@ -540,10 +553,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         hapticManager.click()
         viewModelScope.launch(Dispatchers.IO) {
             val deletedCount = try {
-                val unpinnedChats = chatDao.getAllChatsList().filter { !it.isPinned }
+                val allChats = chatDao.getAllChatsList()
+                val unpinnedChats = allChats.filter { !it.isPinned }
+                val pinnedChatIds = allChats.filter { it.isPinned }.map { it.id }.toSet()
+                val pinnedChatUris = messageDao.getAllMessages()
+                    .asSequence()
+                    .filter { it.chatId in pinnedChatIds }
+                    .flatMap { it.getAttachmentList().asSequence() }
+                    .map { it.uri }
+                    .filter { it.isNotBlank() }
+                    .toSet()
                 for (c in unpinnedChats) {
                     val msgs = messageDao.getMessagesListForChat(c.id)
-                    com.wyrd.app.util.AttachmentHelper.cleanupAttachments(app, msgs)
+                    com.wyrd.app.util.AttachmentHelper.cleanupAttachments(app, msgs, excludeUris = pinnedChatUris)
                 }
                 val count = chatDao.deleteAllUnpinnedChats()
                 messageDao.deleteOrphanedMessages()
@@ -642,7 +664,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             if (currentChatId == null) {
                 val titleSource = if (prompt.isNotBlank()) prompt else (attachments.firstOrNull()?.name ?: "New Chat")
-                val initialWords = titleSource.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }.take(4).joinToString(" ")
+                val initialWords = titleSource.trim().split(WHITESPACE_REGEX).filter { it.isNotBlank() }.take(4).joinToString(" ")
                 val initialTitle = if (initialWords.isNotBlank()) initialWords else "New Chat"
                 val projId = _activeProjectId.value
                 val proj = if (projId != null) projectDao.getProjectById(projId) else null
@@ -660,11 +682,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val toDelete = allChatMessages.filter {
                     it.timestamp > editingMsg.timestamp || (it.timestamp == editingMsg.timestamp && it.id >= editingMsg.id)
                 }
+                val toDeleteIds = toDelete.map { it.id }.toSet()
+                val keptUris = attachments.map { it.uriString }.toSet() +
+                    messageDao.getAllMessages()
+                        .asSequence()
+                        .filter { it.id !in toDeleteIds }
+                        .flatMap { it.getAttachmentList().asSequence() }
+                        .map { it.uri }
+                        .filter { it.isNotBlank() }
+                        .toSet()
                 val syncIds = toDelete.mapNotNull { it.syncId.takeIf { s -> s.isNotBlank() } }
                 if (!chatSyncId.isNullOrBlank() && syncIds.isNotEmpty()) {
-                    supabaseSyncManager.deleteMessagesRemotely(chatSyncId, syncIds, editingMsg.timestamp, inclusive = true)
+                    supabaseSyncManager.deleteMessagesRemotely(
+                        chatSyncId = chatSyncId,
+                        messageSyncIds = syncIds,
+                        fromTimestamp = editingMsg.timestamp,
+                        inclusive = true,
+                        excludeStoragePaths = keptUris
+                    )
                 }
-                com.wyrd.app.util.AttachmentHelper.cleanupAttachments(app, toDelete)
+                com.wyrd.app.util.AttachmentHelper.cleanupAttachments(app, toDelete, excludeUris = keptUris)
                 messageDao.deleteMessagesFrom(currentChatId, editingMsg.timestamp, editingMsg.id)
             }
 
@@ -718,11 +755,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val toDelete = allChatMessages.filter {
                 it.timestamp > fromUserMessage.timestamp || (it.timestamp == fromUserMessage.timestamp && it.id > fromUserMessage.id)
             }
+            val toDeleteIds = toDelete.map { it.id }.toSet()
+            val keptUris = messageDao.getAllMessages()
+                .asSequence()
+                .filter { it.id !in toDeleteIds }
+                .flatMap { it.getAttachmentList().asSequence() }
+                .map { it.uri }
+                .filter { it.isNotBlank() }
+                .toSet()
             val syncIds = toDelete.mapNotNull { it.syncId.takeIf { s -> s.isNotBlank() } }
             if (!chatSyncId.isNullOrBlank() && syncIds.isNotEmpty()) {
-                supabaseSyncManager.deleteMessagesRemotely(chatSyncId, syncIds, fromUserMessage.timestamp, inclusive = false)
+                supabaseSyncManager.deleteMessagesRemotely(
+                    chatSyncId = chatSyncId,
+                    messageSyncIds = syncIds,
+                    fromTimestamp = fromUserMessage.timestamp,
+                    inclusive = false,
+                    excludeStoragePaths = keptUris
+                )
             }
-            com.wyrd.app.util.AttachmentHelper.cleanupAttachments(app, toDelete)
+            com.wyrd.app.util.AttachmentHelper.cleanupAttachments(app, toDelete, excludeUris = keptUris)
             messageDao.deleteMessagesAfter(chatId, fromUserMessage.timestamp, fromUserMessage.id)
             chatDao.updatePinned(chatId, chatDao.getChatById(chatId)?.isPinned ?: false, System.currentTimeMillis())
 
@@ -781,6 +832,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         role = msg.role,
                         content = msg.content,
                         reasoning = msg.reasoning,
+                        modelName = msg.modelName,
                         timestamp = baseTime + (index * 1000L),
                         attachmentUri = msg.attachmentUri,
                         attachmentType = msg.attachmentType,
@@ -1030,7 +1082,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     chatId = targetChatId,
                     role = "assistant",
                     content = effectiveContent,
-                    reasoning = effectiveReasoning
+                    reasoning = effectiveReasoning,
+                    modelName = activeModel.value.id
                 )
                 val assistantMsgId = try {
                     messageDao.insertMessage(assistantMsg)
@@ -1129,7 +1182,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         chatId = targetChatId,
                         role = "assistant",
                         content = effectiveContent,
-                        reasoning = effectiveReasoning
+                        reasoning = effectiveReasoning,
+                        modelName = activeModel.value.id
                     )
                     try { messageDao.insertMessage(assistantMsg) } catch (e: Exception) {
                         Log.e("MainViewModel", "Failed to insert partial message", e)
@@ -1168,7 +1222,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 chatId = targetChatId,
                 role = "assistant",
                 content = displayError,
-                reasoning = partialReasoning
+                reasoning = partialReasoning,
+                modelName = activeModel.value.id
             )
             try { messageDao.insertMessage(assistantMsg) } catch (e: Exception) {
                 Log.e("MainViewModel", "Failed to insert error message", e)
@@ -1526,16 +1581,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (unvoiced.isEmpty()) return 0
 
         // Priority 1: Sentence boundaries (. , ! , ? , .\n, !\n, ?\n, or \n\n)
-        val sentenceRegex = Regex("""[.!?](\s|\n)|(\n\n)""")
-        val sentenceMatch = sentenceRegex.find(unvoiced)
+        val sentenceMatch = SENTENCE_BOUNDARY_REGEX.find(unvoiced)
         if (sentenceMatch != null) {
             return sentenceMatch.range.last + 1
         }
 
         // Priority 2: For first chunk, allow earlier clause break (: , ; , , , or \n) if at least 8 chars
         if (isFirstChunk) {
-            val clauseRegex = Regex("""([:;,\n])\s*""")
-            val clauseMatch = clauseRegex.find(unvoiced)
+            val clauseMatch = CLAUSE_BOUNDARY_REGEX.find(unvoiced)
             if (clauseMatch != null && clauseMatch.range.first >= 8) {
                 return clauseMatch.range.last + 1
             }
@@ -1550,8 +1603,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             // Subsequent chunks: if sentence is very long (> 120 chars) without terminal punctuation, break at clause or word
             if (unvoiced.length >= 120) {
-                val clauseRegex = Regex("""([:;,\n])\s*""")
-                val clauseMatch = clauseRegex.find(unvoiced, startIndex = 50)
+                val clauseMatch = CLAUSE_BOUNDARY_REGEX.find(unvoiced, startIndex = 50)
                 if (clauseMatch != null) {
                     return clauseMatch.range.last + 1
                 }
@@ -1567,23 +1619,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun sanitizeStreamedContent(text: String): String {
         var cleaned = text
-        cleaned = cleaned.replace(Regex("""<think>[\s\S]*?</think>""", RegexOption.IGNORE_CASE), "")
-        cleaned = cleaned.replace(Regex("""<thought>[\s\S]*?</thought>""", RegexOption.IGNORE_CASE), "")
-        cleaned = cleaned.replace(Regex("""<thinking>[\s\S]*?</thinking>""", RegexOption.IGNORE_CASE), "")
-        cleaned = cleaned.replace(Regex("""<tool_call>[\s\S]*?</tool_call>""", RegexOption.IGNORE_CASE), "")
-        cleaned = cleaned.replace(Regex("""<function_call>[\s\S]*?</function_call>""", RegexOption.IGNORE_CASE), "")
-        cleaned = cleaned.replace(Regex("""</?(?:think|thought|thinking|tool_call|function_call|function|parameter)[^>]*>""", RegexOption.IGNORE_CASE), "")
+        cleaned = cleaned.replace(THINK_BLOCK_REGEX, "")
+        cleaned = cleaned.replace(THOUGHT_BLOCK_REGEX, "")
+        cleaned = cleaned.replace(THINKING_BLOCK_REGEX, "")
+        cleaned = cleaned.replace(TOOL_CALL_BLOCK_REGEX, "")
+        cleaned = cleaned.replace(FUNCTION_CALL_BLOCK_REGEX, "")
+        cleaned = cleaned.replace(RESIDUAL_TAGS_REGEX, "")
         return cleaned.trim()
     }
 
     private fun sanitizeReasoning(text: String): String {
-        var cleaned = text
-        cleaned = cleaned.replace(Regex("""</?(?:think|thought|thinking)[^>]*>""", RegexOption.IGNORE_CASE), "")
-        return cleaned.trim()
+        return text.replace(REASONING_TAGS_REGEX, "").trim()
     }
 
     private companion object {
         const val MAX_CONTEXT_MESSAGES = 30
         const val STREAM_UI_UPDATE_INTERVAL_MS = 48L
+        val WHITESPACE_REGEX = Regex("\\s+")
+        val SENTENCE_BOUNDARY_REGEX = Regex("""[.!?](\s|\n)|(\n\n)""")
+        val CLAUSE_BOUNDARY_REGEX = Regex("""([:;,\n])\s*""")
+        val THINK_BLOCK_REGEX = Regex("""<think>[\s\S]*?</think>""", RegexOption.IGNORE_CASE)
+        val THOUGHT_BLOCK_REGEX = Regex("""<thought>[\s\S]*?</thought>""", RegexOption.IGNORE_CASE)
+        val THINKING_BLOCK_REGEX = Regex("""<thinking>[\s\S]*?</thinking>""", RegexOption.IGNORE_CASE)
+        val TOOL_CALL_BLOCK_REGEX = Regex("""<tool_call>[\s\S]*?</tool_call>""", RegexOption.IGNORE_CASE)
+        val FUNCTION_CALL_BLOCK_REGEX = Regex("""<function_call>[\s\S]*?</function_call>""", RegexOption.IGNORE_CASE)
+        val RESIDUAL_TAGS_REGEX = Regex("""</?(?:think|thought|thinking|tool_call|function_call|function|parameter)[^>]*>""", RegexOption.IGNORE_CASE)
+        val REASONING_TAGS_REGEX = Regex("""</?(?:think|thought|thinking)[^>]*>""", RegexOption.IGNORE_CASE)
     }
 }

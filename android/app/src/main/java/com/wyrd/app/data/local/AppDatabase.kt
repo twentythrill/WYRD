@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [ChatEntity::class, MessageEntity::class, ProjectEntity::class, ProjectFileEntity::class],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,7 +34,16 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     dbName
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                    .addMigrations(
+                        MIGRATION_2_3,
+                        MIGRATION_3_4,
+                        MIGRATION_4_5,
+                        MIGRATION_5_6,
+                        MIGRATION_6_7,
+                        MIGRATION_7_8,
+                        MIGRATION_8_9,
+                        MIGRATION_9_10
+                    )
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
@@ -123,5 +132,24 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE projects ADD COLUMN color TEXT NOT NULL DEFAULT ''")
             }
         }
+
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE messages ADD COLUMN modelName TEXT")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_chats_syncId ON chats(syncId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_messages_syncId ON messages(syncId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_projects_syncId ON projects(syncId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_project_files_projectId ON project_files(projectId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_project_files_projectSyncId ON project_files(projectSyncId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_project_files_syncId ON project_files(syncId)")
+                database.execSQL(
+                    "UPDATE chats SET syncId = substr(syncId,1,8)||'-'||substr(syncId,9,4)||'-'||substr(syncId,13,4)||'-'||substr(syncId,17,4)||'-'||substr(syncId,21,12) WHERE length(syncId) = 32 AND instr(syncId, '-') = 0"
+                )
+                database.execSQL(
+                    "UPDATE messages SET syncId = substr(syncId,1,8)||'-'||substr(syncId,9,4)||'-'||substr(syncId,13,4)||'-'||substr(syncId,17,4)||'-'||substr(syncId,21,12) WHERE length(syncId) = 32 AND instr(syncId, '-') = 0"
+                )
+            }
+        }
     }
 }
+

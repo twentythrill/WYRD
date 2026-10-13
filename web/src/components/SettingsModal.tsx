@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Check, Trash2, LogOut } from 'lucide-react'
 import { type Profile } from '@/lib/supabase'
 
@@ -33,6 +33,8 @@ export function SettingsModal({
   const [openAiKey, setOpenAiKey] = useState(localStorage.getItem('wyrd_openai_api_key') || '')
   const [exaKey, setExaKey] = useState(localStorage.getItem('wyrd_exa_api_key') || '')
   const [tavilyKey, setTavilyKey] = useState(localStorage.getItem('wyrd_tavily_api_key') || '')
+  const [tavilyEnabled, setTavilyEnabled] = useState(() => localStorage.getItem('wyrd_tavily_enabled') !== 'false')
+  const [exaEnabled, setExaEnabled] = useState(() => localStorage.getItem('wyrd_exa_enabled') !== 'false')
   const [baseUrl, setBaseUrl] = useState(() => {
     const saved = localStorage.getItem('wyrd_base_url') || ''
     return saved === 'https://api.siliconflow.cn/v1' ? '' : saved
@@ -59,6 +61,8 @@ export function SettingsModal({
       localStorage.setItem('wyrd_openai_api_key', openAiKey.trim())
       localStorage.setItem('wyrd_exa_api_key', exaKey.trim())
       localStorage.setItem('wyrd_tavily_api_key', tavilyKey.trim())
+      localStorage.setItem('wyrd_tavily_enabled', String(tavilyEnabled))
+      localStorage.setItem('wyrd_exa_enabled', String(exaEnabled))
       localStorage.setItem('wyrd_base_url', baseUrl.trim())
 
       await onSaveProfile({
@@ -294,20 +298,42 @@ export function SettingsModal({
                 className={`${inputClass} font-mono`}
               />
               <p className={`text-[11px] mt-1 font-sans ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>
-                Used for microphone voice transcription via OpenAI Whisper STT.
+                Used for microphone voice transcription via OpenAI gpt-4o-mini-transcribe.
               </p>
             </div>
 
             <div>
-              <label className={`block text-xs mb-1.5 font-sans ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
-                Tavily Search API Key (Live Web)
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className={`text-xs font-sans ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
+                  Tavily Search API Key (Live Web)
+                </label>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={tavilyEnabled}
+                  onClick={() => setTavilyEnabled(!tavilyEnabled)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    tavilyEnabled
+                      ? isDark ? 'bg-[#CECDC4]' : 'bg-[#141414]'
+                      : isDark ? 'bg-[#262626]' : 'bg-[#CECDC4]'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full shadow ring-0 transition duration-200 ease-in-out ${
+                      tavilyEnabled
+                        ? `translate-x-4 ${isDark ? 'bg-[#141414]' : 'bg-[#F9F9F7]'}`
+                        : `translate-x-0 ${isDark ? 'bg-[#8E8E93]' : 'bg-white'}`
+                    }`}
+                  />
+                </button>
+              </div>
               <input
                 type="password"
                 value={tavilyKey}
                 onChange={(e) => setTavilyKey(e.target.value)}
                 placeholder="tvly-..."
-                className={`${inputClass} font-mono`}
+                disabled={!tavilyEnabled}
+                className={`${inputClass} font-mono ${!tavilyEnabled ? 'opacity-50' : ''}`}
               />
               <p className={`text-[11px] mt-1 font-sans ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>
                 Get a free key at <a href="https://app.tavily.com" target="_blank" rel="noreferrer" className="underline hover:opacity-80">app.tavily.com</a> (1,000 free searches/mo) for real-time live web browsing.
@@ -315,18 +341,40 @@ export function SettingsModal({
             </div>
 
             <div>
-              <label className={`block text-xs mb-1.5 font-sans ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
-                Exa Search API Key (Optional)
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className={`text-xs font-sans ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
+                  Exa Search API Key (Optional)
+                </label>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={exaEnabled}
+                  onClick={() => setExaEnabled(!exaEnabled)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    exaEnabled
+                      ? isDark ? 'bg-[#CECDC4]' : 'bg-[#141414]'
+                      : isDark ? 'bg-[#262626]' : 'bg-[#CECDC4]'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full shadow ring-0 transition duration-200 ease-in-out ${
+                      exaEnabled
+                        ? `translate-x-4 ${isDark ? 'bg-[#141414]' : 'bg-[#F9F9F7]'}`
+                        : `translate-x-0 ${isDark ? 'bg-[#8E8E93]' : 'bg-white'}`
+                    }`}
+                  />
+                </button>
+              </div>
               <input
                 type="password"
                 value={exaKey}
                 onChange={(e) => setExaKey(e.target.value)}
                 placeholder="Paste Exa key or leave blank for public tier..."
-                className={`${inputClass} font-mono`}
+                disabled={!exaEnabled}
+                className={`${inputClass} font-mono ${!exaEnabled ? 'opacity-50' : ''}`}
               />
               <p className={`text-[11px] mt-1 font-sans ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>
-                Get a free key at <a href="https://dashboard.exa.ai" target="_blank" rel="noreferrer" className="underline hover:opacity-80">dashboard.exa.ai</a> (1,000 free searches). Used for semantic and deep concept research.
+                Get a free key at <a href="https://dashboard.exa.ai" target="_blank" rel="noreferrer" className="underline hover:opacity-80">dashboard.exa.ai</a> (1,000 free searches). Runs in parallel with Tavily when both are active.
               </p>
             </div>
 

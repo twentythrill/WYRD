@@ -1,6 +1,6 @@
-# WYRD — Native Android AI Client (v1.5.8)
+# WYRD — Native Android AI Client (v1.6.0)
 
-WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo) with dual web search engines (Tavily AI for live web and Exa AI for semantic exploration), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (Whisper), and complete local session persistence.
+WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo) with parallel dual web search engines (Tavily AI for live web and Exa AI for semantic exploration), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (`gpt-4o-mini-transcribe`), and complete local session persistence.
 
 ---
 
@@ -13,6 +13,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
   - **Theme Selection**: Settings dropdown under **APPEARANCE** supporting **System** (tracks OS theme), **Light** (manual forced light mode), and **Dark** (manual AMOLED black).
   - **Adaptive Insets**: Edge-to-edge status and navigation bar icons invert dynamically for continuous contrast.
   - **Application Icon**: High-contrast dark variant icon (`app_icon.jpg`).
+  - **Custom Vector Iconography (`WyrdIcons`)**: Lightweight custom `ImageVector` set replacing `material-icons-extended`, paired with R8 code shrinking and resource shrinking (`isMinifyEnabled = true`, `isShrinkResources = true`).
 - **Typography & Brand Mark**:
   - Global variable Space Grotesk typography (`MaterialTheme`) with calibrated weights.
   - Home screen centered eye mark (30% opacity, auto-switching dark/light assets), personalized greeting ("Welcome Back, **[Name]**"), and `(◕‿◕)` kaomoji.
@@ -20,20 +21,20 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
     - Status bar and 3-button navigation bar are 100% transparent (`android.graphics.Color.TRANSPARENT`) with OS contrast enforcement disabled (`isStatusBarContrastEnforced = false`, `isNavigationBarContrastEnforced = false`), eliminating gray scrims.
     - **Top Subtle Gradient**: Multi-stop vertical gradient (~130dp) softly dissolving text scrolling behind the status bar and top bar without harsh solid black blocks.
     - **Bottom Subtle Gradient**: 230dp multi-stop vertical gradient dissolving text smoothly behind the floating capsule and through the transparent navigation bar, delivering pure seamless continuity.
-- **Markdown, Code Block & Tabular Layout Engine**:
+- **Markdown, Code Block & Tabular Layout Engine (`ReadingMarkdownParser`)**:
   - **Native Markdown Code Blocks (`CodeBlockCard`)**: Fenced code blocks (` ```lang ... ``` `) render inside dedicated, Warm Brutalist cards adhering to active theme tokens (`wyrdColors.surface`, `1.dp` border `wyrdColors.border`, `12.dp` rounded corners). Features:
     - **Header Bar**: Displays language title (`FontFamily.Monospace`, 11sp) on `wyrdColors.surfaceElevated` alongside a one-tap copy button with instant mechanical haptic feedback and a dynamic green checkmark (`AccentGreen`, "Copied") state.
     - **Natural Line Wrapping & Text Selection**: Monospace code body (`17sp`, `23sp` line height, matching body text) with natural soft line-wrapping, eliminating horizontal scrolling even for long code lines or minified tokens, and non-jumping text selection (`SelectionContainer` with `suppressBringIntoView()`).
     - **Audio & TTS Parity**: Preserves 1:1 character index offsets in `plainBuilder` and `annotatedBuilder`, allowing word-by-word reading highlight pills and tap-to-seek playback inside code blocks.
     - **Streaming Resilient**: Streams in real-time without layout jumps even while code blocks are unclosed mid-stream.
   - **Markdown Tables (`MarkdownTableCard`)**: Specialized parser rendering aligned, padded monospaced tabular grids with header separation, dynamic column formatting, and 1:1 character index parity in `plainBuilder` to ensure uninterrupted TTS word-by-word tracking.
-  - **Typography & Rich Elements**: Headers, blockquotes, ordered/unordered lists, bold/italic formatting, and clickable links.
-- **Zero-Shift Streaming Typography**: `StreamingAssistantMessageItem` and `AssistantMessageItem` share the exact same condensed 23sp line-height typographic pipeline, markdown preprocessing (`formatMarkdownForReading`), and padding layout. Eliminates intermediate spacing shifts, erratic vertical jumps, or layout snapping between streaming and finalized assistant turns.
+  - **Typography & Rich Elements**: Headers, blockquotes, ordered/unordered lists, bold/italic/strikethrough (`~~text~~`) formatting, and safe protocol-validated clickable `[label](url)` links.
+- **Zero-Shift Streaming Typography**: `StreamingAssistantMessageItem` and `AssistantMessageItem` share the exact same condensed 23sp line-height typographic pipeline, markdown preprocessing (`formatMarkdownForReading`), and padding layout. Scoped `ttsPlaybackState` passes non-null highlight state only to the active spoken message, preventing unnecessary recompositions across other bubbles in the list.
 - **Selection & Double-Tap Actions**:
   - Native long-press text selection with system copy handles across all messages, streaming content, and reasoning blocks. Powered by a no-op `BringIntoViewSpec` provided to `LazyColumn` (`LocalBringIntoViewSpec`) and non-consuming gesture timeouts, ensuring text selection is 100% rock-solid with zero jumping, viewport snapping, or scrolling behind the floating capsule anywhere in messages of any length.
   - Double-tapping any sent user bubble opens an action menu anchored precisely at the touch coordinates:
     - **Copy**: Copies the entire prompt text to the system clipboard in a single tap with instant haptic confirmation.
-    - **Edit**: Loads the prompt into the input field with autofocus, an "Editing prompt" cancel banner, and hardware back button support. Replaces subsequent conversation turns on submit.
+    - **Edit**: Loads the prompt and all its existing attachments back into the input field with autofocus, an "Editing prompt" cancel banner, and hardware back button support. Replaces subsequent conversation turns on submit while preserving kept attachments.
     - **Branch into a new chat**: Slices conversation history up to that turn into a new isolated session titled `"<Title> (Branch)"`.
     - **Redo**: Truncates following assistant responses and re-streams a fresh generation from the model.
 
@@ -63,22 +64,17 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
     - **Files**: Multi-document picker via `ActivityResultContracts.OpenMultipleDocuments()`.
     - **Camera**: Captures a full-resolution photo via `ActivityResultContracts.TakePicture()` using a secure private `FileProvider` URI.
   - Dismisses cleanly upon selecting items, re-tapping `✕`, tapping outside the menu, or pressing the hardware back button.
-- **Attachment Processing & Preview Bar**:
-  - **Images**: Automatically corrects EXIF orientation, downscales large photos to a maximum dimension of 1280px, compresses to 82% quality JPEG in private app storage, and encodes Base64 for fast streaming transmission.
+- **Attachment Processing & Preview Bar (`AttachmentHelper` & `PdfTextExtractor`)**:
+  - **Images**: Uses `ImageDecoder.setTargetSize` (API 28+) and two-pass subsampled `BitmapFactory.Options` to downscale large photos directly during decode to a maximum dimension of 1280px without full-resolution heap spikes, compresses to 82% quality JPEG in private app storage, and encodes Base64 on demand.
   - **Files**: Inspects MIME type and file extension; reads UTF-8 code and text documents (up to 80KB each) into contextual message memory.
-  - **PDF Documents**: Natively rasterizes PDF pages into high-resolution images via `android.graphics.pdf.PdfRenderer`, enabling native multimodal visual document inspection by Xiaomi MiMo 2.6.
+  - **PDF Documents**: Extracts embedded text from PDF streams and `/ToUnicode` CMaps via `PdfTextExtractor` for chats and Project Knowledge Base files, and also rasterizes PDF pages into high-resolution images via `android.graphics.pdf.PdfRenderer` when no selectable text is present.
   - **Attachments Preview Bar**: Horizontal scrolling bar directly above the input capsule showing thumbnail chips, filename, file size, individual `✕` remove buttons, and a "Clear All" action.
   - **Prompt Flexibility**: The send button activates if text is typed or any attachments are present, allowing one-tap visual questions.
 - **Multimodal Intelligence, Supabase Object Storage & Cloud Parity**:
   - **Dedicated Supabase Storage Bucket (`attachments`)**: When syncing messages to Supabase, local attachments are automatically uploaded to the public Supabase Object Storage bucket (`attachments/${userId}/${timestamp}_${fileName}`). Only the lightweight public URL is recorded in the PostgreSQL `messages` table, preventing database quota exhaustion and eliminating Base64 payload bloat.
-  - **Automatic Storage & Local Attachment Cleanup on Chat Deletion**: Whenever a chat is deleted locally or unpinned chats are wiped in bulk, all associated files in Supabase Storage (`attachments` bucket) and local private cache (`context.filesDir/attachments/`) are automatically pruned. Replaced/edited prompt turns also purge obsolete local attachments.
-  - **Proactive Orphan Cleaner**: Two-way synchronization (`syncAll`) cross-references all remote objects stored under the user's bucket prefix against active messages in Room SQLite and Supabase, proactively deleting any unreferenced or orphaned files.
-  - **Asynchronous Image Loading with Disk Cache**: `AttachmentImageView` asynchronously resolves both local files and remote Supabase Storage URLs on `Dispatchers.IO`, featuring an on-device MD5 disk cache in `context.cacheDir/image_cache/` for instant re-rendering without duplicate network requests.
+  - **Shared Attachment Protection**: Deleting conversations, wiping unpinned chats, or editing/redoing turns automatically cross-references remaining messages (`getAllAttachmentsJsons`) and project files so attachments shared across branched chats or retained in edited prompts are never deleted.
+  - **Asynchronous Image Loading with Memory & Disk Cache (`AttachmentImageLoader`)**: Asynchronously resolves local files, `data:image/...;base64,...` URIs, and remote Supabase Storage URLs on `Dispatchers.IO` using an in-memory `LruCache`, subsampled `BitmapFactory` decoding, and an on-device MD5 disk cache in `context.cacheDir/image_cache/`.
   - **Tap-to-Open Attachment Actions**: Tapping any image opens it in the system viewer via `FileProvider` or browser; tapping file attachments launches the appropriate document viewer.
-  - Attached code/text files are formatted with structured markdown code fences into the model prompt.
-  - Room database (`MessageEntity`) stores attachments as serialized JSON lists (`attachmentsJson`), which sync bidirectionally in real-time with Supabase and Desktop Web.
-  - User message bubbles render single full-width cards, two-column side-by-side grids, or horizontal galleries for 3+ images, along with brutalist file pills.
-  - Double-tap actions (**Edit**, **Branch**, **Redo**) retain all attachment metadata across forks and regenerated turns.
 
 ### 3. Speech Synthesis (TTS) & Highlighting
 - **Native Android Engine**: Built entirely on `android.speech.tts.TextToSpeech` with instant initialization, application-scoped lifecycle, and local offline voice priority.
@@ -89,144 +85,84 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
   - **Streaming Pause & Resume Stability**: Pausing during live token streaming immediately halts speech synthesis and locks the playback state (`isStreamingPaused`), buffering subsequent incoming tokens without auto-resuming playback. Playback stays paused until the user explicitly hits Resume or taps a word in the text.
 - **Continuous Background Playback**: Audio continues uninterrupted across app switches or device screen locks, stopping only upon explicit pause, tap-to-read, or chat navigation.
 - **Engine Provider & Voice Profile Selection**:
-  - Configurable under Settings -> **SPEECH SYNTHESIS (TTS)**.
-  - **TTS Engine Provider**: Dynamic selection between **System Default** (tracking device settings), **Samsung text-to-speech** (`com.samsung.SMT`), and **Google Speech Services** (`com.google.android.tts`). Persisted locally via Jetpack DataStore.
-  - **Voice Profile Customization**: Detects installed high-definition voices and surfaces intuitive, human-friendly voice names (e.g., `English (US) · Voice 2 (Male)`, `English (US) · Voice 1 (Female)`, `Italian · Voice 2 (Male)`). Filters out network duplicate latency and generic fallback tokens.
-  - **In-App Speech Preview**: Dedicated "Test Speech" control with instant **▶ Preview / ■ Stop** toggle button to audit tone, pitch, and engine timbre before chatting.
-  - **Samsung One UI Private Engine Compatibility**: Automatically adapts to One UI 6+ framework policies where `com.samsung.SMT` is marked as a private system-only engine, ensuring smooth fallback through public engines while applying the user's chosen voice profile.
-- **Intelligent Utterance Chunking**: Circumvents the Android TTS engine's strict 4,000-character single-utterance limit by segmenting long texts into semantic chunks ($\le 2,000$ characters) across paragraphs, line breaks, sentence endings, and word boundaries. First chunk flushes queue (`QUEUE_FLUSH`) while subsequent chunks chain smoothly (`QUEUE_ADD`), preserving continuous global word offset tracking and highlight synchronization across chunk boundaries.
-- **Word-by-Word Highlighting**: Tracks `onRangeStart` to invert each active spoken word to a high-contrast pill with 1:1 character index accuracy and zero font-metric alteration (preventing text layout shift).
-- **Upper-Third Reading Snapping**: Dynamically tracks speech position in the viewport, smoothly auto-scrolling to position the active spoken line at the upper third (~32%) of the screen whenever reading progresses below the comfortable reading zone, leaving the remaining 68% of subsequent text content exposed and readable.
-- **Tap-to-Seek Playback**: Tapping any word in an assistant bubble immediately jumps playback to that exact word with natural word-boundary snapping.
-- **Floating Play/Pause Controller**: 54dp floating button anchored above the input capsule. Plays the latest assistant response, or pauses and resumes playback at the current offset.
-- **Smart Bilingual Detection**:
-  - Comprehensive linguistic analysis across Italian (articles, prepositions, articulated prepositions, suffixes `-zione`, `-mente`, `-ità`) and English stopwords.
-  - In conversational STT mode, immediately passes the user prompt's detected language as a directional hint to `startStreaming()`, dynamically refining against cumulative incoming tokens (`fullTextSoFar`). Ensures Italian answers spoken right after an Italian voice query are consistently read using the Italian TTS engine from chunk 0.
+  - Configurable under Settings -> **SPEECH SYNTHESIS (TTS)** with **System Default**, **Samsung text-to-speech** (`com.samsung.SMT`), and **Google Speech Services** (`com.google.android.tts`).
+- **Intelligent Utterance Chunking**: Segments long texts into semantic chunks ($\le 2,000$ characters) across paragraphs, line breaks, sentence endings, and word boundaries.
+- **Word-by-Word Highlighting & Tap-to-Seek**: Tracks `onRangeStart` to invert each active spoken word to a high-contrast pill with 1:1 character index accuracy, upper-third viewport snapping, and tap-to-seek playback.
 
 ### 4. Speech-to-Text Pipeline (STT)
 - **Spring-Loaded Pull-to-Record**: Swiping right-to-left across the screen (~95dp threshold) features elastic spring resistance with progressive mechanical haptic ticks, collapsing the keyboard and opening the fullscreen STT screen.
 - **Interactive Recording Controls**:
-  - **Top Model & Thinking Selector**: Elevated brutalist capsule pill positioned directly above the central recording button with generous horizontal padding, allowing the user to seamlessly switch the active LLM model (`MiMo 2.6 Pro` vs `MiMo 2.6 Flash`) and toggle Thinking (on / off) mid-speaking before hitting send.
-  - **Center Glowing Button**: Stops recording, transcribes audio via OpenAI Whisper (`gpt-4o-mini-transcribe`), pastes into prompt, and immediately sends. Automatically engages conversational speech mode with instant real-time streaming TTS, speaking out loud as soon as the first tokens arrive with live word highlighting while the rest of the answer generates.
-  - **Stop Button**: Stops recording, transcribes audio, and pastes into the prompt for review without sending.
+  - **Top Model & Thinking Selector**: Elevated brutalist capsule pill positioned directly above the central recording button, allowing the user to switch the active LLM model (`MiMo 2.6 Pro` vs `MiMo 2.6 Flash`) and toggle Thinking (on / off) mid-speaking before hitting send.
+  - **Center Glowing Button**: Stops recording, transcribes audio via OpenAI **`gpt-4o-mini-transcribe`**, pastes into prompt, and immediately sends with conversational streaming TTS.
+  - **Stop Button**: Stops recording, transcribes audio via `gpt-4o-mini-transcribe`, and pastes into the prompt for review without sending.
   - **Cancel (✕) Button & Swipe Right**: Discards captured audio and collapses the overlay.
-  - **Tap Isolation**: Any tap outside the three action buttons is consumed as a no-op to prevent accidental cancellation.
 
 ### 5. Intelligence, Streaming & Tools
 - **Xiaomi MiMo Streaming**:
-  - Model selection: **Xiaomi MiMo 2.6 Flash** (`mimo-v2.6-flash`, high-speed multimodal reasoning) and **Xiaomi MiMo 2.6 Pro** (`mimo-v2.6-pro`, deep complex reasoning) with candidate fallback cascades.
-  - Dual-cluster auto-routing (Token Plan vs. Pay-As-You-Go) with optional custom base URL and dual-header (`Authorization` + `api-key`) authentication.
+  - Model selection: **Xiaomi MiMo 2.6 Flash** (`mimo-v2.6-flash`, high-speed multimodal reasoning) and **Xiaomi MiMo 2.6 Pro** (`mimo-v2.6-pro`, deep complex reasoning).
+  - Dual-cluster auto-routing (Token Plan vs. Pay-As-You-Go) with optional custom base URL and dual-header (`Authorization` + `api-key`) authentication; fails fast on HTTP 401/403 authentication errors.
   - **Official Thinking Parameter & On/Off Toggle**:
-    - Streamlined dropdown toggle switch for **Thinking** (enabled / disabled) without prompt injection overhead or artificial token budget constraints.
-    - When enabled: sends `"thinking": {"type": "enabled"}` along with `temperature: 1.0` (official Xiaomi MiMo specification) and a 32,768 completion token budget.
+    - When enabled: sends `"thinking": {"type": "enabled"}` along with `temperature: 1.0` and a 32,768 completion token budget.
     - When disabled: sends `"thinking": {"type": "disabled"}` along with `temperature: 0.7` and an 8,192 token allocation for instant direct answers.
-  - **Lifecycle Status Progression**: Explicit phase indicators: displays "Sending..." during initial request serialization and HTTP transmission, shows "Searching web with Exa..." when autonomous searches trigger, displays "Synthesizing answer..." while aggregating results, transitions seamlessly to the collapsible **"Thinking"** card with live pulse indicator during reasoning, and renders clean formatted markdown as final content streams.
-  - `ThinkAndToolParser`: High-precision streaming parser demuxing reasoning tags (`<think>`, `<thought>`, `<thinking>`) to reasoning memory, buffering tool call XML (`<tool_call>`, `<function_call>`, `<tool>`) without leaking tokens into visible text, and feeding clean assistant content to the UI.
-  - **Zero Reasoning / Tool Leaks**: Thinking tokens are strictly preserved inside the Room SQLite `reasoning` column and never promoted or leaked into user-facing `content`. Automated content sanitizers strip residual XML or think tags from saved records, preventing speech-to-text / TTS from speaking internal thoughts aloud.
-  - Automatic non-streaming fallback if SSE encounters packet drop.
-  - **Reading-First Flow**: Strictly avoids auto-scrolling during incoming answer streaming (tokens and reasoning) so user reading flow is never broken by jumping viewports. Auto-scroll is only triggered when the user explicitly submits a prompt or opens a chat.
+  - `ThinkAndToolParser`: High-precision streaming parser demuxing reasoning tags (`<think>`, `<thought>`, `<thinking>`) to reasoning memory and buffering tool call XML (`<tool_call>`, `<function_call>`, `<tool>`) without leaking tokens into visible text.
 - **Continuous Background Execution & Foreground Service**:
   - Powered by `WyrdBackgroundService`: an Android Foreground Service (`dataSync` type on Android 14+) with CPU partial `WakeLock` and an application-scoped coroutine supervisor (`applicationScope`).
-  - **Uninterrupted Multitasking**: When sending a prompt and navigating away to other apps (or locking the phone), the OS is prevented from freezing the process or severing SSE streaming sockets. Reasoning, Exa web search, and SQLite Room commits continue seamlessly in the background.
-  - **Notification Controls**: Displays a low-profile ongoing notification with real-time status ("Sending...", "Searching web with Exa...", "Thinking...", "Generating response...") and includes a quick "■ Stop" action button to halt generation from the notification shade. Tapping the notification brings WYRD back to the foreground.
-  - **Task Manager Cleanup**: Directly honors system lifecycle events—if the user swipes WYRD away from the Android Task Manager (Recents), `onTaskRemoved` immediately halts the streaming request, releases wake locks, and stops the service.
 - **Autonomous Unified Multi-Engine Web Search Grounding (`web_search`)**:
-  * **Unified Tool Interface (`web_search`)**: Exposes a clean, single `web_search` tool to the model, eliminating routing dilemmas and provider guessing.
-  * **Parallel Execution Engine**: When both Tavily and Exa are enabled, the pipeline executes both search engines concurrently in parallel via Kotlin coroutines (`async`), providing near-instant responses (~1.5s total latency) with both live factual web data (official sites, latest news via Tavily) and deep semantic community discussions (forums, employee sentiment, reviews via Exa).
-  * **Unified Multi-Engine Synthesis**: Results from both engines are structured into clean, distinct source sections (`### Live Web & Official Sources` and `### Community Discussions, Reviews & Semantic Results`), equipping the model with comprehensive facts and discussions on Round 1.
-  * **Independent Operation**: If only one engine is enabled, `web_search` automatically executes that engine.
-  * **Zero-Result Guards & Structured Snippets**: Both engines include verification constraints and structured source blocks (`Title`, `URL`, `Publication Date`, `Highlights / Content Snippets`) to prevent hallucination.
-  * **Multi-format Tool Extraction**: Supports standard JSON tool calls, XML parameter syntax (`<parameter=query>`), XML tag syntax (`<query>`), function calls, and bracket actions.
-  * Configurable under Settings -> **WEB SEARCH APIS** with encrypted Keystore storage (`SecureKeyStorage`) and toggle states (`PreferencesManager`).
-- **Contextual Grounding**: Injects current device date, time, and timezone into the LLM system prompt on every completion.
+  - **Unified Tool Interface (`web_search`)**: Exposes a single `web_search` tool to the model.
+  - **Parallel Execution Engine**: When both Tavily and Exa are enabled in Settings, the pipeline executes both search engines concurrently in parallel via Kotlin coroutines (`coroutineScope { async }`), combining live factual web data (Tavily) and deep semantic community discussions (Exa).
+  - **Fallback Resilience**: If only one engine is enabled, `web_search` executes that engine; if Tavily returns zero results or fails, it automatically falls back to Exa.
 - **Concise Auto-Naming**: Automatically summarizes conversations into punchy 3 to 4-word titles.
-- **Side Panel & History**: Material 3 navigation drawer featuring a dedicated top brand header (eye logo marker + "WYRD" title), quick actions (New Chat, Search Chats), Pin chat, Rename chat (modal dialog), and Delete chat.
-- **Tactile Haptics (`HapticManager`)**: Rate-limited micro-ticks during streaming token generation (`streamTokenTick`), dedicated post-generation completion snap (`completionSnap`) featuring an initial brief pause (~120ms) followed by an authoritative single hardware snap (`EFFECT_HEAVY_CLICK`) with zero rumbling modeled after the ChatGPT app, crisp tactile clicks for button presses and selections, spring tension ticks, and UI success confirmations.
 
 ### 6. Privacy & Data Storage
-- **Local Room SQLite**: On-device database for `chats` and `messages` (cascading deletes, indexed timestamps).
-- **Encrypted Storage**: Sensitive API keys stored in Keystore-backed `EncryptedSharedPreferences`; preferences stored in Jetpack DataStore.
-- **Zero Cloud Leak & Data Controls**: Android auto-backup disabled at the OS level (`android:allowBackup="false"`). Includes a dedicated "Delete Unpinned Chats" setting to purge all unpinned conversation history while safely preserving pinned chats, alongside a complete "Reset All App Data" option.
-- **Hierarchical Back Navigation**: Priority back order: Attachment Menu -> Prompt Editing -> STT Overlay -> Settings Dialog -> Settings Screen -> Drawer -> Exit.
+- **Local Room SQLite (v10)**: On-device database for `chats`, `messages`, `projects`, and `project_files` with canonical `8-4-4-4-12` UUID `syncId`s, `modelName` persistence, and 6 foreign-key/syncId indices (`MIGRATION_9_10`).
+- **Encrypted Storage**: Sensitive API keys stored in Keystore-backed `EncryptedSharedPreferences`, warmed up asynchronously on `Dispatchers.IO` off the main thread.
 
 ### 7. Cloud Synchronization (Supabase & Web Companion)
-- **Two-Way Real-Time Sync**:
-  - Direct integration with Supabase PostgREST and Auth APIs via lightweight, optimized `OkHttp` (`SupabaseSyncManager`).
-  - Synchronizes user `profiles` (`username` and `system_prompt`), `chats`, and `messages` between the Android app and the Desktop Web companion.
-  - Safe Room migration (`MIGRATION_5_6`, database version 6) adding unique `syncId` UUIDs across all existing and new chats and messages without data loss.
-  - **Conflict-Free Upsert & Deletion Propagation**: PostgREST endpoints ensure duplicate-free insertion and updating. Tracks previously synced chat IDs (`knownSyncedChatIds`) alongside an in-flight creation grace period so newly created chats streaming LLM responses are never prematurely deleted before their first remote push, eliminating foreign key race conditions.
-  - **Deterministic Message Truncation (Edit & Redo)**: When a message is edited or redone, all subsequent conversation turns are permanently deleted locally from Room SQLite (`deleteMessagesFrom` / `deleteMessagesAfter`) and remotely from Supabase (`deleteMessagesRemotely`) via message IDs and timestamp thresholds. Deleted message UUIDs are immediately registered in `deletedMessageSyncIds` to prevent subsequent sync passes from re-inserting them. Furthermore, local messages previously marked as synced that are no longer present in Supabase (e.g. truncated from the Web client) are automatically pruned from Room SQLite without re-uploading, eliminating resurrection loops across devices.
-  - **Two-Way Deletions**: Deleting individual chats or bulk-wiping unpinned conversations cleanly removes associated messages and threads across both Supabase and Room, updating tracked sync IDs.
-- **Continuous Lifecycle & Background Sync**:
-  - Automatic synchronization on app launch, whenever the user brings the app to the foreground (`onResume()`), whenever the user sends a prompt, and whenever an assistant generation completes.
-  - **Thread-Safe Concurrency Lock (`syncMutex`)**: Guarded by a non-blocking `Mutex.tryLock()` within `SupabaseSyncManager.syncAll()`. Overlapping sync triggers from UI events or the background ticker gracefully no-op while a sync pass is active, preventing duplicate database writes and SQLite transaction contention.
-  - Periodic 25-second background sync loop while the app is active, with active `isSyncing` state tracking, streaming down conversations created on the Web without requiring manual interaction.
-  - Manual on-demand **"Sync Now"** button with live progress indicator in Settings.
-- **Keystore-Backed Cloud Session with Auto-Refresh**:
-  - User session tokens (`access_token`, `refresh_token`, `user_id`, `user_email`) encrypted via Android Keystore (`SecureKeyStorage`).
-  - **Automatic JWT Token Refresh**: Proactively detects when 1-hour Supabase access tokens expire and silently renews them via Supabase Auth `refresh_token` without interrupting sync or user flow.
-  - Graceful session recovery: automatically clears revoked sessions and prompts clean re-authentication if credentials are permanently invalidated.
-  - Seamless Sign In / Sign Up dialog embedded natively in Settings under **CLOUD SYNC**.
+- **Two-Way Real-Time Sync (`SupabaseSyncManager`)**:
+  - Shares the application-wide `OkHttpClient` pool.
+  - Synchronizes all 4 `profiles` fields (`username`, `system_prompt`, `active_model`, `reasoning_effort`), `projects`, `project_files`, `chats` (including nullable `project_id`), and `messages` (including `model_name`).
+  - **Batched Message Pull & Push**: Pulls all remote messages in a single PostgREST `chat_id=in.(...)` query and batch-inserts unsynced local messages in a single POST request, eliminating $N+1$ HTTP round-trips.
+  - **Remote Deletion Reconciliation**: Reconciles remote deletions of projects, project files, chats, and messages against tracked synced IDs so deletions performed on Web immediately reflect on Android without re-uploading.
 
 ### 8. Projects & Knowledge Base Spaces
-- **Custom System Prompt Override**: Dedicated projects with custom instructions that strictly override the generic profile system prompt.
-- **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any project. The text is extracted client-side via `AttachmentHelper` and formatted into contextual knowledge base memory before prompt dispatch. Supports staging files during new project creation.
-- **Safe Storage Persistence**: Both local and remote project knowledge files are whitelisted in `cleanOrphanedStorageAttachments` to prevent active project documents from ever being deleted during sync cleanups.
-- **Strict Context Scoping**: System prompt overrides and knowledge documents only apply to conversations belonging to that project, preventing leakage into generic chats.
-- **Collapsible Folder Organization & Action Buttons**: The navigation drawer features a clean collapsible `PROJECTS` section with nested chat threads, an uncontained `+` icon on the PROJECTS header, and borderless/shadowless wide `[ + ]` pill buttons (`#202020` in dark mode, `#E0DFDA` in light mode, 48dp x 30dp) for one-tap new chat creation in project rows, with long-press settings dropdown. Tapping the project header toggles expansion cleanly without duplicate child rows.
-- **Custom Project Colors & Palettes**: 9-color curated warm brutalist palette (Default Bone White, Orange, Amber, Emerald, Cyan, Electric Blue, Purple, Pink, Crimson Red) with swatches in the project dialog. Project colors dynamically tint folder icons in the drawer and top navigation bar breadcrumbs.
-- **TopBar & Greeting Breadcrumbs**: Subtle folder indicator in the top bar displaying the active project name, and an intuitive "Drafting in [Project]" badge on new chat greetings.
-- **Room SQLite Migration (v9)**: Database version 9 with `MIGRATION_8_9` adding `color TEXT NOT NULL DEFAULT ''` to `projects`, plus composite performance indices on `chats(projectId)` and `chats(projectSyncId)`.
-- **Bidirectional Cloud Sync**: Full two-way sync with Supabase tables `projects` (including project `color`), `project_files`, and `chats.project_id`, complete with automatic foreign key backfilling.
+- **Custom System Prompt Override & Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any project. Text is extracted client-side via `AttachmentHelper` and `PdfTextExtractor` and injected into contextual knowledge base memory.
+- **Custom Project Colors & Palettes**: 9-color curated warm brutalist palette with two-way Supabase sync.
 
 ---
 
 ## Directory Structure
 
 ```text
-WYRD/
+WYRD/android/
 ├── README.md
 ├── build.gradle.kts
 ├── settings.gradle.kts
 ├── gradle.properties
-├── local.properties
-├── gradlew
-├── gradlew.bat
-├── gradle/wrapper/
-├── Assets/
-│   ├── app_icon.jpg
-│   ├── app_icon_trans.png
-│   ├── app_icon_trans_black.png
-│   └── tts_icon.png
-├── Mockups/
-│   ├── homescreen_1.jpg
-│   ├── homescreen_2.jpg
-│   └── chat_bubble.jpg
 └── app/
     ├── build.gradle.kts
+    ├── proguard-rules.pro
     └── src/main/
         ├── AndroidManifest.xml
         ├── res/
-        │   ├── drawable-nodpi/     # app_icon.jpg, app_logo.png, app_icon_trans_black.png, splash_logo.png, ic_soundwave.png
-        │   ├── font/               # space_grotesk.ttf
-        │   └── values/             # strings.xml, themes.xml
         └── java/com/wyrd/app/
-            ├── WyrdApp.kt          # Application initialization & native TTS warmup
-            ├── MainActivity.kt     # Single Activity hosting edge-to-edge Compose navigation & theme provider
+            ├── WyrdApp.kt                  # Application initialization, shared OkHttpClient & async Keystore warmup
+            ├── MainActivity.kt             # Single Activity hosting edge-to-edge Compose navigation & theme provider
             ├── service/
-            │   └── WyrdBackgroundService.kt # Foreground service for background LLM streaming & task manager lifecycle
+            │   └── WyrdBackgroundService.kt # Foreground service for background LLM streaming
             ├── data/
-            │   ├── local/          # Room AppDatabase, ChatEntity, MessageEntity, DAOs
-            │   ├── preferences/    # PreferencesManager (DataStore with AppTheme) & SecureKeyStorage (Keystore)
-            │   ├── network/        # XiaomiMimoService (SSE), ExaSearchService (MCP), OpenAiSttService
-            │   └── tts/            # NativeTtsManager (Android TextToSpeech & word-range callbacks)
+            │   ├── local/                  # Room AppDatabase (v10), ChatEntity, MessageEntity, ProjectEntity, ProjectFileEntity, DAOs
+            │   ├── preferences/            # PreferencesManager (DataStore) & SecureKeyStorage (Keystore)
+            │   ├── network/                # XiaomiMimoService, TavilySearchService, ExaSearchService, OpenAiSttService, SupabaseSyncManager
+            │   └── tts/                    # NativeTtsManager
             ├── util/
-            │   └── HapticManager.kt # Tactile vibration engine (typewriter ticks, clicks, success)
+            │   ├── AttachmentHelper.kt     # Subsampled image compression, file & PDF processing
+            │   ├── PdfTextExtractor.kt     # Pure-Kotlin PDF stream & CMap text extractor
+            │   └── HapticManager.kt        # Tactile vibration engine
             └── ui/
                 ├── MainViewModel.kt
-                ├── theme/          # Color (WyrdColors), Type (Space Grotesk), Theme (WyrdTheme)
-                ├── components/     # TopBar, ChatInputBubble, AttachmentPopupMenu, BigSttOverlay, SpringLoadedPullToRecord, MessageItem, DrawerContent
-                └── screens/        # HomeScreen, SettingsScreen
+                ├── theme/                  # Color, Type, Theme, WyrdIcons
+                ├── components/             # TopBar, ChatInputBubble, AttachmentPopupMenu, AttachmentImageLoader, BigSttOverlay, SpringLoadedPullToRecord, MessageItem, ProjectDialog, ReadingMarkdownParser, DrawerContent
+                └── screens/                # HomeScreen, SettingsScreen
 ```
 
 ---
@@ -234,10 +170,11 @@ WYRD/
 ## Build & Run
 
 ```bash
-./gradlew assembleDebug
+./gradlew assembleDebug assembleRelease lintDebug
 ```
 
-Output artifact:
+Output artifacts:
 ```text
 app/build/outputs/apk/debug/app-debug.apk
+app/build/outputs/apk/release/app-release-unsigned.apk
 ```

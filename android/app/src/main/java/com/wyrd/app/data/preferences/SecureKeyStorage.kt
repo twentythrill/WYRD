@@ -199,6 +199,34 @@ class SecureKeyStorage(context: Context) {
         }
     }
 
+    fun getKnownSyncedMessageIds(): Set<String> {
+        return sharedPreferences.getStringSet(KEY_SYNCED_MESSAGE_IDS, emptySet())?.toSet() ?: emptySet()
+    }
+
+    fun setKnownSyncedMessageIds(ids: Set<String>) {
+        sharedPreferences.edit().putStringSet(KEY_SYNCED_MESSAGE_IDS, HashSet(ids)).apply()
+    }
+
+    fun getPendingDeletedMessageIds(): Set<String> {
+        return sharedPreferences.getStringSet(KEY_PENDING_DELETED_MESSAGE_IDS, emptySet())?.toSet() ?: emptySet()
+    }
+
+    fun setPendingDeletedMessageIds(ids: Set<String>) {
+        sharedPreferences.edit().putStringSet(KEY_PENDING_DELETED_MESSAGE_IDS, HashSet(ids)).apply()
+    }
+
+    fun addPendingDeletedMessageIds(ids: Collection<String>) {
+        if (ids.isEmpty()) return
+        val current = getPendingDeletedMessageIds().toMutableSet()
+        if (current.addAll(ids)) {
+            setPendingDeletedMessageIds(current)
+        }
+        val synced = getKnownSyncedMessageIds().toMutableSet()
+        if (synced.removeAll(ids.toSet())) {
+            setKnownSyncedMessageIds(synced)
+        }
+    }
+
     fun clearSupabaseAuth() {
         sharedPreferences.edit()
             .remove(KEY_SUPABASE_ACCESS_TOKEN)
@@ -206,9 +234,11 @@ class SecureKeyStorage(context: Context) {
             .remove(KEY_SUPABASE_USER_EMAIL)
             .remove(KEY_SUPABASE_USER_ID)
             .remove(KEY_SYNCED_CHAT_IDS)
+            .remove(KEY_SYNCED_MESSAGE_IDS)
             .remove(KEY_SYNCED_PROJECT_IDS)
             .remove(KEY_SYNCED_PROJECT_FILE_IDS)
             .remove(KEY_PENDING_DELETED_CHAT_IDS)
+            .remove(KEY_PENDING_DELETED_MESSAGE_IDS)
             .remove(KEY_PENDING_DELETED_PROJECT_IDS)
             .apply()
     }
@@ -223,10 +253,13 @@ class SecureKeyStorage(context: Context) {
         private const val KEY_SUPABASE_USER_EMAIL = "supabase_user_email"
         private const val KEY_SUPABASE_USER_ID = "supabase_user_id"
         private const val KEY_SYNCED_CHAT_IDS = "supabase_synced_chat_ids"
+        private const val KEY_SYNCED_MESSAGE_IDS = "supabase_synced_message_ids"
         private const val KEY_SYNCED_PROJECT_IDS = "supabase_synced_project_ids"
         private const val KEY_SYNCED_PROJECT_FILE_IDS = "supabase_synced_project_file_ids"
         private const val KEY_PENDING_DELETED_CHAT_IDS = "supabase_pending_deleted_chat_ids"
+        private const val KEY_PENDING_DELETED_MESSAGE_IDS = "supabase_pending_deleted_message_ids"
         private const val KEY_PENDING_DELETED_PROJECT_IDS = "supabase_pending_deleted_project_ids"
     }
 }
+
 

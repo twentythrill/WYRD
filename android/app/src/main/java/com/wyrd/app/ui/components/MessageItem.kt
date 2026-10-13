@@ -44,14 +44,13 @@ import androidx.compose.foundation.relocation.bringIntoViewResponder
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,37 +66,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.heightIn
 import com.wyrd.app.data.local.MessageEntity
 import com.wyrd.app.data.tts.NativeTtsManager
 import com.wyrd.app.data.tts.TtsPlaybackState
-import com.wyrd.app.ui.theme.AccentRed
 import com.wyrd.app.ui.theme.AccentGreen
-import com.wyrd.app.ui.theme.Black
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.material.icons.automirrored.filled.CallSplit
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.unit.IntOffset
-import kotlin.math.roundToInt
-import kotlinx.coroutines.delay
 import com.wyrd.app.ui.theme.DarkBorder
 import com.wyrd.app.ui.theme.DarkCard
 import com.wyrd.app.ui.theme.DarkSurfaceElevated
@@ -107,139 +97,10 @@ import com.wyrd.app.ui.theme.TextGray
 import com.wyrd.app.ui.theme.TextMuted
 import com.wyrd.app.ui.theme.TextWhite
 import com.wyrd.app.ui.theme.White
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.runtime.produceState
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.style.TextAlign
-import android.content.Intent
-import android.graphics.BitmapFactory
-import android.net.Uri
-import android.util.Log
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.io.File
-import java.security.MessageDigest
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.wyrd.app.ui.theme.WyrdIcons
 import com.wyrd.app.util.AttachmentHelper
-
-private val imageOkHttpClient by lazy {
-    OkHttpClient.Builder()
-        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-        .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
-        .build()
-}
-
-fun openAttachmentUri(context: android.content.Context, uri: String, isImage: Boolean = true) {
-    try {
-        if (uri.startsWith("http://") || uri.startsWith("https://")) {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
-            context.startActivity(intent)
-        } else {
-            val file = File(uri)
-            if (file.exists()) {
-                val contentUri = androidx.core.content.FileProvider.getUriForFile(
-                    context,
-                    "${context.packageName}.fileprovider",
-                    file
-                )
-                val type = if (isImage) "image/*" else (context.contentResolver.getType(contentUri) ?: "*/*")
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(contentUri, type)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                context.startActivity(intent)
-            }
-        }
-    } catch (e: Exception) {
-        Log.w("MessageItem", "Could not open attachment: $uri", e)
-    }
-}
-
-@Composable
-fun AttachmentImageView(
-    uri: String,
-    contentDescription: String?,
-    modifier: Modifier = Modifier,
-    contentScale: ContentScale = ContentScale.Crop
-) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val bitmapState = produceState<ImageBitmap?>(initialValue = null, key1 = uri) {
-        withContext(Dispatchers.IO) {
-            if (uri.startsWith("http://") || uri.startsWith("https://")) {
-                val safeHash = try {
-                    val md = MessageDigest.getInstance("MD5")
-                    md.digest(uri.toByteArray()).joinToString("") { "%02x".format(it) }
-                } catch (_: Exception) {
-                    uri.hashCode().toString()
-                }
-                val cacheDir = File(context.cacheDir, "image_cache").apply { mkdirs() }
-                val cachedFile = File(cacheDir, safeHash)
-                if (cachedFile.exists() && cachedFile.length() > 0) {
-                    val bm = BitmapFactory.decodeFile(cachedFile.absolutePath)
-                    if (bm != null) {
-                        value = bm.asImageBitmap()
-                        return@withContext
-                    }
-                }
-                try {
-                    val req = Request.Builder().url(uri).build()
-                    imageOkHttpClient.newCall(req).execute().use { resp ->
-                        if (resp.isSuccessful) {
-                            val bytes = resp.body?.bytes()
-                            if (bytes != null && bytes.isNotEmpty()) {
-                                try { cachedFile.writeBytes(bytes) } catch (_: Exception) {}
-                                val bm = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                if (bm != null) {
-                                    value = bm.asImageBitmap()
-                                }
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.w("AttachmentImageView", "Failed to load image from URL: $uri", e)
-                }
-            } else {
-                try {
-                    val file = File(uri)
-                    if (file.exists()) {
-                        val bm = BitmapFactory.decodeFile(file.absolutePath)
-                        if (bm != null) {
-                            value = bm.asImageBitmap()
-                        }
-                    }
-                } catch (_: Exception) {}
-            }
-        }
-    }
-
-    val bm = bitmapState.value
-    if (bm != null) {
-        Image(
-            bitmap = bm,
-            contentDescription = contentDescription,
-            contentScale = contentScale,
-            modifier = modifier
-        )
-    } else {
-        Box(
-            modifier = modifier.background(DarkSurfaceElevated),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                strokeWidth = 2.dp,
-                color = LocalWyrdColors.current.textSecondary
-            )
-        }
-    }
-}
+import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 
 @Composable
 fun UserMessageBubble(
@@ -385,7 +246,7 @@ fun UserMessageBubble(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Outlined.Description,
+                                        imageVector = WyrdIcons.DescriptionOutlined,
                                         contentDescription = null,
                                         tint = TextWhite,
                                         modifier = Modifier.size(20.dp)
@@ -464,7 +325,7 @@ fun UserMessageBubble(
                         text = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = Icons.Outlined.ContentCopy,
+                                    imageVector = WyrdIcons.ContentCopy,
                                     contentDescription = null,
                                     tint = TextWhite,
                                     modifier = Modifier.size(16.dp)
@@ -512,7 +373,7 @@ fun UserMessageBubble(
                         text = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.CallSplit,
+                                    imageVector = WyrdIcons.CallSplit,
                                     contentDescription = null,
                                     tint = TextWhite,
                                     modifier = Modifier.size(16.dp)
@@ -562,17 +423,6 @@ fun UserMessageBubble(
 }
 
 @Composable
-fun UserMessageBubble(
-    content: String,
-    modifier: Modifier = Modifier
-) {
-    UserMessageBubble(
-        message = MessageEntity(chatId = 0, role = "user", content = content),
-        modifier = modifier
-    )
-}
-
-@Composable
 fun ReasoningBlock(
     reasoning: String,
     isStreaming: Boolean = false,
@@ -608,7 +458,7 @@ fun ReasoningBlock(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Default.Lightbulb,
+                    imageVector = WyrdIcons.Lightbulb,
                     contentDescription = null,
                     tint = if (isStreaming) White else TextGray,
                     modifier = Modifier.size(15.dp)
@@ -673,572 +523,6 @@ fun ReasoningBlock(
             }
         }
     }
-}
-
-enum class TableColumnAlignment {
-    LEFT, CENTER, RIGHT
-}
-
-data class MarkdownTableCell(
-    val rawText: String,
-    val annotatedText: AnnotatedString,
-    val plainText: String,
-    val startOffset: Int,
-    val endOffset: Int
-)
-
-data class MarkdownTableRow(
-    val cells: List<MarkdownTableCell>
-)
-
-data class MarkdownCodeData(
-    val language: String,
-    val rawCode: String,
-    val startOffset: Int,
-    val endOffset: Int
-)
-
-data class MarkdownTableData(
-    val headers: List<MarkdownTableCell>,
-    val alignments: List<TableColumnAlignment>,
-    val rows: List<MarkdownTableRow>,
-    val plainText: String,
-    val startOffset: Int,
-    val endOffset: Int
-)
-
-sealed class MessageContentBlock {
-    data class Text(
-        val formatted: FormattedReadingContent,
-        val startOffset: Int
-    ) : MessageContentBlock()
-
-    data class Table(
-        val table: MarkdownTableData,
-        val startOffset: Int
-    ) : MessageContentBlock()
-
-    data class Code(
-        val code: MarkdownCodeData,
-        val startOffset: Int
-    ) : MessageContentBlock()
-}
-
-data class FormattedReadingContent(
-    val plainText: String,
-    val baseAnnotatedString: AnnotatedString,
-    val blocks: List<MessageContentBlock> = emptyList()
-)
-
-private fun parseTableCells(line: String): List<String> {
-    var trimmed = line.trim()
-    if (trimmed.startsWith("|")) trimmed = trimmed.substring(1)
-    if (trimmed.endsWith("|")) trimmed = trimmed.substring(0, trimmed.length - 1)
-    return trimmed.split("|").map { it.trim() }
-}
-
-private fun isTableSeparator(line: String): Boolean {
-    val trimmed = line.trim()
-    if (!trimmed.contains("-") || !trimmed.contains("|")) return false
-    val cells = parseTableCells(trimmed)
-    if (cells.isEmpty()) return false
-    return cells.all { cell ->
-        val c = cell.trim()
-        c.isNotEmpty() && c.matches(Regex("^:?-+:?$"))
-    }
-}
-
-private fun parseTableAlignments(line: String): List<TableColumnAlignment> {
-    val cells = parseTableCells(line)
-    return cells.map { cell ->
-        val trimmed = cell.trim()
-        val startsWithColon = trimmed.startsWith(":")
-        val endsWithColon = trimmed.endsWith(":")
-        when {
-            startsWithColon && endsWithColon -> TableColumnAlignment.CENTER
-            endsWithColon -> TableColumnAlignment.RIGHT
-            else -> TableColumnAlignment.LEFT
-        }
-    }
-}
-
-private fun appendInlineFormatted(
-    builder: AnnotatedString.Builder,
-    plainBuilder: StringBuilder,
-    text: String,
-    boldColor: Color = Color(0xFFCECDC4),
-    italicColor: Color = boldColor,
-    inlineCodeBg: Color = Color(0xFF222222),
-    inlineCodeColor: Color = Color(0xFFCECDC4)
-) {
-    var cursor = 0
-    val len = text.length
-
-    while (cursor < len) {
-        // Inline code: `code`
-        if (text[cursor] == '`') {
-            val end = text.indexOf('`', cursor + 1)
-            if (end != -1) {
-                val code = text.substring(cursor + 1, end)
-                builder.pushStyle(
-                    SpanStyle(
-                        fontFamily = FontFamily.Monospace,
-                        background = inlineCodeBg,
-                        color = inlineCodeColor,
-                        fontSize = 15.sp
-                    )
-                )
-                builder.append(code)
-                builder.pop()
-                plainBuilder.append(code)
-                cursor = end + 1
-                continue
-            }
-        }
-
-        // Bold: **text** or __text__
-        if (cursor + 1 < len && ((text[cursor] == '*' && text[cursor + 1] == '*') || (text[cursor] == '_' && text[cursor + 1] == '_'))) {
-            val marker = text.substring(cursor, cursor + 2)
-            val end = text.indexOf(marker, cursor + 2)
-            if (end != -1) {
-                val boldText = text.substring(cursor + 2, end)
-                builder.pushStyle(
-                    SpanStyle(
-                        fontWeight = FontWeight.Bold,
-                        color = boldColor
-                    )
-                )
-                appendInlineFormatted(
-                    builder = builder,
-                    plainBuilder = plainBuilder,
-                    text = boldText,
-                    boldColor = boldColor,
-                    italicColor = italicColor,
-                    inlineCodeBg = inlineCodeBg,
-                    inlineCodeColor = inlineCodeColor
-                )
-                builder.pop()
-                cursor = end + 2
-                continue
-            }
-        }
-
-        // Italic: *text* or _text_
-        if ((text[cursor] == '*' || text[cursor] == '_') && cursor + 1 < len && text[cursor + 1] != ' ' && text[cursor + 1] != text[cursor]) {
-            val marker = text[cursor]
-            val end = text.indexOf(marker, cursor + 1)
-            if (end != -1 && end > cursor + 1) {
-                val italicText = text.substring(cursor + 1, end)
-                builder.pushStyle(
-                    SpanStyle(
-                        fontStyle = FontStyle.Italic,
-                        color = italicColor
-                    )
-                )
-                appendInlineFormatted(
-                    builder = builder,
-                    plainBuilder = plainBuilder,
-                    text = italicText,
-                    boldColor = boldColor,
-                    italicColor = italicColor,
-                    inlineCodeBg = inlineCodeBg,
-                    inlineCodeColor = inlineCodeColor
-                )
-                builder.pop()
-                cursor = end + 1
-                continue
-            }
-        }
-
-        // Normal character
-        builder.append(text[cursor])
-        plainBuilder.append(text[cursor])
-        cursor++
-    }
-}
-
-private fun formatCellContent(
-    text: String,
-    boldColor: Color,
-    italicColor: Color,
-    inlineCodeBg: Color,
-    inlineCodeColor: Color
-): Pair<AnnotatedString, String> {
-    val builder = AnnotatedString.Builder()
-    val plainBuilder = StringBuilder()
-    appendInlineFormatted(
-        builder = builder,
-        plainBuilder = plainBuilder,
-        text = text.trim(),
-        boldColor = boldColor,
-        italicColor = italicColor,
-        inlineCodeBg = inlineCodeBg,
-        inlineCodeColor = inlineCodeColor
-    )
-    return Pair(builder.toAnnotatedString(), plainBuilder.toString())
-}
-
-private fun formatTextSegment(
-    lines: List<String>,
-    textColor: Color,
-    headerColor: Color,
-    inlineCodeBg: Color,
-    inlineCodeColor: Color,
-    boldColor: Color,
-    italicColor: Color,
-    quoteColor: Color,
-    bulletColor: Color
-): FormattedReadingContent {
-    val builder = AnnotatedString.Builder()
-    val plainBuilder = StringBuilder()
-    var inCodeBlock = false
-    var lineIndex = 0
-
-    while (lineIndex < lines.size) {
-        val line = lines[lineIndex]
-        val trimmed = line.trim()
-
-        if (trimmed.startsWith("```")) {
-            inCodeBlock = !inCodeBlock
-            lineIndex++
-            continue
-        }
-
-        if (inCodeBlock) {
-            builder.pushStyle(
-                SpanStyle(
-                    fontFamily = FontFamily.Monospace,
-                    background = inlineCodeBg,
-                    color = inlineCodeColor,
-                    fontSize = 14.sp
-                )
-            )
-            builder.append(line)
-            builder.pop()
-            plainBuilder.append(line)
-            if (lineIndex < lines.size - 1) {
-                builder.append("\n")
-                plainBuilder.append("\n")
-            }
-            lineIndex++
-            continue
-        }
-
-        // Headers
-        if (trimmed.startsWith("#")) {
-            val level = trimmed.takeWhile { it == '#' }.length
-            if (level in 1..6 && trimmed.length > level && trimmed[level] == ' ') {
-                val headerContent = trimmed.drop(level + 1).trim()
-                val fontSize = when (level) {
-                    1 -> 22.sp
-                    2 -> 20.sp
-                    else -> 18.sp
-                }
-                builder.pushStyle(
-                    SpanStyle(
-                        fontSize = fontSize,
-                        fontWeight = FontWeight.Bold,
-                        color = headerColor
-                    )
-                )
-                appendInlineFormatted(
-                    builder = builder,
-                    plainBuilder = plainBuilder,
-                    text = headerContent,
-                    boldColor = boldColor,
-                    italicColor = italicColor,
-                    inlineCodeBg = inlineCodeBg,
-                    inlineCodeColor = inlineCodeColor
-                )
-                builder.pop()
-                if (lineIndex < lines.size - 1) {
-                    builder.append("\n")
-                    plainBuilder.append("\n")
-                }
-                lineIndex++
-                continue
-            }
-        }
-
-        // Blockquotes
-        if (trimmed.startsWith(">")) {
-            val quoteContent = trimmed.removePrefix(">").trim()
-            builder.pushStyle(
-                SpanStyle(
-                    fontStyle = FontStyle.Italic,
-                    color = quoteColor
-                )
-            )
-            appendInlineFormatted(
-                builder = builder,
-                plainBuilder = plainBuilder,
-                text = quoteContent,
-                boldColor = boldColor,
-                italicColor = italicColor,
-                inlineCodeBg = inlineCodeBg,
-                inlineCodeColor = inlineCodeColor
-            )
-            builder.pop()
-            if (lineIndex < lines.size - 1) {
-                builder.append("\n")
-                plainBuilder.append("\n")
-            }
-            lineIndex++
-            continue
-        }
-
-        // Unordered List
-        if ((trimmed.startsWith("- ") || trimmed.startsWith("* ")) && trimmed.length > 2) {
-            val itemContent = trimmed.drop(2).trim()
-            builder.pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = bulletColor))
-            builder.append("• ")
-            builder.pop()
-            plainBuilder.append("• ")
-            appendInlineFormatted(
-                builder = builder,
-                plainBuilder = plainBuilder,
-                text = itemContent,
-                boldColor = boldColor,
-                italicColor = italicColor,
-                inlineCodeBg = inlineCodeBg,
-                inlineCodeColor = inlineCodeColor
-            )
-            if (lineIndex < lines.size - 1) {
-                builder.append("\n")
-                plainBuilder.append("\n")
-            }
-            lineIndex++
-            continue
-        }
-
-        // Ordered List
-        val numMatch = Regex("^(\\d+)\\.\\s+(.*)$").matchEntire(trimmed)
-        if (numMatch != null) {
-            val num = numMatch.groupValues[1]
-            val itemContent = numMatch.groupValues[2].trim()
-            builder.pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = bulletColor))
-            builder.append("$num. ")
-            builder.pop()
-            plainBuilder.append("$num. ")
-            appendInlineFormatted(
-                builder = builder,
-                plainBuilder = plainBuilder,
-                text = itemContent,
-                boldColor = boldColor,
-                italicColor = italicColor,
-                inlineCodeBg = inlineCodeBg,
-                inlineCodeColor = inlineCodeColor
-            )
-            if (lineIndex < lines.size - 1) {
-                builder.append("\n")
-                plainBuilder.append("\n")
-            }
-            lineIndex++
-            continue
-        }
-
-        if (trimmed.isEmpty()) {
-            if (lineIndex < lines.size - 1) {
-                builder.append("\n")
-                plainBuilder.append("\n")
-            }
-            lineIndex++
-            continue
-        }
-
-        // Normal paragraph text
-        appendInlineFormatted(
-            builder = builder,
-            plainBuilder = plainBuilder,
-            text = line,
-            boldColor = boldColor,
-            italicColor = italicColor,
-            inlineCodeBg = inlineCodeBg,
-            inlineCodeColor = inlineCodeColor
-        )
-        if (lineIndex < lines.size - 1) {
-            builder.append("\n")
-            plainBuilder.append("\n")
-        }
-        lineIndex++
-    }
-
-    return FormattedReadingContent(
-        plainText = plainBuilder.toString(),
-        baseAnnotatedString = builder.toAnnotatedString()
-    )
-}
-
-fun formatMarkdownForReading(
-    markdown: String,
-    textColor: Color = Color(0xFFCECDC4),
-    headerColor: Color = Color(0xFFCECDC4),
-    inlineCodeBg: Color = Color(0xFF222222),
-    inlineCodeColor: Color = textColor,
-    boldColor: Color = headerColor,
-    italicColor: Color = textColor,
-    quoteColor: Color = textColor.copy(alpha = 0.75f),
-    bulletColor: Color = textColor.copy(alpha = 0.65f)
-): FormattedReadingContent {
-    val lines = markdown.split("\n")
-    val blocks = mutableListOf<MessageContentBlock>()
-    val overallPlainBuilder = StringBuilder()
-    val overallAnnotatedBuilder = AnnotatedString.Builder()
-
-    val currentTextLines = mutableListOf<String>()
-    var lineIndex = 0
-
-    fun flushCurrentText() {
-        if (currentTextLines.isEmpty()) return
-        val textStartOffset = overallPlainBuilder.length
-        val textContent = formatTextSegment(
-            lines = currentTextLines,
-            textColor = textColor,
-            headerColor = headerColor,
-            inlineCodeBg = inlineCodeBg,
-            inlineCodeColor = inlineCodeColor,
-            boldColor = boldColor,
-            italicColor = italicColor,
-            quoteColor = quoteColor,
-            bulletColor = bulletColor
-        )
-        if (textContent.plainText.isNotEmpty() || textContent.baseAnnotatedString.isNotEmpty()) {
-            overallPlainBuilder.append(textContent.plainText)
-            overallAnnotatedBuilder.append(textContent.baseAnnotatedString)
-            blocks.add(MessageContentBlock.Text(textContent, textStartOffset))
-        }
-        currentTextLines.clear()
-    }
-
-    while (lineIndex < lines.size) {
-        val line = lines[lineIndex]
-        val trimmed = line.trim()
-
-        // Check if this line starts a code block
-        if (trimmed.startsWith("```")) {
-            flushCurrentText()
-
-            if (overallPlainBuilder.isNotEmpty() && !overallPlainBuilder.endsWith("\n")) {
-                overallPlainBuilder.append("\n")
-                overallAnnotatedBuilder.append("\n")
-            }
-
-            val codeStartOffset = overallPlainBuilder.length
-            val lang = trimmed.removePrefix("```").trim()
-            lineIndex++ // skip opening fence
-
-            val codeLines = mutableListOf<String>()
-            while (lineIndex < lines.size) {
-                val nextLine = lines[lineIndex]
-                if (nextLine.trim().startsWith("```")) {
-                    lineIndex++ // skip closing fence
-                    break
-                }
-                codeLines.add(nextLine)
-                lineIndex++
-            }
-
-            val rawCode = codeLines.joinToString("\n")
-            overallPlainBuilder.append(rawCode)
-            overallAnnotatedBuilder.append(rawCode)
-            val codeEndOffset = overallPlainBuilder.length
-
-            val codeData = MarkdownCodeData(
-                language = lang,
-                rawCode = rawCode,
-                startOffset = codeStartOffset,
-                endOffset = codeEndOffset
-            )
-            blocks.add(MessageContentBlock.Code(codeData, codeStartOffset))
-
-            if (lineIndex < lines.size) {
-                if (!overallPlainBuilder.endsWith("\n\n")) overallPlainBuilder.append("\n")
-                if (!overallAnnotatedBuilder.toAnnotatedString().text.endsWith("\n\n")) overallAnnotatedBuilder.append("\n")
-            }
-            continue
-        }
-
-        // Check if this line starts a table
-        if (trimmed.contains("|") && lineIndex + 1 < lines.size && isTableSeparator(lines[lineIndex + 1])) {
-            flushCurrentText()
-
-            val tableStartOffset = overallPlainBuilder.length
-            val headerCellsRaw = parseTableCells(line)
-            val sepLine = lines[lineIndex + 1]
-            val alignments = parseTableAlignments(sepLine)
-            lineIndex += 2 // skip header and separator lines
-
-            val dataRowsRaw = mutableListOf<List<String>>()
-            while (lineIndex < lines.size) {
-                val nextLine = lines[lineIndex].trim()
-                if (nextLine.isEmpty() || !nextLine.contains("|") || nextLine.startsWith("```") || nextLine.startsWith("#") || nextLine.startsWith(">")) {
-                    break
-                }
-                dataRowsRaw.add(parseTableCells(nextLine))
-                lineIndex++
-            }
-
-            val numCols = maxOf(headerCellsRaw.size, dataRowsRaw.maxOfOrNull { it.size } ?: 0)
-            if (numCols > 0) {
-                val tablePlainBuilder = StringBuilder()
-
-                val parsedHeaders = (0 until numCols).map { cIdx ->
-                    val cellText = headerCellsRaw.getOrNull(cIdx) ?: ""
-                    val (annotated, plain) = formatCellContent(cellText, boldColor, italicColor, inlineCodeBg, inlineCodeColor)
-                    val cellStart = tableStartOffset + tablePlainBuilder.length
-                    tablePlainBuilder.append(plain)
-                    if (cIdx < numCols - 1) tablePlainBuilder.append(" | ") else tablePlainBuilder.append("\n")
-                    val cellEnd = tableStartOffset + tablePlainBuilder.length
-                    MarkdownTableCell(cellText, annotated, plain, cellStart, cellEnd)
-                }
-
-                val parsedRows = dataRowsRaw.map { rowCells ->
-                    val cells = (0 until numCols).map { cIdx ->
-                        val cellText = rowCells.getOrNull(cIdx) ?: ""
-                        val (annotated, plain) = formatCellContent(cellText, boldColor, italicColor, inlineCodeBg, inlineCodeColor)
-                        val cellStart = tableStartOffset + tablePlainBuilder.length
-                        tablePlainBuilder.append(plain)
-                        if (cIdx < numCols - 1) tablePlainBuilder.append(" — ") else tablePlainBuilder.append("\n")
-                        val cellEnd = tableStartOffset + tablePlainBuilder.length
-                        MarkdownTableCell(cellText, annotated, plain, cellStart, cellEnd)
-                    }
-                    MarkdownTableRow(cells)
-                }
-
-                val tablePlainText = tablePlainBuilder.toString()
-                overallPlainBuilder.append(tablePlainText)
-                val tableEndOffset = overallPlainBuilder.length
-                val tableData = MarkdownTableData(parsedHeaders, alignments, parsedRows, tablePlainText, tableStartOffset, tableEndOffset)
-                blocks.add(MessageContentBlock.Table(tableData, tableStartOffset))
-
-                // Append readable text version to overallAnnotatedBuilder for fallback
-                overallAnnotatedBuilder.append(tablePlainText)
-
-                if (lineIndex < lines.size) {
-                    if (!overallPlainBuilder.endsWith("\n\n")) overallPlainBuilder.append("\n")
-                    if (!overallAnnotatedBuilder.toAnnotatedString().text.endsWith("\n\n")) overallAnnotatedBuilder.append("\n")
-                }
-            }
-            continue
-        }
-
-        currentTextLines.add(line)
-        lineIndex++
-    }
-
-    flushCurrentText()
-
-    // If blocks is empty (e.g. empty string), provide 1 empty text block
-    if (blocks.isEmpty()) {
-        val emptyContent = FormattedReadingContent("", AnnotatedString(""))
-        blocks.add(MessageContentBlock.Text(emptyContent, 0))
-    }
-
-    return FormattedReadingContent(
-        plainText = overallPlainBuilder.toString(),
-        baseAnnotatedString = overallAnnotatedBuilder.toAnnotatedString(),
-        blocks = blocks
-    )
 }
 
 @Composable
@@ -1383,7 +667,7 @@ fun CodeBlockCard(
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Outlined.ContentCopy,
+                            imageVector = WyrdIcons.ContentCopy,
                             contentDescription = "Copy code",
                             tint = currentTextSecondary,
                             modifier = Modifier.size(13.dp)
@@ -1757,6 +1041,8 @@ private fun TextBlockItem(
         onActiveWordPosition?.invoke(line, lineTop, lineBottom)
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1773,8 +1059,15 @@ private fun TextBlockItem(
                     if (up != null && !up.isConsumed) {
                         val layout = textLayoutResult ?: return@awaitEachGesture
                         val localOffset = layout.getOffsetForPosition(up.position)
-                        val globalOffset = blockStart + localOffset
-                        onSeek(globalOffset)
+                        val urlAnnotation = block.formatted.baseAnnotatedString
+                            .getStringAnnotations(tag = "URL", start = localOffset, end = localOffset)
+                            .firstOrNull()
+                        if (urlAnnotation != null) {
+                            openAttachmentUri(context, urlAnnotation.item, isImage = false)
+                        } else {
+                            val globalOffset = blockStart + localOffset
+                            onSeek(globalOffset)
+                        }
                     }
                 }
             }
@@ -1789,34 +1082,6 @@ private fun TextBlockItem(
                 lineHeight = 23.sp
             ),
             modifier = Modifier.fillMaxWidth()
-        )
-    }
-}
-
-fun getHighlightedAnnotatedString(
-    formatted: FormattedReadingContent,
-    highlightRange: Pair<Int, Int>?,
-    highlightBg: Color = Color(0xFFCECDC4),
-    highlightTextColor: Color = Color(0xFF000000)
-): AnnotatedString {
-    if (highlightRange == null) return formatted.baseAnnotatedString
-
-    val (start, end) = highlightRange
-    val totalLen = formatted.baseAnnotatedString.length
-    val safeStart = start.coerceIn(0, totalLen)
-    val safeEnd = end.coerceIn(safeStart, totalLen)
-    if (safeStart >= safeEnd) return formatted.baseAnnotatedString
-
-    return buildAnnotatedString {
-        append(formatted.baseAnnotatedString)
-        // Monochromatic inverted text highlight pill (preserves underlying font metrics so text never shifts)
-        addStyle(
-            style = SpanStyle(
-                background = highlightBg,
-                color = highlightTextColor
-            ),
-            start = safeStart,
-            end = safeEnd
         )
     }
 }
@@ -1840,6 +1105,7 @@ fun AssistantMessageItem(
     onActiveWordPosition: ((line: Int, wordTopInItem: Float, wordBottomInItem: Float) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val isCurrentMessage = ttsPlaybackState.messageId == message.id
     val activeHighlightRange = if (isCurrentMessage) ttsPlaybackState.currentRange else null
 
@@ -1919,7 +1185,14 @@ fun AssistantMessageItem(
                             if (up != null && !up.isConsumed) {
                                 val layout = textLayoutResult ?: return@awaitEachGesture
                                 val charOffset = layout.getOffsetForPosition(up.position)
-                                onSeek(formatted.plainText, charOffset)
+                                val urlAnnotation = formatted.baseAnnotatedString
+                                    .getStringAnnotations(tag = "URL", start = charOffset, end = charOffset)
+                                    .firstOrNull()
+                                if (urlAnnotation != null) {
+                                    openAttachmentUri(context, urlAnnotation.item, isImage = false)
+                                } else {
+                                    onSeek(formatted.plainText, charOffset)
+                                }
                             }
                         }
                     }
@@ -2018,7 +1291,7 @@ fun AssistantMessageItem(
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.ContentCopy,
+                        imageVector = WyrdIcons.ContentCopy,
                         contentDescription = "Copy message",
                         tint = currentTextSecondary,
                         modifier = Modifier.size(22.dp)

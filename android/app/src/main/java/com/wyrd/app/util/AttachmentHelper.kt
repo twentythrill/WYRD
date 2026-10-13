@@ -95,43 +95,34 @@ object AttachmentHelper {
             val fileSize = if (sizeBytes > 0) sizeBytes else localFile.length()
 
             if (isImage) {
-                // Decode bitmap reliably with modern ImageDecoder or BitmapFactory fallback
+                val maxDim = 1280
+                // Decode bitmap with subsampling via ImageDecoder.setTargetSize (API 28+) or two-pass BitmapFactory
                 val decodedBitmap = try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         val source = ImageDecoder.createSource(localFile)
-                        ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                        ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
                             decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                             decoder.isMutableRequired = true
+                            val w = info.size.width
+                            val h = info.size.height
+                            if (w > maxDim || h > maxDim) {
+                                val scale = min(maxDim.toFloat() / w, maxDim.toFloat() / h)
+                                decoder.setTargetSize(
+                                    (w * scale).toInt().coerceAtLeast(1),
+                                    (h * scale).toInt().coerceAtLeast(1)
+                                )
+                            }
                         }
                     } else {
-                        val original = BitmapFactory.decodeFile(localFile.absolutePath)
-                        if (original != null) {
-                            val exif = ExifInterface(localFile.absolutePath)
-                            val orientation = exif.getAttributeInt(
-                                ExifInterface.TAG_ORIENTATION,
-                                ExifInterface.ORIENTATION_NORMAL
-                            )
-                            rotateBitmap(original, orientation)
-                        } else null
+                        decodeSubsampledBitmap(localFile.absolutePath, maxDim)
                     }
                 } catch (_: Throwable) {
-                    val fallback = BitmapFactory.decodeFile(localFile.absolutePath)
-                    if (fallback != null) {
-                        try {
-                            val exif = ExifInterface(localFile.absolutePath)
-                            val orientation = exif.getAttributeInt(
-                                ExifInterface.TAG_ORIENTATION,
-                                ExifInterface.ORIENTATION_NORMAL
-                            )
-                            rotateBitmap(fallback, orientation)
-                        } catch (_: Throwable) { fallback }
-                    } else null
+                    decodeSubsampledBitmap(localFile.absolutePath, maxDim)
                 }
 
                 if (decodedBitmap == null) return@withContext null
 
-                // Scale down if either dimension exceeds 1280px
-                val maxDim = 1280
+                // Scale down if either dimension still exceeds 1280px
                 val width = decodedBitmap.width
                 val height = decodedBitmap.height
                 val scale = min(1f, maxDim.toFloat() / max(width, height))
@@ -139,10 +130,12 @@ object AttachmentHelper {
                 val scaledBitmap = if (scale < 1f) {
                     Bitmap.createScaledBitmap(
                         decodedBitmap,
-                        (width * scale).toInt(),
-                        (height * scale).toInt(),
+                        (width * scale).toInt().coerceAtLeast(1),
+                        (height * scale).toInt().coerceAtLeast(1),
                         true
-                    )
+                    ).also {
+                        if (it !== decodedBitmap) decodedBitmap.recycle()
+                    }
                 } else {
                     decodedBitmap
                 }
@@ -150,6 +143,7 @@ object AttachmentHelper {
                 // Save locally as JPEG
                 val bos = ByteArrayOutputStream()
                 scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 82, bos)
+                scaledBitmap.recycle()
                 val jpegBytes = bos.toByteArray()
 
                 FileOutputStream(localFile).use { it.write(jpegBytes) }
@@ -166,12 +160,8 @@ object AttachmentHelper {
                 )
             } else {
                 // Non-image file: text, code, document, or PDF
-                val isPdf = displayName.endsWith(".pdf", ignoreCase = true) || mimeType == "application/pdf"
-                val textContent = if (isPdf) {
-                    "[Attached PDF Document: $displayName (${formatSize(fileSize)})]"
-                } else {
-                    getTextContentFromPath(localFile.absolutePath) ?: "[Attached File: $displayName (${formatSize(fileSize)})]"
-                }
+                val textContent = getTextContentFromPath(localFile.absolutePath)
+                    ?: "[Attached File: $displayName (${formatSize(fileSize)})]"
 
                 return@withContext AttachedItem(
                     uriString = localFile.absolutePath,
@@ -186,6 +176,35 @@ object AttachmentHelper {
         } catch (e: Exception) {
             e.printStackTrace()
             null
+        }
+    }
+
+    private fun decodeSubsampledBitmap(path: String, maxDim: Int): Bitmap? {
+        val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, boundsOpts)
+        if (boundsOpts.outWidth <= 0 || boundsOpts.outHeight <= 0) return null
+
+        var sampleSize = 1
+        while (boundsOpts.outWidth / (sampleSize * 2) >= maxDim &&
+            boundsOpts.outHeight / (sampleSize * 2) >= maxDim
+        ) {
+            sampleSize *= 2
+        }
+
+        val decodeOpts = BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        val original = BitmapFactory.decodeFile(path, decodeOpts) ?: return null
+        return try {
+            val exif = ExifInterface(path)
+            val orientation = exif.getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL
+            )
+            rotateBitmap(original, orientation)
+        } catch (_: Throwable) {
+            original
         }
     }
 
@@ -211,24 +230,6 @@ object AttachmentHelper {
             kb >= 1.0 -> String.format("%.1f KB", kb)
             else -> "$bytes B"
         }
-    }
-
-    private fun isTextMimeType(mimeType: String, name: String): Boolean {
-        if (mimeType.startsWith("text/")) return true
-        if (mimeType in listOf(
-                "application/json", "application/xml", "application/javascript",
-                "application/x-javascript", "application/x-sh", "application/x-python"
-            )
-        ) return true
-
-        val textExtensions = listOf(
-            ".txt", ".md", ".json", ".xml", ".csv", ".tsv", ".yaml", ".yml",
-            ".py", ".kt", ".java", ".c", ".cpp", ".h", ".hpp", ".cs", ".go",
-            ".rs", ".js", ".ts", ".jsx", ".tsx", ".html", ".css", ".scss",
-            ".sh", ".bash", ".zsh", ".sql", ".gradle", ".properties", ".env",
-            ".ini", ".conf", ".log"
-        )
-        return textExtensions.any { name.endsWith(it, ignoreCase = true) }
     }
 
     private fun guessMimeType(name: String): String {
@@ -277,7 +278,7 @@ object AttachmentHelper {
             val file = File(path)
             if (file.exists()) {
                 if (file.name.endsWith(".pdf", ignoreCase = true)) {
-                    return "[Attached PDF Document: ${file.name} (${formatSize(file.length())})]"
+                    return PdfTextExtractor.extractText(file)
                 }
                 val bytes = file.readBytes()
                 if (bytes.isEmpty()) return "[Attached File: ${file.name} (Empty)]"
@@ -368,12 +369,16 @@ object AttachmentHelper {
         return array.toString()
     }
 
-    fun cleanupAttachments(context: Context, messages: List<MessageEntity>) {
+    fun cleanupAttachments(
+        context: Context,
+        messages: List<MessageEntity>,
+        excludeUris: Set<String> = emptySet()
+    ) {
         try {
             val attachmentsDir = File(context.filesDir, "attachments")
             for (msg in messages) {
                 msg.attachmentUri?.let { uriStr ->
-                    deleteLocalFileIfApplicable(uriStr, attachmentsDir)
+                    deleteLocalFileIfApplicable(uriStr, attachmentsDir, excludeUris)
                 }
                 if (!msg.attachmentsJson.isNullOrBlank()) {
                     try {
@@ -381,7 +386,7 @@ object AttachmentHelper {
                         for (i in 0 until arr.length()) {
                             val obj = arr.getJSONObject(i)
                             val uriStr = obj.optString("uri", "")
-                            deleteLocalFileIfApplicable(uriStr, attachmentsDir)
+                            deleteLocalFileIfApplicable(uriStr, attachmentsDir, excludeUris)
                         }
                     } catch (_: Exception) {}
                 }
@@ -391,9 +396,14 @@ object AttachmentHelper {
         }
     }
 
-    private fun deleteLocalFileIfApplicable(uriStr: String, attachmentsDir: File) {
-        if (uriStr.isBlank() || uriStr.startsWith("http://") || uriStr.startsWith("https://")) return
+    private fun deleteLocalFileIfApplicable(
+        uriStr: String,
+        attachmentsDir: File,
+        excludeUris: Set<String>
+    ) {
+        if (uriStr.isBlank() || uriStr in excludeUris || uriStr.startsWith("http://") || uriStr.startsWith("https://")) return
         val path = if (uriStr.startsWith("file://")) uriStr.removePrefix("file://") else uriStr
+        if (path in excludeUris) return
         try {
             val f = File(path)
             if (f.exists() && (f.parentFile?.absolutePath == attachmentsDir.absolutePath || f.absolutePath.contains("/attachments/"))) {
@@ -402,3 +412,4 @@ object AttachmentHelper {
         } catch (_: Exception) {}
     }
 }
+

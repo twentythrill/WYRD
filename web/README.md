@@ -1,4 +1,4 @@
-# WYRD Web (Desktop & Browser Companion) (v1.5.8)
+# WYRD Web (Desktop & Browser Companion) (v1.6.0)
 
 A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversations, settings, and cognitive states in real-time with the Android application via Supabase.
 
@@ -6,98 +6,62 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
 
 * **Framework**: React 19 + TypeScript + Vite 8
 * **Styling**: Tailwind CSS v4 + Space Grotesk & JetBrains Mono typography
-* **Markdown & Tables**: Custom brutalist reading formatter (`readingFormatter.ts`) with responsive Markdown Tables (`| Col |`), styled headers, aligned cells, and 1:1 character index TTS sync.
-* **Audio & Speech**: OpenAI Whisper (`whisper-1`) for speech-to-text (STT) + Native Web Speech API (`window.speechSynthesis`) for zero-latency Text-to-Speech (TTS)
-* **Backend & Sync**: Supabase (PostgreSQL + Row-Level Security + Realtime Replication)
+* **Markdown & Tables**: Custom brutalist reading formatter (`readingFormatter.ts`) with responsive Markdown Tables (`| Col |`), styled headers, aligned cells, protocol-validated links, and 1:1 character index TTS sync.
+* **PDF Extraction**: Zero-dependency client-side PDF text extractor (`pdfExtractor.ts`) using browser `DecompressionStream` and `/ToUnicode` CMap parsing for both chat attachments and Project Knowledge Base files.
+* **Audio & Speech**: OpenAI **`gpt-4o-mini-transcribe`** for speech-to-text (STT) + Native Web Speech API (`window.speechSynthesis`) for zero-latency Text-to-Speech (TTS)
+* **Backend & Sync**: Supabase (PostgreSQL + Row-Level Security + Realtime Replication + Object Storage)
 * **Icons & UI**: Official WYRD Brand Starburst Eye Logo + Lucide React
 
 ## Key Capabilities
 
 1. **Collapsible Sidebar & Breadcrumbs**:
    * Compact 270px sidebar with smooth animated collapse/expand toggle on desktop and responsive mobile drawer.
-   * Breadcrumb display in the top navigation bar showing the active conversation thread title.
+   * Breadcrumb display in the top navigation bar showing the active project and conversation thread title.
 2. **Warm Brutalist Light & Dark Modes**:
    * Exact parity with Android `LightWyrdColors` and `DarkWyrdColors`: warm parchment `#F9F9F7`, surfaces `#F0EFEA` / `#E8E7E1`, cards `#DFDED8`, border `#CECDC4`, deep black `#141414`.
-   * Dynamic eye logo & favicon switching: crisp white starburst (`/app_logo.png`) in dark mode, deep black starburst (`/app_icon_trans_black.png`) in light mode. Browser favicon automatically adapts to system color scheme (`(prefers-color-scheme: light)`) and in-app theme selection to ensure high contrast against browser tabs.
+   * Dynamic eye logo & favicon switching: crisp white starburst (`/app_logo.png`) in dark mode, deep black starburst (`/app_icon_trans_black.png`) in light mode.
    * Theme controls: quick toggle icon in top bar and three-way preference (`System`, `Dark`, `Light`) in Settings.
-3. **Audio Experience (STT, Tap/Double-Click to Hear TTS & Word-by-Word Highlighting)**:
-   * **Voice Input (STT)**: Microphone button in prompt capsule records audio via `MediaRecorder` with live recording timer and waveforms, then transcribes into text using OpenAI Whisper API (`whisper-1`).
-   * **Word-by-Word Highlighting (Android Parity)**: Synchronous ElevenReader-style brutalist pill highlighting as `window.speechSynthesis` speaks assistant responses. In Dark Mode, spoken words are wrapped in a high-contrast `#CECDC4` pill with black text; in Light Mode, an inverted `#141414` pill with `#F9F9F7` text. Metric-stable design (`rounded-[3px] px-0.5 -mx-0.5`) ensures zero text jitter or line wrapping shifts. Automatically auto-scrolls with smooth center-snap positioning whenever the reading cursor or scrolling moves out of the comfortable reading zone.
-   * **Double-Click Word to Hear (TTS Word-Seek)**: Parity with Android's tap-to-read feature. Double-clicking any word in an assistant response initiates browser speech synthesis directly from that exact word onwards with 1:1 character index accuracy and clean audio buffer reset, instantly centering the active word on screen. Includes smart bilingual detection (Italian vs English) and natural voice selection.
-   * **Floating Play/Pause Controller & Real-Time Streaming TTS**: Brutalist 50px circular button anchored above the send button on the right (matching Android's 54dp circle). Tapping Play while the model is actively streaming immediately begins reading the response out loud in real time from incoming tokens, chaining new sentence utterances seamlessly as generation continues with synchronized word highlighting. Smoothly toggles Play and Pause states without textual clutter or pill badges.
+3. **Audio Experience (STT, Double-Click to Hear TTS & Word-by-Word Highlighting)**:
+   * **Voice Input (STT)**: Microphone button in prompt capsule records audio via `MediaRecorder` with live recording timer and waveforms, then transcribes into text using OpenAI **`gpt-4o-mini-transcribe`** via a dedicated OpenAI API key.
+   * **Word-by-Word Highlighting (Android Parity)**: Synchronous brutalist pill highlighting as `window.speechSynthesis` speaks assistant responses. Scoped `activeHighlightRange` props and memoized `MessageItem` / `FormattedMessage` components with container-level event delegation ensure zero unnecessary re-renders across the chat history.
+   * **Double-Click Word to Hear (TTS Word-Seek)**: Double-clicking any word in an assistant response initiates browser speech synthesis directly from that exact word onwards with 1:1 character index accuracy.
+   * **Floating Play/Pause Controller & Real-Time Streaming TTS**: Brutalist 54px circular button anchored above the send button on the right. Tapping Play while the model is actively streaming immediately begins reading the response out loud in real time from incoming tokens.
 4. **Cross-Device Cloud Sync**:
-   * Synchronizes `chats`, `messages`, and user `profiles` in real-time with the WYRD Android app.
-   * **Deterministic Message Truncation (Edit & Redo)**: Editing or redoing prompts permanently truncates all subsequent turns locally and deletes them from Supabase (by exact message IDs and timestamps), preventing message resurrection or chain overlapping. Realtime subscription deletions instantly reflect deletions initiated from the Android client.
-   * Auto-refreshes message streams whenever updates occur on either client.
-5. **User Profiles & System Prompt**:
+   * Synchronizes `chats`, `messages`, `projects`, `project_files`, and user `profiles` (`username`, `system_prompt`, `active_model`, `reasoning_effort`) in real-time with the WYRD Android app.
+   * **Deterministic Message Truncation & Shared Attachment Protection (Edit, Redo & Branch)**: Editing or redoing prompts permanently truncates all subsequent turns locally and deletes them from Supabase while protecting storage objects still referenced by edited prompts or branched conversations (`getProtectedStoragePaths`).
+   * Visibility-gated periodic fallback sync (25s interval, paused when the browser tab is hidden) plus instant Realtime subscriptions.
+5. **User Profiles, Smart Titles & System Prompt**:
    * Global `username` and customizable `system_prompt` stored in the `profiles` table.
-   * Model preference selection (`mimo-v2.6-pro`, `mimo-v2.6-flash`, etc.) and official Xiaomi MiMo **Thinking** toggle (on / off) without prompt injection.
+   * Model preference selection (`mimo-v2.6-pro`, `mimo-v2.6-flash`) and official Xiaomi MiMo **Thinking** toggle (`medium` / `off`).
+   * **Smart 4-Word Auto-Generated Titles**: Automatically summarizes the first turn into a concise 3–4 word conversation title via background LLM completion (`generateChatTitle`).
 6. **Brutalist Chat Experience & Android Parity**:
-   * **Message Bubble Actions & Pointer-Anchored Dropdown (Android Parity)**:
-     * **Double-Click Pointer Dropdown**: Double-clicking anywhere on a user prompt opens the action context menu anchored precisely at the mouse pointer location (with smart viewport boundary clamping and automatic dismiss on scroll, resize, Escape, or outside click), clearing accidental word selections and rendering via a React portal.
-     * **Edit**: Loads user prompts back into the input capsule with autofocus and an "Editing prompt" cancel bar; submitting permanently truncates subsequent conversation turns locally and in Supabase before streaming a new response.
+   * **Message Bubble Actions & Pointer-Anchored Dropdown**:
+     * **Double-Click Pointer Dropdown**: Double-clicking anywhere on a user prompt opens the action context menu anchored precisely at the mouse pointer location.
+     * **Edit**: Loads user prompts and their existing attachments back into the input capsule with autofocus and an "Editing prompt" cancel bar; submitting permanently truncates subsequent conversation turns while preserving kept attachments.
      * **Redo**: Permanently deletes following assistant responses locally and in Supabase, and re-streams a fresh generation from the model.
      * **Branch**: Slices the conversation thread up to the selected message into a new isolated session titled `"<Title> (Branch)"`.
      * **Copy**: One-click prompt/response copying to clipboard with confirmation feedback.
-   * **Client-Side Draft New Chat**: Clicking "New Chat" resets to a clean draft session without inserting phantom rows into the database. Threads are created on-demand upon sending the first prompt.
-   * **Clean Centered Welcome & Hero State**: Zero-message and new chat states display the exact mobile app Welcome Screen (160px eye logo at 30% opacity, "Welcome Back, [Username]", `(◕‿◕)`, and optional active project badge) unified with the text input capsule in a single block mathematically centered both horizontally and vertically on screen, providing complete symmetry when the left sidebar is closed.
-   * **Condensed Typography & Code Block Auto-Wrapping (Android Parity)**: Tight, condensed reading rhythm matching Android's 23sp line height (`leading-[24px]` for markdown content, `leading-[23px]` for user bubbles, and `leading-[18px]` for reasoning blocks). Markdown code blocks feature automatic soft line-wrapping (`whitespace-pre-wrap break-words [overflow-wrap:anywhere]`), preserving code indentation and newlines while eliminating horizontal scrolling. The tokenizer (`tokenizeTextIntoWords`) preserves all initial indentation and spaces.
-   * **Monochrome "Thinking" Block (Android Parity)**: Dedicated minimalist reasoning container titled "Thinking" with sleek Lightbulb icon and live streaming pulse indicator, collapsed by default to prevent visual jumping, and completely free of extraneous icons or colored emojis. Strictly suppressed when Thinking is toggled off.
-   * **Gemini-Style Top & Bottom Subtle Fade Gradients (No Solid Cut-Offs)**:
-     * **Top**: Transparent TopBar sits directly over a 112px multi-stop subtle fade-to-background gradient, softly veiling text scrolling underneath without harsh solid bars.
-     * **Bottom**: Floating controls and input capsule sit over a 176px multi-stop subtle fade gradient, dissolving messages smoothly behind the capsule with complete visual continuity.
-   * **Dynamic Centered Scroll-to-Bottom Button**: 38px circular chevron button centered directly on top of the text input capsule. Smoothly fades and scales in only when scrolled up away from the bottom, and instantly fades out once bottom is reached.
-   * **Instant Top-Snapped Prompt on Send**:
-     * The moment the user sends a prompt, the chat scroll container smoothly animates and snaps the prompt directly to the top of the viewport (76px below the TopBar).
-     * Clean single-pass scroll execution with mutual-exclusion locks (`isSnappingToPromptRef`) eliminates scroll fighting, jitter, and layout jerking.
-     * Zero artificial bottom empty space: naturally clears space for streaming tokens directly beneath the prompt in full view, allowing immediate reading from the top down.
-     * Manual scrolling is fully preserved for reviewing history or following long answers.
-   * **Universal Auto-Scroll on Chat Open (Android Parity)**: Opening or selecting any conversation immediately and reliably positions the view at the true bottom across all viewports using full container scroll offsets (`scrollTop = scrollHeight`), multi-stage layout settlement, programmatic scroll guards, and ResizeObserver tracking.
-   * **Reading-First Scroll Control**: Strictly disables autoscrolling during incoming answer streaming so your reading flow is never broken by jumping viewports.
-   * **Duplicate Protection**: Concurrency locks on input submission and state-level deduplication prevent duplicate prompt dispatches or ghost bubbles on rapid interactions or realtime sync events.
-   * **Race-Condition-Free Thread Switching**: Cancellation tokens ensure async DB loading for chat transitions never overwrites an active thread.
-   * Pinned threads, rename, and safe thread deletion with a confirmation modal ("Delete chat? [Cancel] [Delete]").
-   * Danger Zone action to bulk-wipe unpinned chats while preserving pinned threads.
-7. **Multimodal Attachments, Supabase Object Storage & Auto-Cleanup**:
-   * **Dedicated Supabase Storage Bucket (`attachments`)**: Uploaded images and files are automatically uploaded to the public Supabase Object Storage bucket (`attachments/${userId}/${timestamp}_${cleanFileName}`). The PostgreSQL database stores only tiny public URLs (~150 bytes), entirely preventing database bloat and protecting the free Supabase database quota.
-   * **Automatic Storage Cleanup on Chat Deletion**: Whenever a chat is deleted (or unpinned chats are purged in bulk), all associated storage objects in Supabase Storage (`attachments` bucket) are identified and automatically deleted via the Storage API. Individual turn edits/redo actions also clean up obsolete attachments.
-   * **Proactive Orphan Cleaner**: On application startup, the storage cleaner cross-references all objects stored under the user's storage prefix against active messages in the database, automatically purging any unreferenced/leftover files to keep Supabase storage minimal and clean.
-   * **Client-Side Image Optimization**: High-resolution photos are automatically downscaled to a maximum dimension of 1280px via HTML5 Canvas and compressed to 85% JPEG binary Blobs before upload for instantaneous transmission.
-   * **Text & Code Extraction**: Text and source code files are parsed client-side with a null-byte binary check (up to 80KB) and injected into structured prompt fences (`[Attached File: <name>]`), while original files are saved to Supabase Storage.
-   * **Staged Attachments Preview Bar**: Horizontal carousel above the capsule with thumbnail previews, filenames, formatted file sizes, and instant delete buttons.
-   * **Clipboard Paste**: Paste screenshots or copied images directly from the clipboard (`Cmd+V` / `Ctrl+V`) into the chat input.
-   * **Drag & Drop**: Drag images or files from the desktop over the chat area with an animated blur backdrop and drop target.
-   * **Cross-Platform Parity**: Images and files uploaded from Web render smoothly on Android, and photos captured on Android render on Web in high resolution with click-to-view in a new tab.
-8. **Browser Inference & Dual Endpoint Auto-Routing**:
-   * Direct SSE streaming via Xiaomi MiMo with automatic cluster routing based on API key prefix (`tp-*` -> Token Plan, standard -> Pay-As-You-Go).
-   * Native `thinking` parameter and token budget configuration (`Off`, `Low` 1024, `Medium` 8192, `High` 32768) matching Android. When "Off", thinking scratchpad is completely disabled and reasoning chunks are never rendered or saved.
-   * Dual-header authentication (`Authorization: Bearer` and `api-key`).
-   * **Multimodal Tool Suppression**: Suppresses function calling `tools` when images are present in the conversation, eliminating HTTP 400 Bad Request gateway errors on multimodal payloads.
-   * **Streaming Demuxer (`ThinkAndToolParser`)**: Zero-leak XML streaming parser that mirrors Android's demuxer to isolate `<think>` reasoning and `<tool_call>` definitions, completely preventing raw tool XML from displaying in chat bubbles or persisting into DB content.
-   * **Instant Generation Abort**: Tapping the Stop square fires an `AbortController` signal that immediately closes HTTP streams and sockets.
+   * **Instant Top-Snapped Prompt on Send & Universal Auto-Scroll on Chat Open**.
+7. **Multimodal Attachments, PDF Parsing, Supabase Object Storage & Auto-Cleanup**:
+   * **Dedicated Supabase Storage Bucket (`attachments`)**: Uploaded images and files are automatically uploaded to the public Supabase Object Storage bucket (`attachments/${userId}/${timestamp}_${cleanFileName}`).
+   * **Shared Attachment Protection**: Deleting a chat, wiping unpinned chats, or editing a turn inspects all other chats and project files before deleting from Supabase Storage so shared branch attachments are never broken.
+   * **Client-Side Image Optimization**: High-resolution photos are downscaled to 1280px max dimension via HTML5 Canvas and compressed to 85% JPEG before upload.
+   * **PDF, Text & Code Extraction**: `.pdf` files are parsed client-side via `pdfExtractor.ts` (`extractTextFromPdf`), and text/code files are read up to 80KB into structured prompt fences (`[Attached File: <name>]`).
+8. **Browser Inference & Parallel Dual-Engine Web Search (`web_search`)**:
+   * Direct SSE streaming via Xiaomi MiMo with automatic cluster routing (`tp-*` -> Token Plan, standard -> Pay-As-You-Go) and fast-fail on HTTP 401/403 errors.
    * **Autonomous Unified Multi-Engine Web Search Grounding (`web_search`)**:
-     * **Unified Tool Interface (`web_search`)**: Exposes a clean, single `web_search` tool to the model, eliminating routing dilemmas and provider guessing.
-     * **Parallel Execution Engine**: When Tavily is configured, the browser executes Tavily and Exa concurrently in parallel via `Promise.all()`, returning live factual sources alongside semantic community/forum/review discussions in ~1.5s total latency.
-     * **Unified Multi-Engine Synthesis**: Results from both search engines are partitioned into clean, structured sections (`### Live Web & Official Sources` and `### Community Discussions, Reviews & Semantic Results`), giving the model complete facts and reviews on Round 1.
-     * **Zero-Result Guards & Structured Snippets**: Structured source blocks (`Title`, `URL`, `Publication Date`, `Highlights / Content Snippets`), tool-boundary zero-result guards, and strict verification trailers to eliminate hallucinations.
-     * **Multi-Format Tool Extraction**: Accurately parses standard tool calls, XML parameters (`<parameter=query>`), XML query tags (`<query>`), function syntax, and bracket actions.
-   * **30-Turn Context Window Clamping**: Clamps message payload to the most recent 30 conversation turns to preserve token budgets and avoid gateway limits.
+     * Independent toggles in Settings for **Tavily Search** (`wyrd_tavily_enabled`) and **Exa Search** (`wyrd_exa_enabled`).
+     * **Parallel Execution Engine**: When both Tavily and Exa are enabled in Settings, the browser executes both Tavily and Exa concurrently in parallel via `Promise.all()`, returning live factual sources alongside semantic community/forum/review discussions.
+     * **Fallback Resilience**: Automatically falls back to Exa when Tavily is disabled, unconfigured, or returns zero results.
 9. **Projects & Knowledge Base Spaces**:
-   * **Custom Project Colors & Palettes**: 9-color curated warm brutalist palette (Default Bone White, Orange, Amber, Emerald, Cyan, Electric Blue, Purple, Pink, Crimson Red) with swatches in the project modal. Selected project colors dynamically tint folder icons in the sidebar, nested chats, and top navigation bar breadcrumbs.
-   * **Instant Settings Access (Hover Gear Icon & Right-Click)**: Hovering over any project row in the sidebar reveals a sleek gear icon (`Settings`) alongside the new-chat button to immediately access project settings. Right-clicking (`onContextMenu`) also opens the project settings context menu.
-   * **Unified Wide Plus Buttons**: Uncontained `+` icon on the PROJECTS header, and borderless/shadowless wide `[ + ]` pill buttons (`w-12 h-7 rounded-[10px]`, `#202020` in dark mode, `#E0DFDA` in light mode) for individual project rows with pixel-perfect right margin alignment.
-   * **Custom System Prompt Override**: Dedicated projects with custom instructions that strictly override the generic profile system prompt.
-   * **Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code files. Text is extracted client-side (using `pdfjs-dist` for PDFs) and injected into the LLM context for all chats within that project. Supports staging files during project creation with badge preview and deletion.
-   * **Safe Storage Persistence**: Direct Supabase storage without shadow `localStorage` layers; project file storage paths (`project_files.storage_path`) are whitelisted in `cleanOrphanedStorageAttachments` to prevent premature purging.
-   * **Strict Context Scoping**: Strict project isolation ensures instructions and knowledge files never leak into generic chat sessions.
-   * **Folder Structure & Clean Navigation**: Collapsible `PROJECTS` section in the sidebar with nested chat lists. Header click toggles folder expansion cleanly without redundant child rows. Active project breadcrumbs in the top bar and draft badge on empty greeting.
-   * **Two-Way Supabase Sync**: Real-time bidirectional replication of projects (including project colors), attached project files, and chat assignments across Web and Android.
+   * **Custom Project Colors & Palettes**: 9-color curated warm brutalist palette with swatches in the project modal.
+   * **Custom System Prompt Override & Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code files to any project. Text (including extracted PDF text) is injected into the LLM context for all chats within that project.
 
 ## Local Development & Spin-Up
 
 ```bash
 # Navigate to web project directory
-cd _Web/WYRD
+cd web
 
 # Install dependencies (if not already installed)
 npm install
@@ -105,8 +69,8 @@ npm install
 # Start local development server
 npm run dev
 
-# Or build for production
-npm run build
+# Or lint and build for production
+npm run lint && npm run build
 ```
 
 ## Environment Variables
@@ -120,4 +84,4 @@ Configured in `.env`:
 WYRD Web is a 100% static Single Page Application (SPA). It requires **no server**:
 * Build Command: `npm run build`
 * Publish Directory: `dist`
-* SPA redirects are pre-configured in [`netlify.toml`](file:///Users/gioelezorzi/Desktop/Agent_Workspace/_Web/WYRD/netlify.toml) and [`public/_redirects`](file:///Users/gioelezorzi/Desktop/Agent_Workspace/_Web/WYRD/public/_redirects).
+* SPA redirects are pre-configured in [`netlify.toml`](file:///Users/gioelezorzi/Agent_Workspace/_Android/WYRD/web/netlify.toml) and [`public/_redirects`](file:///Users/gioelezorzi/Agent_Workspace/_Android/WYRD/web/public/_redirects).

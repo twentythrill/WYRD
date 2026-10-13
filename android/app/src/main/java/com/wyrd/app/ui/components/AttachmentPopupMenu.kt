@@ -1,9 +1,5 @@
 package com.wyrd.app.ui.components
 
-import android.content.Context
-import android.content.Intent
-import android.provider.MediaStore
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,10 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,6 +29,7 @@ import com.wyrd.app.ui.theme.DarkCard
 import com.wyrd.app.ui.theme.DarkSurfaceElevated
 import com.wyrd.app.ui.theme.SpaceGrotesk
 import com.wyrd.app.ui.theme.TextWhite
+import com.wyrd.app.ui.theme.WyrdIcons
 
 /**
  * Brutalist pop-up menu featuring three big tactile buttons:
@@ -65,19 +58,19 @@ fun AttachmentPopupMenu(
             verticalAlignment = Alignment.CenterVertically
         ) {
             AttachmentActionButton(
-                icon = Icons.Outlined.Image,
+                icon = WyrdIcons.ImageOutlined,
                 label = "Photo",
                 onClick = onPhotoClick
             )
 
             AttachmentActionButton(
-                icon = Icons.Outlined.Folder,
+                icon = WyrdIcons.FolderOutlined,
                 label = "Files",
                 onClick = onFilesClick
             )
 
             AttachmentActionButton(
-                icon = Icons.Outlined.PhotoCamera,
+                icon = WyrdIcons.PhotoCameraOutlined,
                 label = "Camera",
                 onClick = onCameraClick
             )
@@ -129,68 +122,3 @@ private fun AttachmentActionButton(
     }
 }
 
-/**
- * Utility functions to dispatch standard system intents
- */
-object AttachmentIntents {
-
-    fun openGallery(context: Context) {
-        try {
-            val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            try {
-                val fallback = Intent(Intent.ACTION_GET_CONTENT).apply {
-                    type = "image/*"
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(fallback)
-            } catch (e2: Exception) {
-                Toast.makeText(context, "Unable to open gallery", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    fun openFileManager(context: Context) {
-        try {
-            val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                type = "*/*"
-                addCategory(Intent.CATEGORY_OPENABLE)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            try {
-                val fallback = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                    type = "*/*"
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(fallback)
-            } catch (e2: Exception) {
-                Toast.makeText(context, "Unable to open file manager", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    fun openCamera(context: Context) {
-        try {
-            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            try {
-                val fallback = Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(fallback)
-            } catch (e2: Exception) {
-                Toast.makeText(context, "Unable to open camera", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-}

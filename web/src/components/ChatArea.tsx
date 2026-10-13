@@ -27,6 +27,7 @@ import {
 import { ttsService, type TtsPlaybackState } from '@/services/ttsService'
 import { OpenAiKeyModal } from '@/components/OpenAiKeyModal'
 import { FormattedMessage } from '@/components/FormattedMessage'
+import { extractTextFromPdf } from '@/utils/pdfExtractor'
 
 interface ChatAreaProps {
   chat: Chat | null
@@ -51,7 +52,7 @@ interface ChatAreaProps {
 
 export interface StagedAttachmentItem {
   id: string
-  file: File
+  file?: File
   name: string
   size: number
   type: 'image' | 'file'
@@ -110,6 +111,10 @@ async function compressImageFile(file: File): Promise<{ base64DataUri: string; p
 
 async function extractTextFromFile(file: File): Promise<string | undefined> {
   try {
+    if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
+      const pdfText = await extractTextFromPdf(file)
+      return pdfText.trim() ? pdfText : undefined
+    }
     const maxBytes = 80 * 1024
     const slice = file.slice(0, maxBytes)
     const text = await slice.text()
@@ -396,10 +401,24 @@ export function ChatArea({
     textareaRef.current?.focus()
   }, [chat?.id])
 
-  // Populate prompt and focus when entering edit mode
+  // Populate prompt, attachments, and focus when entering edit mode
   useEffect(() => {
     if (editingMessage) {
       setInputText(editingMessage.content)
+      if (editingMessage.attachments && editingMessage.attachments.length > 0) {
+        setStagedAttachments(
+          editingMessage.attachments.map((att, idx) => ({
+            id: `edit-${idx}-${Date.now()}`,
+            name: att.name || 'Attachment',
+            size: att.size || 0,
+            type: att.type === 'image' ? 'image' : 'file',
+            previewUrl: att.uri || '',
+            textContent: att.textContent,
+          }))
+        )
+      } else {
+        setStagedAttachments([])
+      }
       if (textareaRef.current) {
         textareaRef.current.focus()
         textareaRef.current.style.height = 'auto'
@@ -881,7 +900,7 @@ export function ChatArea({
               ? 'border-[#262626] border-t-[#CECDC4]'
               : 'border-[#CECDC4] border-t-[#141414]'
           }`} />
-          <span>Transcribing audio with OpenAI Whisper...</span>
+          <span>Transcribing audio with OpenAI gpt-4o-mini-transcribe...</span>
         </div>
       ) : (
         <textarea
@@ -903,10 +922,10 @@ export function ChatArea({
       {/* Right Action Buttons */}
       {!isRecording && !isTranscribing && (
         <div className="flex items-center gap-1 shrink-0">
-          {/* Voice Input Button (Mic - OpenAI Whisper STT) */}
+          {/* Voice Input Button (Mic - OpenAI gpt-4o-mini-transcribe STT) */}
           <button
             onClick={handleStartRecording}
-            title="Voice dictation (OpenAI Whisper STT)"
+            title="Voice dictation (OpenAI gpt-4o-mini-transcribe)"
             className={`w-10 h-10 rounded-full flex items-center justify-center text-[#8E8E93] transition-colors cursor-pointer ${
               isDark
                 ? 'hover:text-[#CECDC4] hover:bg-[#1A1A1A]'
@@ -1075,7 +1094,9 @@ export function ChatArea({
                   key={msg.id}
                   message={msg}
                   isCopied={copiedId === msg.id}
-                  ttsPlaybackState={ttsState}
+                  activeHighlightRange={
+                    ttsState.activeMessageId === msg.id ? ttsState.currentRange : null
+                  }
                   isDark={isDark}
                   onCopy={() => copyToClipboard(msg.content, msg.id)}
                   onSeek={(plainText, offset) => ttsService.speak(msg.id, plainText, offset)}
@@ -1209,6 +1230,7 @@ export function ChatArea({
                     onClick={() => {
                       onCancelEdit?.()
                       setInputText('')
+                      setStagedAttachments([])
                       if (textareaRef.current) textareaRef.current.style.height = 'auto'
                     }}
                     className={`p-1 rounded transition-colors flex items-center gap-1 cursor-pointer ${
@@ -1243,10 +1265,10 @@ export function ChatArea({
   )
 }
 
-function MessageItem({
+const MessageItem = React.memo(function MessageItem({
   message,
   isCopied,
-  ttsPlaybackState,
+  activeHighlightRange,
   isDark = true,
   onCopy,
   onSeek,
@@ -1256,7 +1278,7 @@ function MessageItem({
 }: {
   message: Message
   isCopied: boolean
-  ttsPlaybackState?: TtsPlaybackState
+  activeHighlightRange?: [number, number] | null
   isDark?: boolean
   onCopy: () => void
   onSeek?: (plainText: string, charOffset: number) => void
@@ -1539,9 +1561,6 @@ function MessageItem({
   }
 
   // Assistant Message (Clean, NO avatar, NO title label, single 48dp copy button at bottom matching Android)
-  const isCurrentMessage = ttsPlaybackState?.activeMessageId === message.id
-  const activeHighlightRange = isCurrentMessage ? ttsPlaybackState?.currentRange : null
-
   return (
     <div id={`message-${message.id}`} data-message-role="assistant" className="flex flex-col items-start space-y-2 w-full">
       {/* Reasoning Thought Block */}
@@ -1584,7 +1603,7 @@ function MessageItem({
       </div>
     </div>
   )
-}
+})
 
 function ReasoningBlock({
   reasoning,

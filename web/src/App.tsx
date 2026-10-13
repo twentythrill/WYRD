@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase, type Chat, type Message, type Profile, type MessageAttachment, type Project } from '@/lib/supabase'
 import { dbService, dataUriToBlob } from '@/services/dbService'
-import { streamLlmCompletion, sanitizeStreamedContent, sanitizeReasoning } from '@/services/llmService'
+import { streamLlmCompletion, sanitizeStreamedContent, sanitizeReasoning, generateChatTitle } from '@/services/llmService'
 import { TopBar } from '@/components/TopBar'
 import { Sidebar } from '@/components/Sidebar'
 import { ChatArea } from '@/components/ChatArea'
@@ -179,11 +179,14 @@ export function App() {
     loadProfile()
     loadProjects()
     loadChats()
-    dbService.cleanOrphanedStorageAttachments(userId).then((deleted) => {
-      if (deleted && deleted.length > 0) {
-        console.log('[WYRD] Cleaned orphaned storage attachments on startup:', deleted)
-      }
-    })
+    if (!sessionStorage.getItem('wyrd_orphan_cleaned')) {
+      sessionStorage.setItem('wyrd_orphan_cleaned', '1')
+      dbService.cleanOrphanedStorageAttachments(userId).then((deleted) => {
+        if (deleted && deleted.length > 0) {
+          console.log('[WYRD] Cleaned orphaned storage attachments on startup:', deleted)
+        }
+      })
+    }
 
     // Realtime chat & project sync
     const unsubscribeChats = dbService.subscribeToChats(userId, () => {
@@ -264,11 +267,12 @@ export function App() {
     }
   }, [activeChatId])
 
-  // 4. Tab Focus & Periodic sync (fallback to ensure instant synchronization with mobile)
+  // 4. Tab Focus & Periodic sync (fallback to ensure synchronization with mobile when visible)
   useEffect(() => {
     if (!session?.user) return
 
     const handleSync = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
       try {
         const [projectList, chatList] = await Promise.all([
           dbService.getProjects(session.user.id),
@@ -327,7 +331,7 @@ export function App() {
     }
 
     window.addEventListener('focus', handleSync)
-    const interval = setInterval(handleSync, 10000)
+    const interval = setInterval(handleSync, 25000)
 
     return () => {
       window.removeEventListener('focus', handleSync)
@@ -484,17 +488,11 @@ export function App() {
   const isThinkingEnabled = profile?.reasoning_effort ? profile.reasoning_effort !== 'off' : true
 
   const handleToggleThinking = async (enabled: boolean) => {
-    const effortId = enabled ? 'on' : 'off'
+    const effortId = enabled ? 'medium' : 'off'
     if (!session?.user) {
       setProfile((prev) => (prev ? { ...prev, reasoning_effort: effortId } : null))
       return
     }
-    setProfile((prev) => (prev ? { ...prev, reasoning_effort: effortId } : null))
-    await dbService.updateProfile(session.user.id, { reasoning_effort: effortId })
-  }
-
-  const handleReasoningEffortSelected = async (effortId: string) => {
-    if (!session?.user) return
     setProfile((prev) => (prev ? { ...prev, reasoning_effort: effortId } : null))
     await dbService.updateProfile(session.user.id, { reasoning_effort: effortId })
   }
@@ -697,6 +695,9 @@ export function App() {
     if (!trimmed || isSendingMessageRef.current || isGeneratingRef.current) return
     isSendingMessageRef.current = true
 
+    const isFirstTurn = !activeChatId || messages.length === 0
+    const titlePromptSource = text.trim() || attachments[0]?.name || ''
+
     let currentChatId = activeChatId
     try {
       if (!currentChatId) {
@@ -737,15 +738,17 @@ export function App() {
       let updatedMessages = [...messages]
 
       // If user was editing a prompt, delete subsequent turns from that turn onward
+      // while protecting any attachments still kept in the edited prompt
       if (editingMessage && currentChatId) {
         const targetIdx = messages.findIndex((m) => m.id === editingMessage.id)
         const toDeleteIds = targetIdx !== -1 ? messages.slice(targetIdx).map((m) => m.id) : [editingMessage.id]
         if (targetIdx !== -1) {
           updatedMessages = messages.slice(0, targetIdx)
         }
+        const excludeUris = attachments.map((a) => a.uri).filter(Boolean)
         setMessages(updatedMessages)
         setEditingMessage(null)
-        await dbService.deleteMessagesFrom(currentChatId, editingMessage.created_at, toDeleteIds)
+        await dbService.deleteMessagesFrom(currentChatId, editingMessage.created_at, toDeleteIds, excludeUris)
       }
 
       // Process and upload attachments to Supabase Storage if present
@@ -800,6 +803,26 @@ export function App() {
 
       // 2. Prepare for Assistant Generation
       await executeAssistantStream(currentChatId, updatedMessages)
+
+      // 3. Generate smart 4-word LLM title on first turn (matching Android MainViewModel)
+      const apiKey = localStorage.getItem('wyrd_api_key') || ''
+      const storedBaseUrl = localStorage.getItem('wyrd_base_url') || ''
+      const baseUrl = storedBaseUrl === 'https://api.siliconflow.cn/v1' ? '' : storedBaseUrl
+      if (isFirstTurn && titlePromptSource && apiKey && currentChatId) {
+        const targetChatId = currentChatId
+        generateChatTitle({
+          apiKey,
+          firstUserPrompt: titlePromptSource,
+          baseUrl,
+          model: profile?.active_model || 'mimo-v2.6-pro',
+        }).then((smartTitle) => {
+          if (smartTitle) {
+            dbService.updateChat(targetChatId, { title: smartTitle }).then((up) => {
+              if (up) setChats((prev) => prev.map((c) => (c.id === up.id ? up : c)))
+            })
+          }
+        })
+      }
     } finally {
       isSendingMessageRef.current = false
     }
@@ -926,7 +949,6 @@ export function App() {
             isDark={isDark}
             onSelectModel={handleModelSelected}
             onToggleThinking={handleToggleThinking}
-            onSelectReasoningEffort={handleReasoningEffortSelected}
             onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
             onToggleTheme={handleToggleTheme}
           />

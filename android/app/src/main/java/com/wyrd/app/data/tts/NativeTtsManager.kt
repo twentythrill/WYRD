@@ -227,11 +227,11 @@ class NativeTtsManager(private val context: Context) : TextToSpeech.OnInitListen
 
             // Generic Samsung or OEM voices
             rawLower.contains("male") && !rawLower.contains("female") -> {
-                val num = Regex("male[_-]?(\\d+)", RegexOption.IGNORE_CASE).find(voice.name)?.groupValues?.getOrNull(1)
+                val num = MALE_VOICE_REGEX.find(voice.name)?.groupValues?.getOrNull(1)
                 if (num != null) "Male $num" else "Male"
             }
             rawLower.contains("female") -> {
-                val num = Regex("female[_-]?(\\d+)", RegexOption.IGNORE_CASE).find(voice.name)?.groupValues?.getOrNull(1)
+                val num = FEMALE_VOICE_REGEX.find(voice.name)?.groupValues?.getOrNull(1)
                 if (num != null) "Female $num" else "Female"
             }
             voice.name.contains("#") -> {
@@ -337,69 +337,21 @@ class NativeTtsManager(private val context: Context) : TextToSpeech.OnInitListen
         val defaultLocale = hint ?: if (Locale.getDefault().language.equals("it", ignoreCase = true)) Locale.ITALY else Locale.US
         val clean = text.lowercase(Locale.ROOT)
         val words = clean
-            .split(Regex("[^\\p{L}]+"))
+            .split(NON_LETTER_REGEX)
             .filter { it.length >= 2 }
 
         if (words.isEmpty()) return defaultLocale
-
-        // Comprehensive set of Italian stopwords, articles, pronouns & characteristic vocabulary
-        val italianStopwords = setOf(
-            "il", "la", "lo", "i", "gli", "le", "un", "una", "uno",
-            "di", "a", "da", "in", "con", "su", "per", "tra", "fra",
-            "del", "dello", "della", "dei", "degli", "delle",
-            "al", "allo", "alla", "ai", "agli", "alle",
-            "dal", "dallo", "dalla", "dai", "dagli", "dalle",
-            "nel", "nello", "nella", "nei", "negli", "nelle",
-            "sul", "sullo", "sulla", "sui", "sugli", "sulle",
-            "che", "chi", "cui", "quale", "quali",
-            "non", "ci", "vi", "si", "ti", "mi", "me", "te", "noi", "voi", "loro",
-            "questo", "questa", "questi", "queste", "quello", "quella", "quelli", "quelle",
-            "perché", "perche", "poiché", "quando", "mentre", "come", "dove", "cosa",
-            "anche", "ancora", "dopo", "prima", "allora", "quindi", "invece", "però", "pero",
-            "tuttavia", "inoltre", "infatti", "oppure", "ovvero", "pure", "sempre", "mai",
-            "molto", "molti", "molte", "molta", "poco", "pochi", "poche", "poca",
-            "tutto", "tutti", "tutte", "tutta", "troppo", "tanto", "davvero", "veramente",
-            "solo", "soltanto", "senza", "grazie", "prego", "ciao", "salve", "buongiorno", "buonasera",
-            "bene", "male", "meglio", "peggio", "più", "piu", "meno",
-            "essere", "stato", "stata", "stati", "state", "sono", "sei", "siamo", "siete", "era", "erano",
-            "avere", "avuto", "avuta", "avuti", "avute", "ho", "hai", "ha", "abbiamo", "avete", "hanno",
-            "fare", "fatto", "fatta", "fatti", "fatte", "fa", "fanno", "faceva",
-            "potere", "posso", "puoi", "può", "puo", "possiamo", "potete", "possono",
-            "dovere", "devo", "devi", "deve", "dobbiamo", "dovete", "devono",
-            "volere", "voglio", "vuoi", "vuole", "vogliamo", "volete", "vogliono",
-            "dire", "detto", "dice", "dicono", "andare", "va", "vanno", "andato",
-            "sapere", "so", "sai", "sa", "sappiamo", "sanno", "saputo",
-            "vedere", "vede", "vediamo", "vedono", "visto",
-            "certamente", "sicuramente", "esatto", "ecco", "forse", "quasi", "circa"
-        )
-
-        // Comprehensive English stopwords
-        val englishStopwords = setOf(
-            "the", "this", "that", "these", "those", "is", "are", "was", "were", "be", "been", "being",
-            "have", "has", "had", "having", "do", "does", "did", "doing",
-            "with", "from", "they", "them", "their", "theirs", "what", "which", "who", "whom", "whose",
-            "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other",
-            "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very",
-            "can", "will", "just", "should", "would", "could", "now", "you", "your", "yours", "we", "our",
-            "ours", "he", "him", "his", "she", "her", "hers", "it", "its", "itself", "about", "into",
-            "through", "during", "before", "after", "above", "below", "to", "of", "at", "by", "for",
-            "there", "here", "also", "then", "first", "new", "because", "please", "thanks", "hello",
-            "welcome", "sure", "well", "think", "know", "take", "make", "get", "go", "see", "come"
-        )
 
         var englishCount = 0
         var italianCount = 0
 
         for (w in words) {
-            if (italianStopwords.contains(w)) italianCount++
-            if (englishStopwords.contains(w)) englishCount++
+            if (ITALIAN_STOPWORDS.contains(w)) italianCount++
+            if (ENGLISH_STOPWORDS.contains(w)) englishCount++
         }
 
-        val itSuffixPatterns = listOf("zione", "zioni", "mento", "menti", "mente", "ità", "ivo", "iva", "oso", "osa", "ante", "ente", "iamo", "ebbe", "essero")
-        val itSuffixMatches = itSuffixPatterns.count { clean.contains(it) }
-
-        val enSuffixPatterns = listOf("ing ", "ed ", "tion", "ness", "ship", "ment ", "ly ")
-        val enSuffixMatches = enSuffixPatterns.count { clean.contains(it) }
+        val itSuffixMatches = IT_SUFFIX_PATTERNS.count { clean.contains(it) }
+        val enSuffixMatches = EN_SUFFIX_PATTERNS.count { clean.contains(it) }
 
         val totalItalianScore = italianCount * 2 + itSuffixMatches
         val totalEnglishScore = englishCount * 2 + enSuffixMatches
@@ -628,13 +580,6 @@ class NativeTtsManager(private val context: Context) : TextToSpeech.OnInitListen
         }
     }
 
-    fun updateMessageId(newMessageId: Long) {
-        currentMessageId = newMessageId
-        if (_playbackState.value.messageId != null) {
-            _playbackState.value = _playbackState.value.copy(messageId = newMessageId)
-        }
-    }
-
     fun stop() {
         try {
             tts?.stop()
@@ -684,6 +629,58 @@ class NativeTtsManager(private val context: Context) : TextToSpeech.OnInitListen
     companion object {
         private const val TAG = "NativeTtsManager"
         const val STREAMING_MESSAGE_ID = -999L
+        private val MALE_VOICE_REGEX = Regex("male[_-]?(\\d+)", RegexOption.IGNORE_CASE)
+        private val FEMALE_VOICE_REGEX = Regex("female[_-]?(\\d+)", RegexOption.IGNORE_CASE)
+        private val NON_LETTER_REGEX = Regex("[^\\p{L}]+")
+
+        private val ITALIAN_STOPWORDS = setOf(
+            "il", "la", "lo", "i", "gli", "le", "un", "una", "uno",
+            "di", "a", "da", "in", "con", "su", "per", "tra", "fra",
+            "del", "dello", "della", "dei", "degli", "delle",
+            "al", "allo", "alla", "ai", "agli", "alle",
+            "dal", "dallo", "dalla", "dai", "dagli", "dalle",
+            "nel", "nello", "nella", "nei", "negli", "nelle",
+            "sul", "sullo", "sulla", "sui", "sugli", "sulle",
+            "che", "chi", "cui", "quale", "quali",
+            "non", "ci", "vi", "si", "ti", "mi", "me", "te", "noi", "voi", "loro",
+            "questo", "questa", "questi", "queste", "quello", "quella", "quelli", "quelle",
+            "perché", "perche", "poiché", "quando", "mentre", "come", "dove", "cosa",
+            "anche", "ancora", "dopo", "prima", "allora", "quindi", "invece", "però", "pero",
+            "tuttavia", "inoltre", "infatti", "oppure", "ovvero", "pure", "sempre", "mai",
+            "molto", "molti", "molte", "molta", "poco", "pochi", "poche", "poca",
+            "tutto", "tutti", "tutte", "tutta", "troppo", "tanto", "davvero", "veramente",
+            "solo", "soltanto", "senza", "grazie", "prego", "ciao", "salve", "buongiorno", "buonasera",
+            "bene", "male", "meglio", "peggio", "più", "piu", "meno",
+            "essere", "stato", "stata", "stati", "state", "sono", "sei", "siamo", "siete", "era", "erano",
+            "avere", "avuto", "avuta", "avuti", "avute", "ho", "hai", "ha", "abbiamo", "avete", "hanno",
+            "fare", "fatto", "fatta", "fatti", "fatte", "fa", "fanno", "faceva",
+            "potere", "posso", "puoi", "può", "puo", "possiamo", "potete", "possono",
+            "dovere", "devo", "devi", "deve", "dobbiamo", "dovete", "devono",
+            "volere", "voglio", "vuoi", "vuole", "vogliamo", "volete", "vogliono",
+            "dire", "detto", "dice", "dicono", "andare", "va", "vanno", "andato",
+            "sapere", "so", "sai", "sa", "sappiamo", "sanno", "saputo",
+            "vedere", "vede", "vediamo", "vedono", "visto",
+            "certamente", "sicuramente", "esatto", "ecco", "forse", "quasi", "circa"
+        )
+
+        private val ENGLISH_STOPWORDS = setOf(
+            "the", "this", "that", "these", "those", "is", "are", "was", "were", "be", "been", "being",
+            "have", "has", "had", "having", "do", "does", "did", "doing",
+            "with", "from", "they", "them", "their", "theirs", "what", "which", "who", "whom", "whose",
+            "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other",
+            "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very",
+            "can", "will", "just", "should", "would", "could", "now", "you", "your", "yours", "we", "our",
+            "ours", "he", "him", "his", "she", "her", "hers", "it", "its", "itself", "about", "into",
+            "through", "during", "before", "after", "above", "below", "to", "of", "at", "by", "for",
+            "there", "here", "also", "then", "first", "new", "because", "please", "thanks", "hello",
+            "welcome", "sure", "well", "think", "know", "take", "make", "get", "go", "see", "come"
+        )
+
+        private val IT_SUFFIX_PATTERNS = listOf(
+            "zione", "zioni", "mento", "menti", "mente", "ità", "ivo", "iva", "oso", "osa", "ante", "ente", "iamo", "ebbe", "essero"
+        )
+
+        private val EN_SUFFIX_PATTERNS = listOf("ing ", "ed ", "tion", "ness", "ship", "ment ", "ly ")
     }
 }
 

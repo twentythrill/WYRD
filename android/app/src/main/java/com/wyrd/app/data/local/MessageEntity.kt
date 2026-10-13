@@ -17,7 +17,10 @@ import androidx.room.PrimaryKey
     ],
     // The conversation screen always reads a chat in chronological order. Keeping
     // the sort key in the index avoids a SQLite temp sort as chats grow.
-    indices = [Index(value = ["chatId", "timestamp"])]
+    indices = [
+        Index(value = ["chatId", "timestamp"]),
+        Index(value = ["syncId"])
+    ]
 )
 data class MessageEntity(
     @PrimaryKey(autoGenerate = true)
@@ -31,7 +34,8 @@ data class MessageEntity(
     val attachmentType: String? = null, // "image", "file"
     val attachmentName: String? = null,
     val attachmentsJson: String? = null,
-    val syncId: String = java.util.UUID.randomUUID().toString()
+    val syncId: String = java.util.UUID.randomUUID().toString(),
+    val modelName: String? = null
 ) {
     fun getAttachmentList(): List<AttachmentItemInfo> {
         if (!attachmentsJson.isNullOrBlank()) {

@@ -32,9 +32,10 @@ class SupabaseSyncManager(
     private val context: Context,
     private val secureKeyStorage: SecureKeyStorage,
     private val preferencesManager: PreferencesManager,
-    private val database: AppDatabase
+    private val database: AppDatabase,
+    baseClient: OkHttpClient = OkHttpClient()
 ) {
-    private val client = OkHttpClient.Builder()
+    private val client = baseClient.newBuilder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .build()
@@ -42,6 +43,8 @@ class SupabaseSyncManager(
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
     private val syncMutex = Mutex()
     private val deletedMessageSyncIds = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    @Volatile
+    private var hasCleanedOrphansThisSession = false
 
     private fun parseIsoDate(isoStr: String?): Long {
         if (isoStr.isNullOrBlank()) return 0L
@@ -330,11 +333,14 @@ class SupabaseSyncManager(
             // 3. Sync Messages
             syncMessages(token, userId)
 
-            // 4. Clean orphaned storage attachments
-            try {
-                cleanOrphanedStorageAttachments()
-            } catch (e: Exception) {
-                Log.w(TAG, "cleanOrphanedStorageAttachments error in syncAll", e)
+            // 4. Clean orphaned storage attachments once per app session
+            if (!hasCleanedOrphansThisSession) {
+                hasCleanedOrphansThisSession = true
+                try {
+                    cleanOrphanedStorageAttachments()
+                } catch (e: Exception) {
+                    Log.w(TAG, "cleanOrphanedStorageAttachments error in syncAll", e)
+                }
             }
 
             Log.i(TAG, "syncAll: Two-way sync completed successfully")
@@ -365,25 +371,54 @@ class SupabaseSyncManager(
                 val arr = JSONArray(body)
                 val localUsername = preferencesManager.usernameFlow.first()
                 val localSystemPrompt = preferencesManager.systemPromptFlow.first()
+                val localModel = preferencesManager.activeModelFlow.first()
+                val localEffort = preferencesManager.reasoningEffortFlow.first()
+                val localUpdatedAt = preferencesManager.profileUpdatedAtFlow.first()
 
                 if (arr.length() > 0) {
                     val remoteProfile = arr.getJSONObject(0)
-                    val remoteUsername = remoteProfile.optString("username", "")
+                    val remoteUsername = remoteProfile.optString("username", "").ifBlank { "Human" }
                     val remoteSystemPrompt = remoteProfile.optString("system_prompt", "")
+                    val remoteModelId = remoteProfile.optString("active_model", "").ifBlank { null }
+                    val remoteEffortId = remoteProfile.optString("reasoning_effort", "").ifBlank { null }
+                    val remoteUpdatedAt = parseIsoDate(remoteProfile.optString("updated_at"))
 
-                    if (remoteUsername.isNotBlank() && remoteUsername != "Human" && localUsername == "Human") {
-                        preferencesManager.setUsername(remoteUsername)
-                    } else if (localUsername.isNotBlank() && localUsername != remoteUsername) {
-                        updateRemoteProfile(token, userId, localUsername, localSystemPrompt)
-                    }
+                    val hasDifference = localUsername != remoteUsername ||
+                        localSystemPrompt != remoteSystemPrompt ||
+                        (remoteModelId != null && localModel.id != remoteModelId) ||
+                        (remoteEffortId != null && localEffort.id != remoteEffortId)
 
-                    if (remoteSystemPrompt.isNotBlank() && localSystemPrompt.isBlank()) {
-                        preferencesManager.setSystemPrompt(remoteSystemPrompt)
-                    } else if (localSystemPrompt.isNotBlank() && localSystemPrompt != remoteSystemPrompt) {
-                        updateRemoteProfile(token, userId, localUsername, localSystemPrompt)
+                    if (!hasDifference) return
+
+                    if (remoteUpdatedAt > localUpdatedAt || (localUpdatedAt == 0L && (remoteUsername != "Human" || remoteSystemPrompt.isNotBlank()))) {
+                        preferencesManager.setProfileFromCloud(
+                            username = remoteUsername,
+                            systemPrompt = remoteSystemPrompt,
+                            activeModelId = remoteModelId,
+                            reasoningEffortId = remoteEffortId,
+                            updatedAtMs = if (remoteUpdatedAt > 0L) remoteUpdatedAt else System.currentTimeMillis()
+                        )
+                    } else {
+                        updateRemoteProfile(
+                            token = token,
+                            userId = userId,
+                            username = localUsername,
+                            systemPrompt = localSystemPrompt,
+                            activeModelId = localModel.id,
+                            reasoningEffortId = localEffort.id,
+                            updatedAtMs = if (localUpdatedAt > 0L) localUpdatedAt else System.currentTimeMillis()
+                        )
                     }
                 } else {
-                    updateRemoteProfile(token, userId, localUsername, localSystemPrompt)
+                    updateRemoteProfile(
+                        token = token,
+                        userId = userId,
+                        username = localUsername,
+                        systemPrompt = localSystemPrompt,
+                        activeModelId = localModel.id,
+                        reasoningEffortId = localEffort.id,
+                        updatedAtMs = System.currentTimeMillis()
+                    )
                 }
             }
         } catch (e: Exception) {
@@ -391,13 +426,23 @@ class SupabaseSyncManager(
         }
     }
 
-    private fun updateRemoteProfile(token: String, userId: String, username: String, systemPrompt: String) {
+    private fun updateRemoteProfile(
+        token: String,
+        userId: String,
+        username: String,
+        systemPrompt: String,
+        activeModelId: String,
+        reasoningEffortId: String,
+        updatedAtMs: Long
+    ) {
         try {
             val payload = JSONObject().apply {
                 put("id", userId)
                 put("username", username)
                 put("system_prompt", systemPrompt)
-                put("updated_at", formatIsoDate(System.currentTimeMillis()))
+                put("active_model", activeModelId)
+                put("reasoning_effort", reasoningEffortId)
+                put("updated_at", formatIsoDate(updatedAtMs))
             }
             val req = Request.Builder()
                 .url("$SUPABASE_URL/rest/v1/profiles?on_conflict=id")
@@ -906,12 +951,17 @@ class SupabaseSyncManager(
                     val remoteTitle = rChat.optString("title", localChat.title)
                     val remotePinned = rChat.optBoolean("is_pinned", localChat.isPinned)
                     val remoteProjectSyncId = if (rChat.isNull("project_id")) null else rChat.optString("project_id", "").ifEmpty { null }
-                    
-                    // Keep local project association if remote is null but local had one
-                    val effectiveProjectSyncId = remoteProjectSyncId ?: localChat.projectSyncId
+
+                    val effectiveProjectSyncId = if (localChat.updatedAt > remoteUpdatedAt) {
+                        localChat.projectSyncId ?: remoteProjectSyncId
+                    } else {
+                        remoteProjectSyncId
+                    }
                     val localProjectId = if (!effectiveProjectSyncId.isNullOrBlank()) {
-                        database.projectDao().getProjectBySyncId(effectiveProjectSyncId)?.id ?: localChat.projectId
-                    } else localChat.projectId
+                        database.projectDao().getProjectBySyncId(effectiveProjectSyncId)?.id
+                    } else {
+                        null
+                    }
 
                     if (localChat.updatedAt > remoteUpdatedAt) {
                         // Local has newer updates -> stage for upload
@@ -928,7 +978,13 @@ class SupabaseSyncManager(
                             put("created_at", formatIsoDate(localChat.createdAt))
                             put("updated_at", formatIsoDate(localChat.updatedAt))
                         })
-                    } else if (remoteUpdatedAt > localChat.updatedAt || localChat.title != remoteTitle || localChat.isPinned != remotePinned || (remoteProjectSyncId != null && localChat.projectSyncId != remoteProjectSyncId)) {
+                    } else if (
+                        remoteUpdatedAt > localChat.updatedAt ||
+                        localChat.title != remoteTitle ||
+                        localChat.isPinned != remotePinned ||
+                        localChat.projectSyncId != effectiveProjectSyncId ||
+                        localChat.projectId != localProjectId
+                    ) {
                         // Remote has newer updates -> update local SQLite
                         chatDao.updateChat(
                             localChat.copy(
@@ -1031,21 +1087,49 @@ class SupabaseSyncManager(
         }
     }
 
+    private suspend fun getActiveStoragePathsExcluding(
+        excludedMessageSyncIds: Set<String> = emptySet(),
+        excludedChatSyncIds: Set<String> = emptySet()
+    ): Set<String> {
+        val activePaths = mutableSetOf<String>()
+        try {
+            val chatsById = database.chatDao().getAllChatsList().associateBy { it.id }
+            val allMsgs = database.messageDao().getAllMessages()
+            for (msg in allMsgs) {
+                if (msg.syncId in excludedMessageSyncIds) continue
+                val chatSyncId = chatsById[msg.chatId]?.syncId
+                if (chatSyncId != null && chatSyncId in excludedChatSyncIds) continue
+                extractStoragePath(msg.attachmentUri)?.let { activePaths.add(it) }
+                if (!msg.attachmentsJson.isNullOrBlank()) {
+                    try {
+                        val arr = JSONArray(msg.attachmentsJson)
+                        for (i in 0 until arr.length()) {
+                            val uri = arr.optJSONObject(i)?.optString("uri", "")
+                            extractStoragePath(uri)?.let { activePaths.add(it) }
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+        } catch (_: Exception) {}
+        return activePaths
+    }
+
     suspend fun deleteMessagesRemotely(
         chatSyncId: String,
         messageSyncIds: List<String>,
         fromTimestamp: Long? = null,
-        inclusive: Boolean = false
+        inclusive: Boolean = false,
+        excludeStoragePaths: Set<String> = emptySet()
     ) = withContext(Dispatchers.IO) {
+        // Persist immediately so any concurrent or future sync passes ignore them
+        deletedMessageSyncIds.addAll(messageSyncIds)
+        secureKeyStorage.addPendingDeletedMessageIds(messageSyncIds)
+
         val token = getValidAccessToken() ?: return@withContext
         val userId = secureKeyStorage.getSupabaseUserId()
         if (userId.isBlank() || chatSyncId.isBlank()) return@withContext
 
-        // Mark immediately so any concurrent or future sync passes ignore them
-        deletedMessageSyncIds.addAll(messageSyncIds)
-
         try {
-            // 1. Delete storage attachments if any
             if (messageSyncIds.isNotEmpty()) {
                 val idsParam = messageSyncIds.joinToString(",")
                 val getAttReq = Request.Builder()
@@ -1073,11 +1157,13 @@ class SupabaseSyncManager(
                     }
                 } catch (_: Exception) {}
 
-                if (storagePaths.isNotEmpty()) {
-                    deleteStorageAttachments(storagePaths)
+                val sharedPaths = getActiveStoragePathsExcluding(excludedMessageSyncIds = messageSyncIds.toSet()) +
+                    excludeStoragePaths.mapNotNull { extractStoragePath(it) ?: it.ifBlank { null } }
+                val pathsToDelete = storagePaths.filter { it !in sharedPaths }
+                if (pathsToDelete.isNotEmpty()) {
+                    deleteStorageAttachments(pathsToDelete)
                 }
 
-                // 2. Delete messages by syncId in Supabase
                 val delReq = Request.Builder()
                     .url("$SUPABASE_URL/rest/v1/messages?id=in.($idsParam)")
                     .addHeader("apikey", SUPABASE_KEY)
@@ -1086,9 +1172,14 @@ class SupabaseSyncManager(
                     .build()
                 client.newCall(delReq).execute().use { resp ->
                     Log.d(TAG, "deleteMessagesRemotely by id response: ${resp.code}")
+                    if (resp.isSuccessful || resp.code == 404) {
+                        val remaining = secureKeyStorage.getPendingDeletedMessageIds().toMutableSet()
+                        if (remaining.removeAll(messageSyncIds.toSet())) {
+                            secureKeyStorage.setPendingDeletedMessageIds(remaining)
+                        }
+                    }
                 }
             } else if (fromTimestamp != null && fromTimestamp > 0L) {
-                // 3. Fallback to delete by timestamp in Supabase only if no explicit message IDs were provided
                 val iso = formatIsoDate(fromTimestamp)
                 val op = if (inclusive) "gte" else "gt"
                 val delTimeReq = Request.Builder()
@@ -1110,46 +1201,82 @@ class SupabaseSyncManager(
         val chatDao = database.chatDao()
         val messageDao = database.messageDao()
         val localChats = chatDao.getAllChatsList()
-        val knownSynced = secureKeyStorage.getKnownSyncedChatIds()
+        if (localChats.isEmpty()) return
+
+        val knownSyncedMessageIds = secureKeyStorage.getKnownSyncedMessageIds().toMutableSet()
+        val pendingDeletedMsgIds = (secureKeyStorage.getPendingDeletedMessageIds() + deletedMessageSyncIds).toMutableSet()
+
+        // 1. Flush any pending message deletions first
+        if (pendingDeletedMsgIds.isNotEmpty()) {
+            try {
+                val idsParam = pendingDeletedMsgIds.joinToString(",")
+                val delReq = Request.Builder()
+                    .url("$SUPABASE_URL/rest/v1/messages?id=in.($idsParam)")
+                    .addHeader("apikey", SUPABASE_KEY)
+                    .addHeader("Authorization", "Bearer $token")
+                    .delete()
+                    .build()
+                client.newCall(delReq).execute().use { resp ->
+                    if (resp.isSuccessful || resp.code == 404) {
+                        knownSyncedMessageIds.removeAll(pendingDeletedMsgIds)
+                        pendingDeletedMsgIds.clear()
+                        deletedMessageSyncIds.clear()
+                        secureKeyStorage.setPendingDeletedMessageIds(emptySet())
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to flush pending message deletions", e)
+            }
+        }
+
+        // 2. Fetch all remote messages for this user in a single request (replaces N+1 per-chat requests)
+        val getReq = Request.Builder()
+            .url("$SUPABASE_URL/rest/v1/messages?user_id=eq.$userId&select=*&order=created_at.asc")
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $token")
+            .get()
+            .build()
+
+        val allRemoteMsgs = try {
+            client.newCall(getReq).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    val err = resp.body?.string() ?: ""
+                    Log.e(TAG, "syncMessages batch download failed: ${resp.code} $err")
+                    null
+                } else {
+                    JSONArray(resp.body?.string() ?: "[]")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "syncMessages batch fetch remote error", e)
+            null
+        } ?: return
+
+        val remoteMsgsByChatSyncId = HashMap<String, MutableList<JSONObject>>()
+        val remoteSyncIds = HashSet<String>(allRemoteMsgs.length())
+        for (i in 0 until allRemoteMsgs.length()) {
+            val rMsg = allRemoteMsgs.getJSONObject(i)
+            val rMsgId = rMsg.optString("id", "")
+            val rChatId = rMsg.optString("chat_id", "")
+            if (rMsgId.isNotBlank() && rChatId.isNotBlank()) {
+                remoteSyncIds.add(rMsgId)
+                remoteMsgsByChatSyncId.getOrPut(rChatId) { mutableListOf() }.add(rMsg)
+            }
+        }
+
+        val allLocalMsgsByChatId = messageDao.getAllMessages().groupBy { it.chatId }
+        val batchUploadArr = JSONArray()
+        val newlyUploadedIds = mutableSetOf<String>()
 
         for (chat in localChats) {
             val syncId = chat.syncId
             if (syncId.isBlank()) continue
 
-            // 1. Download remote messages for this chat first so we know what remote contains
-            val getReq = Request.Builder()
-                .url("$SUPABASE_URL/rest/v1/messages?chat_id=eq.$syncId&select=*&order=created_at.asc")
-                .addHeader("apikey", SUPABASE_KEY)
-                .addHeader("Authorization", "Bearer $token")
-                .get()
-                .build()
+            val localMsgs = allLocalMsgsByChatId[chat.id].orEmpty()
+            val localMsgBySyncId = HashMap<String, MessageEntity>(localMsgs.size)
 
-            val remoteMsgs = try {
-                client.newCall(getReq).execute().use { resp ->
-                    if (!resp.isSuccessful) {
-                        val err = resp.body?.string() ?: ""
-                        Log.e(TAG, "syncMessages download failed for chat ${chat.id}: ${resp.code} $err")
-                        null
-                    } else {
-                        val body = resp.body?.string() ?: ""
-                        JSONArray(body)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "syncMessages fetch remote error for chat ${chat.id}", e)
-                null
-            } ?: continue
-
-            val remoteSyncIds = HashSet<String>()
-            for (i in 0 until remoteMsgs.length()) {
-                remoteSyncIds.add(remoteMsgs.getJSONObject(i).getString("id"))
-            }
-
-            // 2. Upload local messages for this chat (filtering out deleted messages)
-            val localMsgs = messageDao.getMessagesListForChat(chat.id)
-            val uploadArr = JSONArray()
             for (msg in localMsgs) {
-                if (deletedMessageSyncIds.contains(msg.syncId)) {
+                if (pendingDeletedMsgIds.contains(msg.syncId)) {
                     messageDao.deleteMessageById(msg.id)
                     continue
                 }
@@ -1160,6 +1287,24 @@ class SupabaseSyncManager(
                     messageDao.insertMessage(msg.copy(syncId = msgSyncId))
                 }
 
+                // If message is already on remote, record as synced and skip redundant re-upload
+                if (remoteSyncIds.contains(msgSyncId)) {
+                    knownSyncedMessageIds.add(msgSyncId)
+                    localMsgBySyncId[msgSyncId] = msg
+                    continue
+                }
+
+                // If message was previously synced to remote and is now absent on remote, it was deleted/edited/redone remotely
+                if (knownSyncedMessageIds.contains(msgSyncId)) {
+                    Log.i(TAG, "syncMessages: Message $msgSyncId was deleted remotely. Removing locally.")
+                    messageDao.deleteMessageById(msg.id)
+                    knownSyncedMessageIds.remove(msgSyncId)
+                    continue
+                }
+
+                localMsgBySyncId[msgSyncId] = msg
+
+                // Brand new local message -> upload attachments if needed and queue for batch upload
                 val attArray = if (!msg.attachmentsJson.isNullOrBlank()) {
                     try { JSONArray(msg.attachmentsJson) } catch (_: Exception) { JSONArray() }
                 } else {
@@ -1178,12 +1323,10 @@ class SupabaseSyncManager(
                             item.put("uri", publicUrl)
                             modified = true
                             if (j == 0) finalAttachmentUri = publicUrl
-                        } else {
-                            if (!uri.startsWith("data:")) {
-                                val b64 = com.wyrd.app.util.AttachmentHelper.getBase64FromPath(uri)
-                                if (!b64.isNullOrBlank()) {
-                                    item.put("uri", "data:image/jpeg;base64,$b64")
-                                }
+                        } else if (!uri.startsWith("data:")) {
+                            val b64 = com.wyrd.app.util.AttachmentHelper.getBase64FromPath(uri)
+                            if (!b64.isNullOrBlank()) {
+                                item.put("uri", "data:image/jpeg;base64,$b64")
                             }
                         }
                     }
@@ -1202,7 +1345,7 @@ class SupabaseSyncManager(
                     }
                 }
 
-                uploadArr.put(JSONObject().apply {
+                batchUploadArr.put(JSONObject().apply {
                     put("id", msgSyncId)
                     put("chat_id", syncId)
                     put("user_id", userId)
@@ -1213,52 +1356,42 @@ class SupabaseSyncManager(
                     } else {
                         put("reasoning", JSONObject.NULL)
                     }
+                    if (!msg.modelName.isNullOrBlank()) {
+                        put("model_name", msg.modelName)
+                    } else {
+                        put("model_name", JSONObject.NULL)
+                    }
                     put("attachments", attArray)
                     put("created_at", formatIsoDate(msg.timestamp))
                 })
+                newlyUploadedIds.add(msgSyncId)
             }
 
-            if (uploadArr.length() > 0) {
-                val uploadReq = Request.Builder()
-                    .url("$SUPABASE_URL/rest/v1/messages?on_conflict=id")
-                    .addHeader("apikey", SUPABASE_KEY)
-                    .addHeader("Authorization", "Bearer $token")
-                    .addHeader("Prefer", "resolution=merge-duplicates")
-                    .post(uploadArr.toString().toRequestBody(jsonMediaType))
-                    .build()
-                client.newCall(uploadReq).execute().use { resp ->
-                    if (!resp.isSuccessful) {
-                        val err = resp.body?.string() ?: ""
-                        Log.e(TAG, "syncMessages upload failed for chat ${chat.id}: ${resp.code} $err")
-                    } else {
-                        Log.d(TAG, "syncMessages uploaded ${uploadArr.length()} messages for chat ${chat.id}")
-                    }
-                }
-            }
-
-            // 3. Insert remote messages into Room if not present locally and not in deletedMessageSyncIds
-            for (i in 0 until remoteMsgs.length()) {
-                val rMsg = remoteMsgs.getJSONObject(i)
+            // 3. Insert remote messages for this chat into Room if not present locally
+            val remoteMsgs = remoteMsgsByChatSyncId[syncId].orEmpty()
+            for (rMsg in remoteMsgs) {
                 val rMsgId = rMsg.getString("id")
-                if (deletedMessageSyncIds.contains(rMsgId)) {
-                    continue
-                }
-                val role = rMsg.getString("role")
-                val content = rMsg.optString("content", "")
-                val reasoning = if (rMsg.has("reasoning") && !rMsg.isNull("reasoning")) {
-                    rMsg.getString("reasoning")
-                } else null
-                val attachmentsArr = rMsg.optJSONArray("attachments")
-                val attachmentsJson = if (attachmentsArr != null && attachmentsArr.length() > 0) attachmentsArr.toString() else null
-                val firstAtt = if (attachmentsArr != null && attachmentsArr.length() > 0) attachmentsArr.getJSONObject(0) else null
-                val attachmentUri = firstAtt?.optString("uri")
-                val attachmentType = firstAtt?.optString("type")
-                val attachmentName = firstAtt?.optString("name")
-                val rawTimestamp = parseIsoDate(rMsg.optString("created_at"))
-                val timestamp = if (rawTimestamp > 0L) rawTimestamp else System.currentTimeMillis()
+                if (pendingDeletedMsgIds.contains(rMsgId)) continue
+                knownSyncedMessageIds.add(rMsgId)
 
-                val existingMsg = messageDao.getMessageBySyncId(rMsgId)
-                if (existingMsg == null) {
+                if (!localMsgBySyncId.containsKey(rMsgId)) {
+                    val role = rMsg.getString("role")
+                    val content = rMsg.optString("content", "")
+                    val reasoning = if (rMsg.has("reasoning") && !rMsg.isNull("reasoning")) {
+                        rMsg.getString("reasoning")
+                    } else null
+                    val modelName = if (rMsg.has("model_name") && !rMsg.isNull("model_name")) {
+                        rMsg.optString("model_name", "").ifBlank { null }
+                    } else null
+                    val attachmentsArr = rMsg.optJSONArray("attachments")
+                    val attachmentsJson = if (attachmentsArr != null && attachmentsArr.length() > 0) attachmentsArr.toString() else null
+                    val firstAtt = if (attachmentsArr != null && attachmentsArr.length() > 0) attachmentsArr.getJSONObject(0) else null
+                    val attachmentUri = firstAtt?.optString("uri")
+                    val attachmentType = firstAtt?.optString("type")
+                    val attachmentName = firstAtt?.optString("name")
+                    val rawTimestamp = parseIsoDate(rMsg.optString("created_at"))
+                    val timestamp = if (rawTimestamp > 0L) rawTimestamp else System.currentTimeMillis()
+
                     messageDao.insertMessage(
                         MessageEntity(
                             chatId = chat.id,
@@ -1270,93 +1403,34 @@ class SupabaseSyncManager(
                             attachmentType = attachmentType,
                             attachmentName = attachmentName,
                             attachmentsJson = attachmentsJson,
-                            syncId = rMsgId
+                            syncId = rMsgId,
+                            modelName = modelName
                         )
                     )
                 }
             }
         }
-    }
 
-    // --- Fast Background Push on message creation ---
-    suspend fun pushMessageAsync(chatSyncId: String, message: MessageEntity) = withContext(Dispatchers.IO) {
-        val token = getValidAccessToken() ?: return@withContext
-        val userId = secureKeyStorage.getSupabaseUserId()
-        if (userId.isBlank() || chatSyncId.isBlank()) return@withContext
-
-        try {
-            val attArray = if (!message.attachmentsJson.isNullOrBlank()) {
-                try { JSONArray(message.attachmentsJson) } catch (_: Exception) { JSONArray() }
-            } else {
-                JSONArray()
-            }
-
-            var modified = false
-            var finalAttachmentUri = message.attachmentUri
-            for (j in 0 until attArray.length()) {
-                val item = attArray.optJSONObject(j) ?: continue
-                val uri = item.optString("uri", "")
-                val name = item.optString("name", "attachment")
-                if (uri.isNotBlank() && !uri.startsWith("http://") && !uri.startsWith("https://")) {
-                    val publicUrl = uploadAttachmentToStorage(uri, name)
-                    if (publicUrl != null) {
-                        item.put("uri", publicUrl)
-                        modified = true
-                        if (j == 0) finalAttachmentUri = publicUrl
-                    } else {
-                        // Fallback: if Storage upload failed, encode compressed image to base64 data URI
-                        // so that cross-device sync renders the image immediately without breaking
-                        if (!uri.startsWith("data:")) {
-                            val b64 = com.wyrd.app.util.AttachmentHelper.getBase64FromPath(uri)
-                            if (!b64.isNullOrBlank()) {
-                                item.put("uri", "data:image/jpeg;base64,$b64")
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (modified) {
-                try {
-                    val updated = message.copy(
-                        attachmentsJson = attArray.toString(),
-                        attachmentUri = finalAttachmentUri
-                    )
-                    database.messageDao().insertMessage(updated)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed updating local message attachments in pushMessageAsync", e)
-                }
-            }
-
-            val payload = JSONObject().apply {
-                put("id", message.syncId)
-                put("chat_id", chatSyncId)
-                put("user_id", userId)
-                put("role", message.role)
-                put("content", message.content)
-                if (!message.reasoning.isNullOrBlank()) {
-                    put("reasoning", message.reasoning)
-                } else {
-                    put("reasoning", JSONObject.NULL)
-                }
-                put("attachments", attArray)
-                put("created_at", formatIsoDate(message.timestamp))
-            }
-            val req = Request.Builder()
+        if (batchUploadArr.length() > 0) {
+            val uploadReq = Request.Builder()
                 .url("$SUPABASE_URL/rest/v1/messages?on_conflict=id")
                 .addHeader("apikey", SUPABASE_KEY)
                 .addHeader("Authorization", "Bearer $token")
                 .addHeader("Prefer", "resolution=merge-duplicates")
-                .post(payload.toString().toRequestBody(jsonMediaType))
+                .post(batchUploadArr.toString().toRequestBody(jsonMediaType))
                 .build()
-            client.newCall(req).execute().use { resp ->
+            client.newCall(uploadReq).execute().use { resp ->
                 if (!resp.isSuccessful) {
-                    Log.w(TAG, "pushMessageAsync error: ${resp.code}")
+                    val err = resp.body?.string() ?: ""
+                    Log.e(TAG, "syncMessages batch upload failed: ${resp.code} $err")
+                } else {
+                    knownSyncedMessageIds.addAll(newlyUploadedIds)
+                    Log.d(TAG, "syncMessages batch uploaded ${batchUploadArr.length()} messages")
                 }
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "pushMessageAsync failed", e)
         }
+
+        secureKeyStorage.setKnownSyncedMessageIds(knownSyncedMessageIds)
     }
 
     // --- Remote Deletion ---
@@ -1394,7 +1468,11 @@ class SupabaseSyncManager(
             }
 
             if (storagePaths.isNotEmpty()) {
-                deleteStorageAttachments(storagePaths)
+                val sharedPaths = getActiveStoragePathsExcluding(excludedChatSyncIds = setOf(chatSyncId))
+                val pathsToDelete = storagePaths.filter { it !in sharedPaths }
+                if (pathsToDelete.isNotEmpty()) {
+                    deleteStorageAttachments(pathsToDelete)
+                }
             }
 
             val msgReq = Request.Builder()
@@ -1477,7 +1555,11 @@ class SupabaseSyncManager(
                 }
 
                 if (storagePaths.isNotEmpty()) {
-                    deleteStorageAttachments(storagePaths)
+                    val sharedPaths = getActiveStoragePathsExcluding(excludedChatSyncIds = chatIds.toSet())
+                    val pathsToDelete = storagePaths.filter { it !in sharedPaths }
+                    if (pathsToDelete.isNotEmpty()) {
+                        deleteStorageAttachments(pathsToDelete)
+                    }
                 }
 
                 for (cId in chatIds) {

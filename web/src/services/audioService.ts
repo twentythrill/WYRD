@@ -1,15 +1,12 @@
 /**
  * Speech-to-Text (STT) Service:
  * 1. Web Microphone Audio Recording with MediaRecorder
- * 2. OpenAI Whisper transcription (/v1/audio/transcriptions)
+ * 2. OpenAI gpt-4o-mini-transcribe transcription (/v1/audio/transcriptions)
  */
 
 export function getOpenAiApiKey(): string {
   const customKey = localStorage.getItem('wyrd_openai_api_key')
-  if (customKey && customKey.trim()) return customKey.trim()
-  const genericKey = localStorage.getItem('wyrd_api_key')
-  if (genericKey && genericKey.trim().startsWith('sk-')) return genericKey.trim()
-  return ''
+  return customKey?.trim() || ''
 }
 
 export function setOpenAiApiKey(key: string) {
@@ -103,7 +100,7 @@ export async function transcribeAudio(audioBlob: Blob, apiKey?: string): Promise
 
   const formData = new FormData()
   formData.append('file', file)
-  formData.append('model', 'whisper-1')
+  formData.append('model', 'gpt-4o-mini-transcribe')
 
   const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',

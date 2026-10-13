@@ -25,16 +25,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import com.wyrd.app.ui.theme.WyrdIcons
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -328,7 +322,7 @@ fun SettingsScreen(
                                 )
                             } else {
                                 Icon(
-                                    imageVector = Icons.Default.Sync,
+                                    imageVector = WyrdIcons.Sync,
                                     contentDescription = "Sync Now",
                                     tint = TextWhite,
                                     modifier = Modifier.size(20.dp)
@@ -344,7 +338,7 @@ fun SettingsScreen(
                             }
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Logout,
+                                imageVector = WyrdIcons.Logout,
                                 contentDescription = "Disconnect",
                                 tint = AccentRed,
                                 modifier = Modifier.size(20.dp)
@@ -533,7 +527,7 @@ fun SettingsScreen(
                     )
                 }
                 Icon(
-                    imageVector = Icons.Default.PushPin,
+                    imageVector = WyrdIcons.PushPin,
                     contentDescription = "Preserve Pinned",
                     tint = TextGray,
                     modifier = Modifier.size(18.dp)
@@ -733,7 +727,7 @@ fun SettingsScreen(
                             trailingIcon = {
                                 IconButton(onClick = { supabaseAuthPasswordVisible = !supabaseAuthPasswordVisible }) {
                                     Icon(
-                                        imageVector = if (supabaseAuthPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                        imageVector = if (supabaseAuthPasswordVisible) WyrdIcons.Visibility else WyrdIcons.VisibilityOff,
                                         contentDescription = if (supabaseAuthPasswordVisible) "Hide password" else "Show password",
                                         tint = TextGray
                                     )
@@ -1096,7 +1090,7 @@ private fun ApiKeyEntryDialog(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Default.Key,
+                    imageVector = WyrdIcons.Key,
                     contentDescription = null,
                     tint = White,
                     modifier = Modifier.size(20.dp)
@@ -1673,7 +1667,7 @@ private fun TtsSettingsSection(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = if (isTestPlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
+                        imageVector = if (isTestPlaying) WyrdIcons.Stop else Icons.Default.PlayArrow,
                         contentDescription = if (isTestPlaying) "Stop" else "Test",
                         tint = if (isTestPlaying) White else Black,
                         modifier = Modifier.size(16.dp)

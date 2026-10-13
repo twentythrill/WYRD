@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Key, X, Check } from 'lucide-react'
 import { getOpenAiApiKey, setOpenAiApiKey } from '@/services/audioService'
 
@@ -52,13 +52,13 @@ export function OpenAiKeyModal({ isOpen, onClose, onSuccess, isDark = true }: Op
               OpenAI API Key Required
             </h3>
             <p className={`text-xs font-sans ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
-              Voice Dictation (OpenAI Whisper STT)
+              Voice Dictation (OpenAI gpt-4o-mini-transcribe)
             </p>
           </div>
         </div>
 
         <p className={`text-xs font-sans leading-relaxed mb-4 ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
-          To record audio and transcribe your voice to text using OpenAI Whisper, configure your OpenAI API key below.
+          To record audio and transcribe your voice to text using OpenAI gpt-4o-mini-transcribe, configure your OpenAI API key below.
         </p>
 
         <div className="space-y-3">

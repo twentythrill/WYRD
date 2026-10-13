@@ -64,7 +64,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.DrawerValue
@@ -109,13 +108,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.net.Uri
-import android.graphics.BitmapFactory
 import android.widget.Toast
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.Image
 import androidx.core.content.ContextCompat
 import com.wyrd.app.R
 import com.wyrd.app.ui.MainViewModel
@@ -123,6 +118,8 @@ import com.wyrd.app.ui.components.AssistantMessageItem
 import com.wyrd.app.ui.components.AttachmentPopupMenu
 import com.wyrd.app.ui.components.BigSttOverlay
 import com.wyrd.app.ui.components.ChatInputBubble
+import com.wyrd.app.ui.components.rememberAttachmentBitmap
+import com.wyrd.app.ui.theme.WyrdIcons
 import com.wyrd.app.util.AttachedItem
 import com.wyrd.app.util.AttachmentHelper
 import com.wyrd.app.ui.components.DrawerContent
@@ -540,6 +537,7 @@ fun HomeScreen(
                 }
             }
         ) {
+            @Suppress("UnusedMaterial3ScaffoldPaddingParameter")
             Scaffold(
                 containerColor = Black,
                 modifier = Modifier
@@ -807,9 +805,16 @@ fun HomeScreen(
                                             }
                                         )
                                     } else {
+                                        val isItemSpeaking = ttsPlaybackState.messageId == message.id
+                                        val itemTtsState = remember(
+                                            isItemSpeaking,
+                                            if (isItemSpeaking) ttsPlaybackState else null
+                                        ) {
+                                            if (isItemSpeaking) ttsPlaybackState else TtsPlaybackState()
+                                        }
                                         AssistantMessageItem(
                                             message = message,
-                                            ttsPlaybackState = ttsPlaybackState,
+                                            ttsPlaybackState = itemTtsState,
                                             onCopy = { viewModel.copyToClipboard(message.content) },
                                             onSeek = { text, offset -> viewModel.seekTts(message.id, text, offset) },
                                             onActiveWordPosition = { line, wordTopInItem, wordBottomInItem ->
@@ -1003,7 +1008,7 @@ fun HomeScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                        imageVector = if (isPlaying) WyrdIcons.Pause else Icons.Filled.PlayArrow,
                                         contentDescription = if (isPlaying) "Pause TTS" else "Play TTS",
                                         tint = if (isPlaying) Black else TextWhite,
                                         modifier = Modifier.size(24.dp)
@@ -1307,15 +1312,9 @@ fun AttachmentPreviewCard(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bitmap = remember(item.uriString) {
-        if (item.isImage) {
-            try {
-                BitmapFactory.decodeFile(item.uriString)?.asImageBitmap()
-            } catch (_: Exception) {
-                null
-            }
-        } else null
-    }
+    val bitmap = if (item.isImage) {
+        rememberAttachmentBitmap(uri = item.uriString, maxDimensionPx = 256)
+    } else null
 
     Row(
         modifier = modifier
@@ -1346,7 +1345,7 @@ fun AttachmentPreviewCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (item.isImage) Icons.Outlined.Image else Icons.Outlined.Description,
+                    imageVector = if (item.isImage) WyrdIcons.ImageOutlined else WyrdIcons.DescriptionOutlined,
                     contentDescription = null,
                     tint = TextWhite,
                     modifier = Modifier.size(24.dp)
@@ -1455,15 +1454,9 @@ fun CompactAttachmentChip(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bitmap = remember(item.uriString) {
-        if (item.isImage) {
-            try {
-                BitmapFactory.decodeFile(item.uriString)?.asImageBitmap()
-            } catch (_: Exception) {
-                null
-            }
-        } else null
-    }
+    val bitmap = if (item.isImage) {
+        rememberAttachmentBitmap(uri = item.uriString, maxDimensionPx = 256)
+    } else null
 
     Row(
         modifier = modifier
@@ -1493,7 +1486,7 @@ fun CompactAttachmentChip(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (item.isImage) Icons.Outlined.Image else Icons.Outlined.Description,
+                    imageVector = if (item.isImage) WyrdIcons.ImageOutlined else WyrdIcons.DescriptionOutlined,
                     contentDescription = null,
                     tint = TextWhite,
                     modifier = Modifier.size(18.dp)

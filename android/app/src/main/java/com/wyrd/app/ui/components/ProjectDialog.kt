@@ -29,8 +29,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -77,6 +75,7 @@ import com.wyrd.app.ui.theme.TextMuted
 import com.wyrd.app.ui.theme.TextWhite
 import com.wyrd.app.ui.theme.White
 import com.wyrd.app.ui.theme.OnPrimaryColor
+import com.wyrd.app.ui.theme.WyrdIcons
 import com.wyrd.app.util.AttachmentHelper
 
 val PROJECT_COLOR_PRESETS = listOf(
@@ -396,7 +395,7 @@ fun ProjectDialog(
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Icon(
-                                        imageVector = Icons.Default.UploadFile,
+                                        imageVector = WyrdIcons.UploadFile,
                                         contentDescription = null,
                                         tint = TextMuted,
                                         modifier = Modifier.size(24.dp)
@@ -413,8 +412,8 @@ fun ProjectDialog(
                         } else {
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 stagedUris.forEach { uri ->
-                                    val fileName = AttachmentHelper.getFileName(context, uri)
-                                    val fileSize = AttachmentHelper.getFileSize(context, uri)
+                                    val fileName = remember(uri) { AttachmentHelper.getFileName(context, uri) }
+                                    val fileSize = remember(uri) { AttachmentHelper.getFileSize(context, uri) }
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -430,7 +429,7 @@ fun ProjectDialog(
                                             modifier = Modifier.weight(1f)
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.Description,
+                                                imageVector = WyrdIcons.Description,
                                                 contentDescription = null,
                                                 tint = TextGray,
                                                 modifier = Modifier.size(18.dp)
@@ -499,7 +498,7 @@ fun ProjectDialog(
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
-                                    imageVector = Icons.Default.UploadFile,
+                                    imageVector = WyrdIcons.UploadFile,
                                     contentDescription = null,
                                     tint = TextMuted,
                                     modifier = Modifier.size(24.dp)
@@ -531,7 +530,7 @@ fun ProjectDialog(
                                         modifier = Modifier.weight(1f)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.Description,
+                                            imageVector = WyrdIcons.Description,
                                             contentDescription = null,
                                             tint = TextGray,
                                             modifier = Modifier.size(18.dp)

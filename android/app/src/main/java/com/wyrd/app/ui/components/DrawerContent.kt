@@ -28,19 +28,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.PushPin
 import com.wyrd.app.data.local.ProjectEntity
+import com.wyrd.app.ui.theme.WyrdIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -485,7 +482,7 @@ private fun ProjectItemRow(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = if (isExpanded) "Collapse" else "Expand",
                     tint = TextMuted,
                     modifier = Modifier.size(18.dp)
@@ -493,7 +490,7 @@ private fun ProjectItemRow(
             }
             Spacer(modifier = Modifier.width(4.dp))
             Icon(
-                imageVector = if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder,
+                imageVector = if (isExpanded) WyrdIcons.FolderOpen else WyrdIcons.Folder,
                 contentDescription = null,
                 tint = projectColor ?: (if (isExpanded || isSelected) TextWhite else TextGray),
                 modifier = Modifier.size(18.dp)
@@ -631,7 +628,7 @@ private fun ChatItemRow(
             if (chat.isPinned) {
                 Spacer(modifier = Modifier.width(6.dp))
                 Icon(
-                    imageVector = Icons.Default.PushPin,
+                    imageVector = WyrdIcons.PushPin,
                     contentDescription = "Pinned",
                     tint = TextGray,
                     modifier = Modifier.size(15.dp)
@@ -649,7 +646,7 @@ private fun ChatItemRow(
                 text = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = if (chat.isPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
+                            imageVector = if (chat.isPinned) WyrdIcons.PushPinOutlined else WyrdIcons.PushPin,
                             contentDescription = null,
                             tint = TextWhite,
                             modifier = Modifier.size(16.dp)

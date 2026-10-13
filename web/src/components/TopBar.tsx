@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Check, PanelLeftOpen, Sun, Moon, Folder } from 'lucide-react'
 
 interface ModelOption {
@@ -9,13 +9,6 @@ interface ModelOption {
 const SUPPORTED_MODELS: ModelOption[] = [
   { id: 'mimo-v2.6-flash', shortName: 'MiMo 2.6 Flash' },
   { id: 'mimo-v2.6-pro', shortName: 'MiMo 2.6 Pro' },
-]
-
-const REASONING_EFFORTS = [
-  { id: 'off', displayName: 'Off' },
-  { id: 'low', displayName: 'Low' },
-  { id: 'medium', displayName: 'Medium' },
-  { id: 'high', displayName: 'High' },
 ]
 
 interface TopBarProps {
@@ -29,7 +22,6 @@ interface TopBarProps {
   isDark?: boolean
   onSelectModel: (modelId: string) => void
   onToggleThinking?: (enabled: boolean) => void
-  onSelectReasoningEffort?: (effortId: string) => void
   onToggleSidebar: () => void
   onToggleTheme?: () => void
 }
@@ -45,7 +37,6 @@ export function TopBar({
   isDark = true,
   onSelectModel,
   onToggleThinking,
-  onSelectReasoningEffort,
   onToggleSidebar,
   onToggleTheme,
 }: TopBarProps) {
@@ -61,7 +52,6 @@ export function TopBar({
 
   const handleToggleThinking = (newVal: boolean) => {
     onToggleThinking?.(newVal)
-    onSelectReasoningEffort?.(newVal ? 'on' : 'off')
   }
 
   const modelBase = 'MiMo 2.6'

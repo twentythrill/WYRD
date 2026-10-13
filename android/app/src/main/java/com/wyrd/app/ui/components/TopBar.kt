@@ -33,17 +33,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.wyrd.app.data.preferences.ReasoningEffort
 import com.wyrd.app.data.preferences.SupportedModel
 import com.wyrd.app.ui.theme.DarkCard
 import com.wyrd.app.ui.theme.DarkSurface
 import com.wyrd.app.ui.theme.TextGray
 import com.wyrd.app.ui.theme.TextMuted
 import com.wyrd.app.ui.theme.TextWhite
+import com.wyrd.app.ui.theme.WyrdIcons
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.ui.draw.clip
@@ -106,7 +105,7 @@ fun TopBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Default.Folder,
+                    imageVector = WyrdIcons.Folder,
                     contentDescription = null,
                     tint = projectColor ?: TextMuted,
                     modifier = Modifier.size(13.dp)
@@ -125,29 +124,6 @@ fun TopBar(
         }
     }
 }
-
-@Composable
-fun TopBar(
-    activeModel: SupportedModel,
-    reasoningEffort: ReasoningEffort,
-    onModelSelected: (SupportedModel) -> Unit,
-    onReasoningEffortSelected: (ReasoningEffort) -> Unit,
-    onMenuClick: () -> Unit,
-    activeProjectName: String? = null,
-    activeProjectColor: String? = null,
-    modifier: Modifier = Modifier
-) = TopBar(
-    activeModel = activeModel,
-    isThinkingEnabled = (reasoningEffort != ReasoningEffort.OFF),
-    onModelSelected = onModelSelected,
-    onToggleThinking = { enabled ->
-        onReasoningEffortSelected(if (enabled) ReasoningEffort.MEDIUM else ReasoningEffort.OFF)
-    },
-    onMenuClick = onMenuClick,
-    activeProjectName = activeProjectName,
-    activeProjectColor = activeProjectColor,
-    modifier = modifier
-)
 
 @Composable
 fun ModelAndEffortSelector(
@@ -312,23 +288,3 @@ fun ModelAndEffortSelector(
     }
 }
 
-@Composable
-fun ModelAndEffortSelector(
-    activeModel: SupportedModel,
-    reasoningEffort: ReasoningEffort,
-    onModelSelected: (SupportedModel) -> Unit,
-    onReasoningEffortSelected: (ReasoningEffort) -> Unit,
-    modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-    enabled: Boolean = true
-) = ModelAndEffortSelector(
-    activeModel = activeModel,
-    isThinkingEnabled = (reasoningEffort != ReasoningEffort.OFF),
-    onModelSelected = onModelSelected,
-    onToggleThinking = { enabledState ->
-        onReasoningEffortSelected(if (enabledState) ReasoningEffort.MEDIUM else ReasoningEffort.OFF)
-    },
-    modifier = modifier,
-    contentPadding = contentPadding,
-    enabled = enabled
-)

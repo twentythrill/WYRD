@@ -1,10 +1,18 @@
 package com.wyrd.app.data.local
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-@Entity(tableName = "project_files")
+@Entity(
+    tableName = "project_files",
+    indices = [
+        Index(value = ["projectId"]),
+        Index(value = ["projectSyncId"]),
+        Index(value = ["syncId"])
+    ]
+)
 data class ProjectFileEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

@@ -64,6 +64,10 @@ export interface FormattedReadingContent {
   blocks: ReadingBlock[]
 }
 
+const INITIAL_WHITESPACE_REGEX = /^(\s+)/
+const WORD_PUNCT_REGEX = /^([^\p{L}\p{N}]*)([\p{L}\p{N}'’\-_]+)([^\p{L}\p{N}]*)$/u
+const SAFE_LINK_PROTOCOL_REGEX = /^(?:https?:\/\/|mailto:)/i
+
 /**
  * Splits text into words while isolating leading/trailing punctuation and recording
  * exact character offsets relative to baseOffset in plainText.
@@ -73,7 +77,7 @@ export function tokenizeTextIntoWords(text: string, baseOffset: number): Formatt
   const chunkRegex = /(\S+)(\s*)/g
   let chunkMatch: RegExpExecArray | null
 
-  const initialWhitespaceMatch = text.match(/^(\s+)/)
+  const initialWhitespaceMatch = text.match(INITIAL_WHITESPACE_REGEX)
   const initialWhitespace = initialWhitespaceMatch ? initialWhitespaceMatch[1] : ''
   let isFirst = true
 
@@ -84,7 +88,7 @@ export function tokenizeTextIntoWords(text: string, baseOffset: number): Formatt
 
     // Separate leading punctuation, core word, and trailing punctuation
     // Core word allows unicode letters, digits, apostrophes, hyphens
-    const wordMatch = rawChunk.match(/^([^\p{L}\p{N}]*)([\p{L}\p{N}'’\-_]+)([^\p{L}\p{N}]*)$/u)
+    const wordMatch = rawChunk.match(WORD_PUNCT_REGEX)
 
     if (wordMatch) {
       const punct = wordMatch[1]
@@ -242,12 +246,13 @@ function parseInlineSpans(
         const closingParen = line.indexOf(')', closingBracket + 2)
         if (closingParen !== -1) {
           const label = line.substring(cursor + 1, closingBracket)
-          const url = line.substring(closingBracket + 2, closingParen)
+          const url = line.substring(closingBracket + 2, closingParen).trim()
           const words = tokenizeTextIntoWords(label, currentOffset)
+          const isSafeUrl = SAFE_LINK_PROTOCOL_REGEX.test(url)
           spans.push({
-            type: 'link',
+            type: isSafeUrl ? 'link' : 'text',
             text: label,
-            url,
+            url: isSafeUrl ? url : undefined,
             words,
           })
           currentOffset += label.length

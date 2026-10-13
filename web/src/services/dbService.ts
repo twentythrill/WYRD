@@ -279,16 +279,20 @@ export const dbService = {
     }
 
     try {
-      // 1. Find and delete attachments in storage
+      // 1. Find and delete attachments in storage that are not shared by other chats
       const { data: msgs } = await supabase
         .from('messages')
         .select('attachments')
         .eq('chat_id', chatId)
 
       if (msgs && msgs.length > 0) {
-        const paths = extractStoragePathsFromMessages(msgs)
-        if (paths.length > 0) {
-          await deleteStorageAttachments(paths)
+        const candidatePaths = extractStoragePathsFromMessages(msgs)
+        if (candidatePaths.length > 0) {
+          const protectedPaths = await getProtectedStoragePaths({ excludeChatIds: [chatId] })
+          const pathsToDelete = candidatePaths.filter((p) => !protectedPaths.has(p))
+          if (pathsToDelete.length > 0) {
+            await deleteStorageAttachments(pathsToDelete)
+          }
         }
       }
 
@@ -316,16 +320,20 @@ export const dbService = {
       if (unpinned && unpinned.length > 0) {
         const ids = unpinned.map((c) => c.id)
 
-        // 1. Find and delete attachments across all unpinned chats
+        // 1. Find and delete attachments across all unpinned chats not shared by pinned chats
         const { data: msgs } = await supabase
           .from('messages')
           .select('attachments')
           .in('chat_id', ids)
 
         if (msgs && msgs.length > 0) {
-          const paths = extractStoragePathsFromMessages(msgs)
-          if (paths.length > 0) {
-            await deleteStorageAttachments(paths)
+          const candidatePaths = extractStoragePathsFromMessages(msgs)
+          if (candidatePaths.length > 0) {
+            const protectedPaths = await getProtectedStoragePaths({ excludeChatIds: ids })
+            const pathsToDelete = candidatePaths.filter((p) => !protectedPaths.has(p))
+            if (pathsToDelete.length > 0) {
+              await deleteStorageAttachments(pathsToDelete)
+            }
           }
         }
 
@@ -436,31 +444,12 @@ export const dbService = {
     return data || []
   },
 
-  async deleteMessage(messageId: string): Promise<boolean> {
-    try {
-      const { data: msg } = await supabase
-        .from('messages')
-        .select('attachments')
-        .eq('id', messageId)
-        .maybeSingle()
-
-      if (msg) {
-        const paths = extractStoragePathsFromMessages([msg])
-        if (paths.length > 0) {
-          await deleteStorageAttachments(paths)
-        }
-      }
-    } catch (_e) {}
-
-    const { error } = await supabase.from('messages').delete().eq('id', messageId)
-    if (error) {
-      console.error('Error deleting message:', error)
-      return false
-    }
-    return true
-  },
-
-  async deleteMessagesFrom(chatId: string, createdAt?: string, messageIds?: string[]): Promise<boolean> {
+  async deleteMessagesFrom(
+    chatId: string,
+    createdAt?: string,
+    messageIds?: string[],
+    excludeUris?: string[]
+  ): Promise<boolean> {
     try {
       if (messageIds && messageIds.length > 0) {
         const { data: msgs } = await supabase
@@ -469,9 +458,16 @@ export const dbService = {
           .in('id', messageIds)
 
         if (msgs && msgs.length > 0) {
-          const paths = extractStoragePathsFromMessages(msgs)
-          if (paths.length > 0) {
-            await deleteStorageAttachments(paths)
+          const candidatePaths = extractStoragePathsFromMessages(msgs)
+          if (candidatePaths.length > 0) {
+            const protectedPaths = await getProtectedStoragePaths({
+              excludeMessageIds: messageIds,
+              extraKeepUris: excludeUris,
+            })
+            const pathsToDelete = candidatePaths.filter((p) => !protectedPaths.has(p))
+            if (pathsToDelete.length > 0) {
+              await deleteStorageAttachments(pathsToDelete)
+            }
           }
         }
 
@@ -486,14 +482,22 @@ export const dbService = {
       } else if (createdAt) {
         const { data: msgs } = await supabase
           .from('messages')
-          .select('attachments')
+          .select('id, attachments')
           .eq('chat_id', chatId)
           .gte('created_at', createdAt)
 
         if (msgs && msgs.length > 0) {
-          const paths = extractStoragePathsFromMessages(msgs)
-          if (paths.length > 0) {
-            await deleteStorageAttachments(paths)
+          const candidatePaths = extractStoragePathsFromMessages(msgs)
+          if (candidatePaths.length > 0) {
+            const idsToDelete = msgs.map((m) => m.id)
+            const protectedPaths = await getProtectedStoragePaths({
+              excludeMessageIds: idsToDelete,
+              extraKeepUris: excludeUris,
+            })
+            const pathsToDelete = candidatePaths.filter((p) => !protectedPaths.has(p))
+            if (pathsToDelete.length > 0) {
+              await deleteStorageAttachments(pathsToDelete)
+            }
           }
         }
 
@@ -514,7 +518,12 @@ export const dbService = {
     }
   },
 
-  async deleteMessagesAfter(chatId: string, createdAt?: string, messageIds?: string[]): Promise<boolean> {
+  async deleteMessagesAfter(
+    chatId: string,
+    createdAt?: string,
+    messageIds?: string[],
+    excludeUris?: string[]
+  ): Promise<boolean> {
     try {
       if (messageIds && messageIds.length > 0) {
         const { data: msgs } = await supabase
@@ -523,9 +532,16 @@ export const dbService = {
           .in('id', messageIds)
 
         if (msgs && msgs.length > 0) {
-          const paths = extractStoragePathsFromMessages(msgs)
-          if (paths.length > 0) {
-            await deleteStorageAttachments(paths)
+          const candidatePaths = extractStoragePathsFromMessages(msgs)
+          if (candidatePaths.length > 0) {
+            const protectedPaths = await getProtectedStoragePaths({
+              excludeMessageIds: messageIds,
+              extraKeepUris: excludeUris,
+            })
+            const pathsToDelete = candidatePaths.filter((p) => !protectedPaths.has(p))
+            if (pathsToDelete.length > 0) {
+              await deleteStorageAttachments(pathsToDelete)
+            }
           }
         }
 
@@ -540,14 +556,22 @@ export const dbService = {
       } else if (createdAt) {
         const { data: msgs } = await supabase
           .from('messages')
-          .select('attachments')
+          .select('id, attachments')
           .eq('chat_id', chatId)
           .gt('created_at', createdAt)
 
         if (msgs && msgs.length > 0) {
-          const paths = extractStoragePathsFromMessages(msgs)
-          if (paths.length > 0) {
-            await deleteStorageAttachments(paths)
+          const candidatePaths = extractStoragePathsFromMessages(msgs)
+          if (candidatePaths.length > 0) {
+            const idsToDelete = msgs.map((m) => m.id)
+            const protectedPaths = await getProtectedStoragePaths({
+              excludeMessageIds: idsToDelete,
+              extraKeepUris: excludeUris,
+            })
+            const pathsToDelete = candidatePaths.filter((p) => !protectedPaths.has(p))
+            if (pathsToDelete.length > 0) {
+              await deleteStorageAttachments(pathsToDelete)
+            }
           }
         }
 
@@ -741,19 +765,56 @@ export function extractStoragePath(uriOrPath: string): string | null {
   return null
 }
 
-export function extractStoragePathsFromMessages(messages: Array<{ attachments?: any }>): string[] {
+export function extractStoragePathsFromMessages(messages: Array<{ attachments?: unknown }>): string[] {
   const paths: string[] = []
   for (const msg of messages) {
     if (!msg || !msg.attachments) continue
     const attList = Array.isArray(msg.attachments) ? msg.attachments : []
     for (const att of attList) {
-      if (att && att.uri) {
+      if (att && typeof att === 'object' && 'uri' in att && typeof att.uri === 'string') {
         const path = extractStoragePath(att.uri)
         if (path) paths.push(path)
       }
     }
   }
   return Array.from(new Set(paths))
+}
+
+async function getProtectedStoragePaths({
+  excludeMessageIds = [],
+  excludeChatIds = [],
+  extraKeepUris = [],
+}: {
+  excludeMessageIds?: string[]
+  excludeChatIds?: string[]
+  extraKeepUris?: string[]
+}): Promise<Set<string>> {
+  const protectedPaths = new Set<string>()
+  for (const uri of extraKeepUris) {
+    const p = extractStoragePath(uri)
+    if (p) protectedPaths.add(p)
+  }
+
+  try {
+    const excludeMsgSet = new Set(excludeMessageIds)
+    const excludeChatSet = new Set(excludeChatIds)
+    const { data: allMsgs } = await supabase
+      .from('messages')
+      .select('id, chat_id, attachments')
+
+    if (allMsgs && allMsgs.length > 0) {
+      const remaining = allMsgs.filter(
+        (m) => !excludeMsgSet.has(m.id) && !excludeChatSet.has(m.chat_id)
+      )
+      for (const p of extractStoragePathsFromMessages(remaining)) {
+        protectedPaths.add(p)
+      }
+    }
+  } catch (e) {
+    console.warn('Could not query remaining messages for attachment protection:', e)
+  }
+
+  return protectedPaths
 }
 
 export async function deleteStorageAttachments(paths: string[]): Promise<boolean> {

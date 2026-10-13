@@ -16,33 +16,75 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 
 class WyrdApp : Application() {
 
     val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    val okHttpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+            .build()
+    }
+
     val database by lazy { AppDatabase.getInstance(this) }
     val secureKeyStorage by lazy { SecureKeyStorage(this) }
     val preferencesManager by lazy { PreferencesManager(this) }
-    val mimoService by lazy { XiaomiMimoService() }
-    val exaSearchService by lazy { ExaSearchService() }
-    val tavilySearchService by lazy { TavilySearchService() }
-    val openAiSttService by lazy { OpenAiSttService() }
+    val mimoService by lazy {
+        XiaomiMimoService(
+            okHttpClient.newBuilder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(90, TimeUnit.SECONDS)
+                .writeTimeout(15, TimeUnit.SECONDS)
+                .build()
+        )
+    }
+    val exaSearchService by lazy {
+        ExaSearchService(
+            okHttpClient.newBuilder()
+                .connectTimeout(8, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
+                .writeTimeout(8, TimeUnit.SECONDS)
+                .build()
+        )
+    }
+    val tavilySearchService by lazy {
+        TavilySearchService(
+            okHttpClient.newBuilder()
+                .connectTimeout(8, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
+                .writeTimeout(8, TimeUnit.SECONDS)
+                .build()
+        )
+    }
+    val openAiSttService by lazy {
+        OpenAiSttService(
+            okHttpClient.newBuilder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .build()
+        )
+    }
     val nativeTtsManager by lazy { NativeTtsManager(this) }
     val audioRecorderHelper by lazy { AudioRecorderHelper() }
     val hapticManager by lazy { com.wyrd.app.util.HapticManager(this) }
     val supabaseSyncManager by lazy {
-        SupabaseSyncManager(this, secureKeyStorage, preferencesManager, database)
+        SupabaseSyncManager(this, secureKeyStorage, preferencesManager, database, okHttpClient)
     }
 
     override fun onCreate() {
         super.onCreate()
-        if (supabaseSyncManager.isUserSignedIn()) {
-            applicationScope.launch {
-                try {
+        applicationScope.launch(Dispatchers.IO) {
+            try {
+                if (supabaseSyncManager.isUserSignedIn()) {
                     supabaseSyncManager.syncAll()
-                } catch (_: Exception) {}
-            }
+                }
+            } catch (_: Exception) {}
         }
     }
 
@@ -53,3 +95,4 @@ class WyrdApp : Application() {
         applicationScope.cancel()
     }
 }
+

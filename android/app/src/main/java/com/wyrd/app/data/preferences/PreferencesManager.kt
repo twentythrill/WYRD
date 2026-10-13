@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -86,6 +87,10 @@ class PreferencesManager(private val context: Context) {
         ReasoningEffort.fromId(effortId)
     }
 
+    val profileUpdatedAtFlow: Flow<Long> = context.dataStore.data.map { preferences ->
+        preferences[KEY_PROFILE_UPDATED_AT] ?: 0L
+    }
+
     val isXiaomiMimoEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[KEY_XIAOMI_ENABLED] ?: false
     }
@@ -119,15 +124,41 @@ class PreferencesManager(private val context: Context) {
         preferences[KEY_TTS_VOICE] ?: ""
     }
 
-    suspend fun setUsername(username: String) {
+    suspend fun setUsername(username: String, updatedAtMs: Long = System.currentTimeMillis()) {
         context.dataStore.edit { preferences ->
             preferences[KEY_USERNAME] = username
+            preferences[KEY_PROFILE_UPDATED_AT] = updatedAtMs
         }
     }
 
-    suspend fun setSystemPrompt(prompt: String) {
+    suspend fun setSystemPrompt(prompt: String, updatedAtMs: Long = System.currentTimeMillis()) {
         context.dataStore.edit { preferences ->
             preferences[KEY_SYSTEM_PROMPT] = prompt
+            preferences[KEY_PROFILE_UPDATED_AT] = updatedAtMs
+        }
+    }
+
+    suspend fun setProfileFromCloud(
+        username: String,
+        systemPrompt: String,
+        activeModelId: String?,
+        reasoningEffortId: String?,
+        updatedAtMs: Long
+    ) {
+        context.dataStore.edit { preferences ->
+            if (username.isNotBlank()) {
+                preferences[KEY_USERNAME] = username
+            }
+            preferences[KEY_SYSTEM_PROMPT] = systemPrompt
+            if (!activeModelId.isNullOrBlank()) {
+                preferences[KEY_ACTIVE_MODEL] = SupportedModel.fromId(activeModelId).id
+            }
+            if (!reasoningEffortId.isNullOrBlank()) {
+                val effort = ReasoningEffort.fromId(reasoningEffortId)
+                preferences[KEY_REASONING_EFFORT] = effort.id
+                preferences[KEY_THINKING_ENABLED] = (effort != ReasoningEffort.OFF)
+            }
+            preferences[KEY_PROFILE_UPDATED_AT] = updatedAtMs
         }
     }
 
@@ -152,13 +183,15 @@ class PreferencesManager(private val context: Context) {
     suspend fun setActiveModel(model: SupportedModel) {
         context.dataStore.edit { preferences ->
             preferences[KEY_ACTIVE_MODEL] = model.id
+            preferences[KEY_PROFILE_UPDATED_AT] = System.currentTimeMillis()
         }
     }
 
     suspend fun setThinkingEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[KEY_THINKING_ENABLED] = enabled
-            preferences[KEY_REASONING_EFFORT] = if (enabled) "on" else "off"
+            preferences[KEY_REASONING_EFFORT] = if (enabled) ReasoningEffort.MEDIUM.id else ReasoningEffort.OFF.id
+            preferences[KEY_PROFILE_UPDATED_AT] = System.currentTimeMillis()
         }
     }
 
@@ -166,6 +199,7 @@ class PreferencesManager(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[KEY_REASONING_EFFORT] = effort.id
             preferences[KEY_THINKING_ENABLED] = (effort != ReasoningEffort.OFF)
+            preferences[KEY_PROFILE_UPDATED_AT] = System.currentTimeMillis()
         }
     }
 
@@ -214,6 +248,7 @@ class PreferencesManager(private val context: Context) {
         private val KEY_ACTIVE_MODEL = stringPreferencesKey("active_model_id")
         private val KEY_THINKING_ENABLED = booleanPreferencesKey("thinking_enabled")
         private val KEY_REASONING_EFFORT = stringPreferencesKey("reasoning_effort")
+        private val KEY_PROFILE_UPDATED_AT = longPreferencesKey("profile_updated_at")
         private val KEY_XIAOMI_ENABLED = booleanPreferencesKey("is_xiaomi_mimo_enabled")
         private val KEY_OPENAI_STT_ENABLED = booleanPreferencesKey("is_openai_stt_enabled")
         private val KEY_EXA_SEARCH_ENABLED = booleanPreferencesKey("is_exa_search_enabled")
@@ -224,3 +259,4 @@ class PreferencesManager(private val context: Context) {
         private val KEY_TTS_VOICE = stringPreferencesKey("tts_voice_name")
     }
 }
+
