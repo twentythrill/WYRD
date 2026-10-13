@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -94,6 +95,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import com.wyrd.app.ui.theme.DarkBorder
 import com.wyrd.app.ui.theme.DarkCard
@@ -250,6 +253,7 @@ fun UserMessageBubble(
     var menuExpanded by remember { mutableStateOf(false) }
     var lastTapTime by remember { mutableStateOf(0L) }
     var lastTapPosition by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    var touchPoint by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val hapticManager = remember {
@@ -277,6 +281,7 @@ fun UserMessageBubble(
                         val dist = kotlin.math.hypot(pos.x - lastTapPosition.x, pos.y - lastTapPosition.y)
                         if (timeDiff in 30..450 && dist < 120f) {
                             down.consume()
+                            touchPoint = pos
                             menuExpanded = true
                             hapticManager.click()
                             lastTapTime = 0L
@@ -286,9 +291,10 @@ fun UserMessageBubble(
                         }
                     }
                 }
-                .padding(horizontal = 18.dp, vertical = 14.dp)
         ) {
-            Column {
+            Column(
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp)
+            ) {
                 val attachments = remember(message.attachmentsJson, message.attachmentUri) {
                     message.getAttachmentList()
                 }
@@ -442,108 +448,114 @@ fun UserMessageBubble(
                 }
             }
 
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false },
+            Box(
                 modifier = Modifier
-                    .background(DarkCard)
-                    .border(0.8.dp, DarkBorder, RoundedCornerShape(12.dp))
+                    .offset { IntOffset(touchPoint.x.roundToInt(), touchPoint.y.roundToInt()) }
+                    .size(1.dp)
             ) {
-                DropdownMenuItem(
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
-                                contentDescription = null,
-                                tint = TextWhite,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "Copy",
-                                color = TextWhite,
-                                fontFamily = SpaceGrotesk,
-                                fontSize = 14.sp
-                            )
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                    modifier = Modifier
+                        .background(DarkCard)
+                        .border(0.8.dp, DarkBorder, RoundedCornerShape(12.dp))
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ContentCopy,
+                                    contentDescription = null,
+                                    tint = TextWhite,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Copy",
+                                    color = TextWhite,
+                                    fontFamily = SpaceGrotesk,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onCopy(message)
                         }
-                    },
-                    onClick = {
-                        menuExpanded = false
-                        onCopy(message)
-                    }
-                )
+                    )
 
-                DropdownMenuItem(
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = null,
-                                tint = TextWhite,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "Edit",
-                                color = TextWhite,
-                                fontFamily = SpaceGrotesk,
-                                fontSize = 14.sp
-                            )
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null,
+                                    tint = TextWhite,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Edit",
+                                    color = TextWhite,
+                                    fontFamily = SpaceGrotesk,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onEdit(message)
                         }
-                    },
-                    onClick = {
-                        menuExpanded = false
-                        onEdit(message)
-                    }
-                )
+                    )
 
-                DropdownMenuItem(
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.CallSplit,
-                                contentDescription = null,
-                                tint = TextWhite,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "Branch into a new chat",
-                                color = TextWhite,
-                                fontFamily = SpaceGrotesk,
-                                fontSize = 14.sp
-                            )
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.CallSplit,
+                                    contentDescription = null,
+                                    tint = TextWhite,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Branch into a new chat",
+                                    color = TextWhite,
+                                    fontFamily = SpaceGrotesk,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onBranch(message)
                         }
-                    },
-                    onClick = {
-                        menuExpanded = false
-                        onBranch(message)
-                    }
-                )
+                    )
 
-                DropdownMenuItem(
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = null,
-                                tint = TextWhite,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "Redo",
-                                color = TextWhite,
-                                fontFamily = SpaceGrotesk,
-                                fontSize = 14.sp
-                            )
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = null,
+                                    tint = TextWhite,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Redo",
+                                    color = TextWhite,
+                                    fontFamily = SpaceGrotesk,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onRedo(message)
                         }
-                    },
-                    onClick = {
-                        menuExpanded = false
-                        onRedo(message)
-                    }
-                )
+                    )
+                }
             }
         }
     }

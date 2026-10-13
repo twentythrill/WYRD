@@ -31,7 +31,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 - **Zero-Shift Streaming Typography**: `StreamingAssistantMessageItem` and `AssistantMessageItem` share the exact same condensed 23sp line-height typographic pipeline, markdown preprocessing (`formatMarkdownForReading`), and padding layout. Eliminates intermediate spacing shifts, erratic vertical jumps, or layout snapping between streaming and finalized assistant turns.
 - **Selection & Double-Tap Actions**:
   - Native long-press text selection with system copy handles across all messages, streaming content, and reasoning blocks. Powered by a no-op `BringIntoViewSpec` provided to `LazyColumn` (`LocalBringIntoViewSpec`) and non-consuming gesture timeouts, ensuring text selection is 100% rock-solid with zero jumping, viewport snapping, or scrolling behind the floating capsule anywhere in messages of any length.
-  - Double-tapping any sent user bubble opens an action menu:
+  - Double-tapping any sent user bubble opens an action menu anchored precisely at the touch coordinates:
     - **Copy**: Copies the entire prompt text to the system clipboard in a single tap with instant haptic confirmation.
     - **Edit**: Loads the prompt into the input field with autofocus, an "Editing prompt" cancel banner, and hardware back button support. Replaces subsequent conversation turns on submit.
     - **Branch into a new chat**: Slices conversation history up to that turn into a new isolated session titled `"<Title> (Branch)"`.
