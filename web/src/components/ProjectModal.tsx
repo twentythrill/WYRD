@@ -381,9 +381,6 @@ export function ProjectModal({
               <label className={`text-xs font-medium ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
                 Project System Instructions
               </label>
-              <span className="text-[10px] font-sans text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                Overrides Global Prompt
-              </span>
             </div>
             <textarea
               value={systemPrompt}
@@ -401,12 +398,7 @@ export function ProjectModal({
           {/* Source Files / Knowledge Base */}
           <div className={`space-y-2 pt-2 border-t ${isDark ? 'border-[#262626]' : 'border-[#CECDC4]'}`}>
             <div className="flex items-center justify-between">
-              <div>
-                <h4 className={`text-xs font-semibold ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>Knowledge Base Files</h4>
-                <p className={`text-[11px] ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
-                  Attach Markdown, text, PDFs, or code files for contextual awareness.
-                </p>
-              </div>
+              <h4 className={`text-xs font-semibold ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>Knowledge Base Files</h4>
 
               <button
                 type="button"

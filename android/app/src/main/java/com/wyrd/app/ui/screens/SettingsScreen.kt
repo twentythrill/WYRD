@@ -571,7 +571,21 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "WYRD v${com.wyrd.app.BuildConfig.VERSION_NAME}",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = TextMuted,
+                    fontFamily = SpaceGrotesk,
+                    fontSize = 11.sp,
+                    letterSpacing = 0.8.sp
+                ),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
 
         // Supabase Cloud Auth Dialog

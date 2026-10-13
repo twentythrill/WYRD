@@ -661,10 +661,12 @@ export function App() {
           return [...prev, assistantMsg]
         })
       }
+      return finalContent
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         console.error('Generation error:', err)
       }
+      return ''
     } finally {
       setIsGenerating(false)
       setCurrentStreamingReasoning('')
@@ -696,7 +698,7 @@ export function App() {
     isSendingMessageRef.current = true
 
     const isFirstTurn = !activeChatId || messages.length === 0
-    const titlePromptSource = text.trim() || attachments[0]?.name || ''
+    const titlePromptSource = text.trim() || attachments[0]?.name || trimmed
 
     let currentChatId = activeChatId
     try {
@@ -802,21 +804,25 @@ export function App() {
       setMessages(updatedMessages)
 
       // 2. Prepare for Assistant Generation
-      await executeAssistantStream(currentChatId, updatedMessages)
+      const assistantReply = await executeAssistantStream(currentChatId, updatedMessages)
 
       // 3. Generate smart 4-word LLM title on first turn (matching Android MainViewModel)
       const apiKey = localStorage.getItem('wyrd_api_key') || ''
       const storedBaseUrl = localStorage.getItem('wyrd_base_url') || ''
       const baseUrl = storedBaseUrl === 'https://api.siliconflow.cn/v1' ? '' : storedBaseUrl
-      if (isFirstTurn && titlePromptSource && apiKey && currentChatId) {
+      if (isFirstTurn && titlePromptSource && apiKey && currentChatId && assistantReply) {
         const targetChatId = currentChatId
         generateChatTitle({
           apiKey,
           firstUserPrompt: titlePromptSource,
+          assistantReply,
           baseUrl,
           model: profile?.active_model || 'mimo-v2.6-pro',
         }).then((smartTitle) => {
-          if (smartTitle) {
+          if (smartTitle && smartTitle !== 'New Chat') {
+            setChats((prev) =>
+              prev.map((c) => (c.id === targetChatId ? { ...c, title: smartTitle } : c))
+            )
             dbService.updateChat(targetChatId, { title: smartTitle }).then((up) => {
               if (up) setChats((prev) => prev.map((c) => (c.id === up.id ? up : c)))
             })

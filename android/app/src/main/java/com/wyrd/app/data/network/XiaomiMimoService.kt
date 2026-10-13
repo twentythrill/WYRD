@@ -661,70 +661,133 @@ class XiaomiMimoService(
         apiKey: String,
         model: SupportedModel,
         firstUserPrompt: String,
+        assistantReply: String = "",
         customBaseUrl: String? = null
     ): String = withContext(Dispatchers.IO) {
         val cleanKey = apiKey.trim()
-        val defaultWords = firstUserPrompt.trim().split(WHITESPACE_REGEX).filter { it.isNotBlank() }.take(4).joinToString(" ")
-        val fallbackTitle = if (defaultWords.isNotBlank()) defaultWords else "New Chat"
-        if (cleanKey.isBlank()) return@withContext fallbackTitle
+        if (cleanKey.isBlank() || firstUserPrompt.isBlank()) return@withContext ""
+
+        val userTurnSnippet = buildString {
+            append("User: ")
+            append(firstUserPrompt.trim().take(300))
+            if (assistantReply.isNotBlank() && assistantReply != "...") {
+                append("\nAssistant: ")
+                append(assistantReply.trim().take(300))
+            }
+        }
+
+        val messagesJsonArray = JSONArray().apply {
+            put(JSONObject().apply {
+                put("role", "system")
+                put(
+                    "content",
+                    "You are a conversation title generator. Summarize the core topic of this exchange into a concise 2 to 4 word title. Output ONLY the raw title words without quotes, punctuation, preamble, or markdown."
+                )
+            })
+            put(JSONObject().apply {
+                put("role", "user")
+                put("content", userTurnSnippet)
+            })
+        }
 
         val candidateEndpoints = getCandidateEndpoints(cleanKey, customBaseUrl)
         val candidateModelIds = getCandidateModelIds(model)
+        val streamModes = listOf(false, true)
+
         for (endpoint in candidateEndpoints) {
             for (candidateId in candidateModelIds) {
-                try {
-                    val messagesJsonArray = JSONArray().apply {
-                        put(JSONObject().apply {
-                            put("role", "system")
-                            put("content", "You are a title generator. Return ONLY a 3 to 4 word summary title for this conversation without quotes, punctuation, preamble, or markdown. Maximum 4 words.")
-                        })
-                        put(JSONObject().apply {
-                            put("role", "user")
-                            put("content", firstUserPrompt.take(200))
-                        })
-                    }
+                for (useStream in streamModes) {
+                    try {
+                        val requestBodyJson = JSONObject().apply {
+                            put("model", candidateId)
+                            put("messages", messagesJsonArray)
+                            put("stream", useStream)
+                            put("temperature", 0.7)
+                            put("max_completion_tokens", 256)
+                            put("thinking", JSONObject().apply {
+                                put("type", "disabled")
+                            })
+                            put("extra_body", JSONObject().apply {
+                                put("thinking", JSONObject().apply {
+                                    put("type", "disabled")
+                                })
+                            })
+                            put("enable_thinking", false)
+                        }
 
-                    val requestBodyJson = JSONObject().apply {
-                        put("model", candidateId)
-                        put("messages", messagesJsonArray)
-                        put("stream", false)
-                        put("max_tokens", 16)
-                        put("temperature", 0.3)
-                    }
+                        val request = Request.Builder()
+                            .url(endpoint)
+                            .addHeader("Authorization", "Bearer $cleanKey")
+                            .addHeader("api-key", cleanKey)
+                            .addHeader("Content-Type", "application/json")
+                            .apply {
+                                if (useStream) addHeader("Accept", "text/event-stream")
+                            }
+                            .post(requestBodyJson.toString().toRequestBody(jsonMediaType))
+                            .build()
 
-                    val request = Request.Builder()
-                        .url(endpoint)
-                        .addHeader("Authorization", "Bearer $cleanKey")
-                        .addHeader("api-key", cleanKey)
-                        .addHeader("Content-Type", "application/json")
-                        .post(requestBodyJson.toString().toRequestBody(jsonMediaType))
-                        .build()
+                        client.newCall(request).execute().use { response ->
+                            if (!response.isSuccessful) {
+                                if (response.code == 401 || response.code == 403) return@withContext ""
+                                return@use
+                            }
+                            val bodyStr = response.body?.string()?.trim() ?: return@use
+                            if (bodyStr.isEmpty()) return@use
 
-                    client.newCall(request).execute().use { response ->
-                        if (!response.isSuccessful) return@use
-                        val bodyStr = response.body?.string() ?: return@use
-                        val json = JSONObject(bodyStr)
-                        val choices = json.optJSONArray("choices")
-                        if (choices != null && choices.length() > 0) {
-                            val firstChoice = choices.getJSONObject(0)
-                            val messageObj = firstChoice.optJSONObject("message")
-                            if (messageObj != null) {
-                                val rawContent = messageObj.optString("content", "")
-                                if (rawContent.isNotBlank() && rawContent != "null") {
-                                    val cleaned = sanitizeChatTitle(rawContent)
-                                    if (cleaned.isNotBlank()) {
-                                        return@withContext cleaned
+                            val rawContent = if (bodyStr.startsWith("data:") || bodyStr.contains("\ndata:")) {
+                                val sb = StringBuilder()
+                                for (line in bodyStr.lineSequence()) {
+                                    val trimmedLine = line.trim()
+                                    if (!trimmedLine.startsWith("data:")) continue
+                                    val dataPayload = trimmedLine.removePrefix("data:").trim()
+                                    if (dataPayload == "[DONE]" || dataPayload.isEmpty()) continue
+                                    try {
+                                        val chunkJson = JSONObject(dataPayload)
+                                        val delta = chunkJson.optJSONArray("choices")
+                                            ?.optJSONObject(0)
+                                            ?.optJSONObject("delta")
+                                        if (delta != null && !delta.isNull("content")) {
+                                            val piece = delta.optString("content", "")
+                                            if (piece.isNotEmpty() && piece != "null") {
+                                                sb.append(piece)
+                                            }
+                                        }
+                                    } catch (_: Exception) {}
+                                }
+                                sb.toString()
+                            } else {
+                                val json = JSONObject(bodyStr)
+                                val choices = json.optJSONArray("choices")
+                                if (choices != null && choices.length() > 0) {
+                                    val firstChoice = choices.getJSONObject(0)
+                                    val messageObj = firstChoice.optJSONObject("message")
+                                    val deltaObj = firstChoice.optJSONObject("delta")
+                                    when {
+                                        messageObj != null && !messageObj.isNull("content") ->
+                                            messageObj.optString("content", "")
+                                        deltaObj != null && !deltaObj.isNull("content") ->
+                                            deltaObj.optString("content", "")
+                                        else -> firstChoice.optString("text", "")
                                     }
+                                } else {
+                                    ""
+                                }
+                            }
+
+                            if (rawContent.isNotBlank() && rawContent != "null") {
+                                val cleaned = sanitizeChatTitle(rawContent)
+                                if (cleaned.isNotBlank() && !cleaned.equals("New Chat", ignoreCase = true)) {
+                                    return@withContext cleaned
                                 }
                             }
                         }
+                    } catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
                     }
-                } catch (e: Exception) {
-                    if (e is kotlinx.coroutines.CancellationException) throw e
                 }
             }
         }
-        return@withContext fallbackTitle
+        return@withContext ""
     }
 
     fun sanitizeChatTitle(raw: String): String {
@@ -732,7 +795,14 @@ class XiaomiMimoService(
         text = text.replace(THINK_TAG_REGEX, "")
             .replace(THOUGHT_TAG_REGEX, "")
             .replace(THINKING_TAG_REGEX, "")
+            .replace(UNCLOSED_THINK_REGEX, "")
+            .replace(RESIDUAL_TAG_REGEX, "")
             .trim()
+
+        val firstLine = text.lineSequence()
+            .map { it.trim() }
+            .firstOrNull { it.isNotEmpty() } ?: return ""
+        text = firstLine
 
         val prefixes = listOf(
             "title:", "summary:", "topic:", "chat title:", "subject:",
@@ -929,6 +999,8 @@ class XiaomiMimoService(
         private val THINK_TAG_REGEX = Regex("<think>[\\s\\S]*?</think>", RegexOption.IGNORE_CASE)
         private val THOUGHT_TAG_REGEX = Regex("<thought>[\\s\\S]*?</thought>", RegexOption.IGNORE_CASE)
         private val THINKING_TAG_REGEX = Regex("<thinking>[\\s\\S]*?</thinking>", RegexOption.IGNORE_CASE)
+        private val UNCLOSED_THINK_REGEX = Regex("<(?:think|thought|thinking)>[\\s\\S]*$", RegexOption.IGNORE_CASE)
+        private val RESIDUAL_TAG_REGEX = Regex("</?(?:think|thought|thinking|tool_call|function_call|function|parameter)[^>]*>", RegexOption.IGNORE_CASE)
         private val PARAM_REGEX = Regex("""<parameter(?:=|\s+name=["'])query["']?>([\s\S]*?)</parameter>""", RegexOption.IGNORE_CASE)
         private val TAG_REGEX = Regex("""<(?:query|search_query)>([\s\S]*?)</(?:query|search_query)>""", RegexOption.IGNORE_CASE)
         private val JSON_QUERY_REGEX = Regex("""(?:"query"|"search_query")\s*:\s*"([^"]+)"""")

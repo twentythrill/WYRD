@@ -13,8 +13,8 @@ android {
         applicationId = "com.nullverb.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.1.1"
+        versionCode = 7
+        versionName = "1.6.0"
 
         ndk {
             abiFilters.clear()

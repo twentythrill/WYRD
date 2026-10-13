@@ -649,6 +649,7 @@ const TOOL_CALL_BLOCK_REGEX = /<tool_call>[\s\S]*?<\/tool_call>/gi
 const FUNCTION_CALL_BLOCK_REGEX = /<function_call>[\s\S]*?<\/function_call>/gi
 const RESIDUAL_TAGS_REGEX = /<\/?(?:think|thought|thinking|tool_call|function_call|function|parameter)[^>]*>/gi
 const REASONING_TAGS_REGEX = /<\/?(?:think|thought|thinking)[^>]*>/gi
+const UNCLOSED_THINK_REGEX = /<(?:think|thought|thinking)>[\s\S]*$/gi
 const TITLE_CLEAN_REGEX = /["'*`_#[\]()]/g
 const TRAILING_PUNCT_REGEX = /^[.,:;!?-]+|[.,:;!?-]+$/g
 
@@ -668,7 +669,7 @@ export function sanitizeReasoning(text: string): string {
 }
 
 export function sanitizeChatTitle(raw: string): string {
-  const withoutTags = sanitizeStreamedContent(raw)
+  const withoutTags = sanitizeStreamedContent(raw).replace(UNCLOSED_THINK_REGEX, '').trim()
   const firstLine =
     withoutTags
       .split('\n')
@@ -676,78 +677,121 @@ export function sanitizeChatTitle(raw: string): string {
       .find((l) => l.length > 0) || ''
   const cleaned = firstLine
     .replace(TITLE_CLEAN_REGEX, '')
-    .replace(/^Title:\s*/i, '')
+    .replace(/^(?:title|summary|topic|chat title|subject|here is a title|here's a title|the title is|conversation title)\s*:\s*/i, '')
     .trim()
   const words = cleaned
     .split(/\s+/)
     .filter((w) => w.length > 0)
     .slice(0, 4)
-  if (words.length === 0) return 'New Chat'
-  return words.join(' ').replace(TRAILING_PUNCT_REGEX, '').trim() || 'New Chat'
+  if (words.length === 0) return ''
+  return words.join(' ').replace(TRAILING_PUNCT_REGEX, '').trim()
 }
 
 export async function generateChatTitle({
   apiKey,
   firstUserPrompt,
+  assistantReply = '',
   baseUrl = '',
   model = 'mimo-v2.6-pro',
 }: {
   apiKey: string
   firstUserPrompt: string
+  assistantReply?: string
   baseUrl?: string
   model?: string
-}): Promise<string> {
+}): Promise<string | null> {
   const cleanKey = apiKey?.trim() || ''
-  if (!cleanKey || !firstUserPrompt.trim()) return 'New Chat'
+  if (!cleanKey || !firstUserPrompt.trim()) return null
+
+  const userTurnSnippet =
+    assistantReply && assistantReply.trim() && assistantReply.trim() !== '...'
+      ? `User: ${firstUserPrompt.trim().slice(0, 300)}\nAssistant: ${assistantReply.trim().slice(0, 300)}`
+      : `User: ${firstUserPrompt.trim().slice(0, 300)}`
 
   const endpoints = getCandidateEndpoints(cleanKey, baseUrl)
-  const bodyPayload = {
-    model,
-    stream: false,
-    temperature: 0.3,
-    max_tokens: 16,
-    thinking: { type: 'disabled' },
-    extra_body: { thinking: { type: 'disabled' } },
-    enable_thinking: false,
-    messages: [
-      {
-        role: 'system',
-        content:
-          'Generate a concise 2 to 4 word title summarizing the user message. Output ONLY the raw title words. No quotes, no punctuation, no markdown.',
-      },
-      {
-        role: 'user',
-        content: firstUserPrompt.slice(0, 400),
-      },
-    ],
-  }
+  const streamModes = [false, true]
 
   for (const endpoint of endpoints) {
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
+    for (const useStream of streamModes) {
+      try {
+        const bodyPayload = {
+          model,
+          stream: useStream,
+          temperature: 0.7,
+          max_completion_tokens: 256,
+          thinking: { type: 'disabled' },
+          extra_body: { thinking: { type: 'disabled' } },
+          enable_thinking: false,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a conversation title generator. Summarize the core topic of this exchange into a concise 2 to 4 word title. Output ONLY the raw title words without quotes, punctuation, preamble, or markdown.',
+            },
+            {
+              role: 'user',
+              content: userTurnSnippet,
+            },
+          ],
+        }
+
+        const headers: Record<string, string> = {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${cleanKey}`,
           'api-key': cleanKey,
-        },
-        body: JSON.stringify(bodyPayload),
-      })
+        }
+        if (useStream) {
+          headers.Accept = 'text/event-stream'
+        }
 
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) break
-        continue
-      }
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(bodyPayload),
+        })
 
-      const data = await response.json()
-      const rawContent = data?.choices?.[0]?.message?.content
-      if (typeof rawContent === 'string' && rawContent.trim()) {
-        return sanitizeChatTitle(rawContent)
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) return null
+          continue
+        }
+
+        const bodyText = (await response.text()).trim()
+        if (!bodyText) continue
+
+        let rawContent = ''
+        if (bodyText.startsWith('data:') || bodyText.includes('\ndata:')) {
+          for (const line of bodyText.split('\n')) {
+            const trimmedLine = line.trim()
+            if (!trimmedLine.startsWith('data:')) continue
+            const dataStr = trimmedLine.replace(/^data:\s*/, '').trim()
+            if (!dataStr || dataStr === '[DONE]') continue
+            try {
+              const parsed = JSON.parse(dataStr)
+              const piece = parsed?.choices?.[0]?.delta?.content
+              if (typeof piece === 'string' && piece !== 'null') {
+                rawContent += piece
+              }
+            } catch {
+              // ignore malformed SSE chunk
+            }
+          }
+        } else {
+          const data = JSON.parse(bodyText)
+          const choice = data?.choices?.[0]
+          rawContent = choice?.message?.content || choice?.delta?.content || choice?.text || ''
+        }
+
+        if (typeof rawContent === 'string' && rawContent.trim() && rawContent.trim() !== 'null') {
+          const cleaned = sanitizeChatTitle(rawContent)
+          if (cleaned && cleaned.toLowerCase() !== 'new chat') {
+            return cleaned
+          }
+        }
+      } catch {
+        // Try next mode or endpoint
       }
-    } catch {
-      // Try next endpoint or fallback
     }
   }
 
-  return 'New Chat'
+  return null
 }

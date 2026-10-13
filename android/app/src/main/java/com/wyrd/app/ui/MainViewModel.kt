@@ -651,7 +651,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         generationJob = app.applicationScope.launch(Dispatchers.IO) {
             var currentChatId = _activeChatId.value
-            val isFirstMessageInChat = (currentChatId == null)
+            val isFirstMessageInChat = (currentChatId == null) || messageDao.getMessagesListForChat(currentChatId).isEmpty()
 
             val displayPrompt = when {
                 prompt.isNotBlank() -> prompt
@@ -1137,17 +1137,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Generate clean title in background AFTER stream completes, with zero competition
                 if (isFirstMessageInChat && firstUserPromptForTitle != null && effectiveContent.isNotBlank() && effectiveContent != "...") {
                     val currentModel = activeModel.value
+                    val finalTargetChatId = targetChatId
                     app.applicationScope.launch(Dispatchers.IO) {
                         try {
                             val summaryTitle = mimoService.generateTitle(
                                 apiKey = apiKey,
                                 model = currentModel,
                                 firstUserPrompt = firstUserPromptForTitle,
+                                assistantReply = effectiveContent,
                                 customBaseUrl = liveCustomBaseUrl
                             )
                             val cleanTitle = mimoService.sanitizeChatTitle(summaryTitle)
                             if (cleanTitle.isNotBlank() && cleanTitle != "New Chat") {
-                                chatDao.updateTitle(chatId, cleanTitle)
+                                chatDao.updateTitle(finalTargetChatId, cleanTitle, System.currentTimeMillis())
+                                if (supabaseSyncManager.isUserSignedIn()) {
+                                    try { supabaseSyncManager.syncAll() } catch (_: Exception) {}
+                                }
                             }
                         } catch (e: Exception) {
                             // Keep initial 3-4 word title

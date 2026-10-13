@@ -282,34 +282,13 @@ fun ProjectDialog(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     // Custom Instructions / System Prompt
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Project System Instructions",
-                            fontFamily = SpaceGrotesk,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextWhite
-                        )
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFF2C2200))
-                                .border(0.5.dp, Color(0xFFFFD60A).copy(alpha = 0.4f), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "Overrides Global",
-                                color = Color(0xFFFFD60A),
-                                fontSize = 10.sp,
-                                fontFamily = SpaceGrotesk,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
+                    Text(
+                        text = "Project System Instructions",
+                        fontFamily = SpaceGrotesk,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextWhite
+                    )
                     Spacer(modifier = Modifier.height(6.dp))
                     OutlinedTextField(
                         value = systemPrompt,
@@ -344,21 +323,13 @@ fun ProjectDialog(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text(
-                                text = "Knowledge Base Files",
-                                fontFamily = SpaceGrotesk,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextWhite
-                            )
-                            Text(
-                                text = "Attach .md, .txt, .pdf, or code for context",
-                                fontFamily = SpaceGrotesk,
-                                fontSize = 11.sp,
-                                color = TextMuted
-                            )
-                        }
+                        Text(
+                            text = "Knowledge Base Files",
+                            fontFamily = SpaceGrotesk,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextWhite
+                        )
 
                         TextButton(
                             onClick = { filePickerLauncher.launch("*/*") }
