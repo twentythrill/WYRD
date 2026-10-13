@@ -661,7 +661,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     it.timestamp > editingMsg.timestamp || (it.timestamp == editingMsg.timestamp && it.id >= editingMsg.id)
                 }
                 val syncIds = toDelete.mapNotNull { it.syncId.takeIf { s -> s.isNotBlank() } }
-                if (!chatSyncId.isNullOrBlank()) {
+                if (!chatSyncId.isNullOrBlank() && syncIds.isNotEmpty()) {
                     supabaseSyncManager.deleteMessagesRemotely(chatSyncId, syncIds, editingMsg.timestamp, inclusive = true)
                 }
                 com.wyrd.app.util.AttachmentHelper.cleanupAttachments(app, toDelete)
@@ -684,12 +684,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
             messageDao.insertMessage(userMsg)
             chatDao.updatePinned(currentChatId, chatDao.getChatById(currentChatId)?.isPinned ?: false, System.currentTimeMillis())
-
-            if (supabaseSyncManager.isUserSignedIn()) {
-                viewModelScope.launch(Dispatchers.IO) {
-                    try { supabaseSyncManager.syncAll() } catch (_: Exception) {}
-                }
-            }
 
             executeStream(
                 chatId = currentChatId,
@@ -725,7 +719,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 it.timestamp > fromUserMessage.timestamp || (it.timestamp == fromUserMessage.timestamp && it.id > fromUserMessage.id)
             }
             val syncIds = toDelete.mapNotNull { it.syncId.takeIf { s -> s.isNotBlank() } }
-            if (!chatSyncId.isNullOrBlank()) {
+            if (!chatSyncId.isNullOrBlank() && syncIds.isNotEmpty()) {
                 supabaseSyncManager.deleteMessagesRemotely(chatSyncId, syncIds, fromUserMessage.timestamp, inclusive = false)
             }
             com.wyrd.app.util.AttachmentHelper.cleanupAttachments(app, toDelete)

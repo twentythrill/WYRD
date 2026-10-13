@@ -1087,10 +1087,8 @@ class SupabaseSyncManager(
                 client.newCall(delReq).execute().use { resp ->
                     Log.d(TAG, "deleteMessagesRemotely by id response: ${resp.code}")
                 }
-            }
-
-            // 3. Also delete by timestamp in Supabase (if provided) to ensure any other turns on remote are wiped
-            if (fromTimestamp != null && fromTimestamp > 0L) {
+            } else if (fromTimestamp != null && fromTimestamp > 0L) {
+                // 3. Fallback to delete by timestamp in Supabase only if no explicit message IDs were provided
                 val iso = formatIsoDate(fromTimestamp)
                 val op = if (inclusive) "gte" else "gt"
                 val delTimeReq = Request.Builder()
@@ -1152,14 +1150,6 @@ class SupabaseSyncManager(
             val uploadArr = JSONArray()
             for (msg in localMsgs) {
                 if (deletedMessageSyncIds.contains(msg.syncId)) {
-                    messageDao.deleteMessageById(msg.id)
-                    continue
-                }
-
-                // If msg was already synced to remote before, but remote no longer has it (e.g. deleted via redo/edit on Web),
-                // remove it locally instead of resurrecting it to remote!
-                if (msg.syncId.isNotBlank() && knownSynced.contains(syncId) && !remoteSyncIds.contains(msg.syncId)) {
-                    Log.d(TAG, "syncMessages: Local message ${msg.id} was deleted on remote. Removing locally.")
                     messageDao.deleteMessageById(msg.id)
                     continue
                 }

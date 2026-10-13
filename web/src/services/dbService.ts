@@ -483,9 +483,7 @@ export const dbService = {
         if (idError) {
           console.error('Error deleting messages by id:', idError)
         }
-      }
-
-      if (createdAt) {
+      } else if (createdAt) {
         const { data: msgs } = await supabase
           .from('messages')
           .select('attachments')
@@ -539,9 +537,7 @@ export const dbService = {
         if (idError) {
           console.error('Error deleting messages by id:', idError)
         }
-      }
-
-      if (createdAt) {
+      } else if (createdAt) {
         const { data: msgs } = await supabase
           .from('messages')
           .select('attachments')
