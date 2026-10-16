@@ -83,6 +83,7 @@ export interface Message {
   content: string
   reasoning?: string | null
   model_name?: string | null
+  reasoning_enabled?: boolean | null
   attachments?: MessageAttachment[]
   created_at: string
 }

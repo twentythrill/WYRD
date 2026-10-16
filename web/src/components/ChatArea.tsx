@@ -832,7 +832,7 @@ export function ChatArea({
       style={{
         backgroundColor: isDark ? '#141414' : '#E8E7E1',
       }}
-      className="relative flex items-center rounded-[34px] pl-2.5 pr-1.5 py-1.5 pointer-events-auto transition-colors"
+      className="relative flex items-center rounded-[34px] pl-2.5 pr-1.5 py-1.5 pointer-events-auto transition-colors min-h-[66px]"
     >
       {/* Left '+' Attachment Button */}
       <button
@@ -1583,6 +1583,25 @@ const MessageItem = React.memo(function MessageItem({
         />
       </div>
 
+      {/* Provenance caption: model + reasoning state */}
+      {(() => {
+        const modelLabel = message.model_name ? formatModelLabel(message.model_name) : null
+        const reasoningLabel =
+          message.reasoning_enabled == null
+            ? null
+            : message.reasoning_enabled
+              ? 'Reasoning on'
+              : 'Reasoning off'
+        const caption = [modelLabel, reasoningLabel].filter(Boolean).join(' · ')
+        return caption ? (
+          <div
+            className={`text-[11px] leading-[15px] select-none ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}
+          >
+            {caption}
+          </div>
+        ) : null
+      })()}
+
       {/* Action buttons matching Android: Single copy button (48dp circle / 22dp icon) */}
       <div className="pt-2 flex items-center gap-2">
         <button
@@ -1604,6 +1623,15 @@ const MessageItem = React.memo(function MessageItem({
     </div>
   )
 })
+
+const MODEL_LABELS: Record<string, string> = {
+  'mimo-v2.6-flash': 'MiMo 2.6 Flash',
+  'mimo-v2.6-pro': 'MiMo 2.6 Pro',
+}
+
+function formatModelLabel(modelId: string): string {
+  return MODEL_LABELS[modelId] || modelId
+}
 
 function ReasoningBlock({
   reasoning,

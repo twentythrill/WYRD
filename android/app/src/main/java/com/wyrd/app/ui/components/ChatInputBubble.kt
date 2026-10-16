@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -43,6 +44,12 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -136,7 +143,27 @@ fun ChatInputBubble(
                     onValueChange = onPromptChange,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(focusRequester),
+                        .focusRequester(focusRequester)
+                        .onPreviewKeyEvent { event ->
+                            // Enter must insert a newline and nothing else: handle it here and
+                            // fully consume it so it can never fall through to Compose's default
+                            // keyboard action (clearFocus) or to the tap-to-dismiss surface,
+                            // both of which collapse the soft keyboard.
+                            val isEnter = event.key == Key.Enter || event.key == Key.NumPadEnter
+                            if (!isEnter) return@onPreviewKeyEvent false
+                            if (event.type == KeyEventType.KeyUp) return@onPreviewKeyEvent true
+                            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                            val start = prompt.selection.min
+                            val end = prompt.selection.max
+                            onPromptChange(
+                                TextFieldValue(
+                                    text = prompt.text.substring(0, start) + "\n" + prompt.text.substring(end),
+                                    selection = TextRange(start + 1),
+                                    composition = null
+                                )
+                            )
+                            true
+                        },
                     textStyle = TextStyle(
                         color = TextWhite,
                         fontFamily = SpaceGrotesk,
@@ -148,6 +175,16 @@ fun ChatInputBubble(
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences,
                         imeAction = ImeAction.Default // Enter key inserts new line
+                    ),
+                    // No-op IME actions: the default behavior (clearFocus) would collapse the
+                    // keyboard whenever Enter is delivered as an editor action.
+                    keyboardActions = KeyboardActions(
+                        onDone = {},
+                        onGo = {},
+                        onNext = {},
+                        onPrevious = {},
+                        onSearch = {},
+                        onSend = {}
                     )
                 )
             }

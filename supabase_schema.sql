@@ -87,9 +87,13 @@ CREATE TABLE IF NOT EXISTS public.messages (
     content TEXT NOT NULL DEFAULT '',
     reasoning TEXT,
     model_name TEXT,
+    reasoning_enabled BOOLEAN,
     attachments JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Migration for existing deployments (safe to re-run):
+-- ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS reasoning_enabled BOOLEAN;
 
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON public.messages(chat_id);
 CREATE INDEX IF NOT EXISTS idx_messages_user_id ON public.messages(user_id);

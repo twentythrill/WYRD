@@ -645,6 +645,7 @@ export function App() {
           content: finalContent || '...',
           reasoning: finalReasoning,
           model_name: profile?.active_model || 'mimo-v2.6-pro',
+          reasoning_enabled: isThinkingEnabled,
         })) || {
           id: `local_asst_${Date.now()}`,
           chat_id: chatId,
@@ -653,6 +654,7 @@ export function App() {
           content: finalContent || '...',
           reasoning: finalReasoning,
           model_name: profile?.active_model || 'mimo-v2.6-pro',
+          reasoning_enabled: isThinkingEnabled,
           created_at: new Date().toISOString(),
         }
 
@@ -867,6 +869,7 @@ export function App() {
       content: m.content,
       reasoning: m.reasoning || null,
       model_name: m.model_name || null,
+      reasoning_enabled: m.reasoning_enabled ?? null,
       attachments: m.attachments || [],
     }))
 

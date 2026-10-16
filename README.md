@@ -42,6 +42,7 @@ WYRD/
   * **Parallel Execution When Both Active**: When both Tavily and Exa are enabled in Settings, both Android (`coroutineScope { async }`) and Web (`Promise.all`) execute **Tavily AI Search** (live factual web & breaking news) and **Exa AI Search** (neural semantic & community discussions) in parallel and merge their structured results into a unified grounding block.
   * **Automatic Fallback**: If only one engine is active or configured, `web_search` routes to the active engine and automatically falls back to Exa if Tavily returns zero results or encounters an error.
   * **Snippet Highlights & Verification Guards**: Structured source blocks (`URL`, `Publication Date`, `Highlights / Snippets`), tool-boundary zero-result guards, and strict verification trailers to eliminate hallucinations.
+* **Answer Provenance Caption**: Every assistant reply ends with a small muted caption showing which model produced it (e.g. `MiMo 2.6 Pro`) and whether reasoning was on or off at answer time. The reasoning state is persisted per message (`reasoning_enabled`), so captions stay accurate even after the thinking toggle changes.
 * **Zero-Leak Stream Demuxer (`ThinkAndToolParser`)**: Isolates `<think>` reasoning and `<tool_call>` definitions, completely preventing raw tool XML from leaking into user-facing content.
 
 ### 3. Voice & Audio Pipelines
@@ -51,7 +52,7 @@ WYRD/
 * **Speech-to-Text (STT)**: Unified across Android and Web using OpenAI's **`gpt-4o-mini-transcribe`** model via dedicated OpenAI API key configuration.
 
 ### 4. Cloud Synchronization (Supabase)
-* **Real-Time Two-Way Sync**: PostgreSQL database with Row-Level Security, PostgREST APIs, and realtime replication for `profiles` (`username`, `system_prompt`, `active_model`, `reasoning_effort`), `projects`, `project_files`, `chats`, and `messages` (including `model_name`).
+* **Real-Time Two-Way Sync**: PostgreSQL database with Row-Level Security, PostgREST APIs, and realtime replication for `profiles` (`username`, `system_prompt`, `active_model`, `reasoning_effort`), `projects`, `project_files`, `chats`, and `messages` (including `model_name` and `reasoning_enabled`). Existing deployments migrate with `ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS reasoning_enabled BOOLEAN;`.
 * **Batch Sync & Remote Deletion Reconciliation**: Android fetches messages in a single batched PostgREST query (`chat_id=in.(...)`), batch-upserts unsynced messages, and reconciles remote deletions of chats, projects, and project files across devices.
 * **Deterministic Chain Truncation & Shared Attachment Protection (Edit, Redo & Branch)**: Editing or redoing prompts permanently truncates all subsequent turns across local stores and Supabase while preserving attachments still referenced by edited prompts or branched conversations.
 * **Supabase Object Storage (`attachments`)**: Uploaded images and documents are stored in the public `attachments` bucket; database records only lightweight public URLs.
@@ -66,7 +67,7 @@ WYRD/
 * **Strict Context Scoping**: Strict project context isolation ensures project system instructions and knowledge base files never leak into generic chat sessions.
 * **Folder-Like Organization**: Folders in the sidebar (Web) and drawer (Android) grouping nested conversation threads. Header clicks cleanly toggle folder expansion; conversations created within a project stay inside its folder; chats outside live in the generic HISTORY section.
 * **Breadcrumb Navigation**: Dynamic folder indicator displaying the active project name directly in the top navigation bar and drafting state.
-* **Full Cloud & Offline Sync**: Full Room database support (v10 migration with `modelName`, canonical UUID normalization, and 6 foreign-key/syncId indices) and Supabase tables (`projects`, `project_files`, `chats.project_id`) with real-time bidirectional synchronization across Android and Web.
+* **Full Cloud & Offline Sync**: Full Room database support (v11 migration with `modelName` and `reasoningEnabled`, canonical UUID normalization, and 6 foreign-key/syncId indices) and Supabase tables (`projects`, `project_files`, `chats.project_id`) with real-time bidirectional synchronization across Android and Web.
 
 ### 6. Full Markdown Tables & Typography Engine
 * **Brutalist Tables Rendering**: Parses standard Markdown tables (`| Col 1 | Col 2 |`) into clean, responsive tabular cards with header distinctions, column alignment (`left`, `center`, `right`), horizontal scrolling, and custom borders.

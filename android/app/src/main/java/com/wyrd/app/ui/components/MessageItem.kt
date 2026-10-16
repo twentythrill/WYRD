@@ -85,6 +85,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.heightIn
 import com.wyrd.app.data.local.MessageEntity
+import com.wyrd.app.data.preferences.SupportedModel
 import com.wyrd.app.data.tts.NativeTtsManager
 import com.wyrd.app.data.tts.TtsPlaybackState
 import com.wyrd.app.ui.theme.AccentGreen
@@ -1265,6 +1266,28 @@ fun AssistantMessageItem(
                     }
                 }
             }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Model / reasoning provenance caption
+        val metaParts = buildList {
+            message.modelName?.let { id ->
+                add(SupportedModel.entries.find { it.id == id }?.shortName ?: id)
+            }
+            message.reasoningEnabled?.let { enabled ->
+                add(if (enabled) "Reasoning on" else "Reasoning off")
+            }
+        }
+        if (metaParts.isNotEmpty()) {
+            Text(
+                text = metaParts.joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = currentTextSecondary,
+                    fontFamily = SpaceGrotesk,
+                    fontSize = 11.sp
+                )
+            )
         }
 
         Spacer(modifier = Modifier.height(14.dp))

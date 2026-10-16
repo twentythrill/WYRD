@@ -22,7 +22,7 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
    * Dynamic eye logo & favicon switching: crisp white starburst (`/app_logo.png`) in dark mode, deep black starburst (`/app_icon_trans_black.png`) in light mode.
    * Theme controls: quick toggle icon in top bar and three-way preference (`System`, `Dark`, `Light`) in Settings.
 3. **Audio Experience (STT, Double-Click to Hear TTS & Word-by-Word Highlighting)**:
-   * **Voice Input (STT)**: Microphone button in prompt capsule records audio via `MediaRecorder` with live recording timer and waveforms, then transcribes into text using OpenAI **`gpt-4o-mini-transcribe`** via a dedicated OpenAI API key.
+   * **Voice Input (STT)**: Microphone button in prompt capsule records audio via `MediaRecorder` with live recording timer and waveforms, then transcribes into text using OpenAI **`gpt-4o-mini-transcribe`** via a dedicated OpenAI API key. The capsule keeps a constant height while recording and transcribing (recording controls swap in place without changing the capsule's shape).
    * **Word-by-Word Highlighting (Android Parity)**: Synchronous brutalist pill highlighting as `window.speechSynthesis` speaks assistant responses. Scoped `activeHighlightRange` props and memoized `MessageItem` / `FormattedMessage` components with container-level event delegation ensure zero unnecessary re-renders across the chat history.
    * **Double-Click Word to Hear (TTS Word-Seek)**: Double-clicking any word in an assistant response initiates browser speech synthesis directly from that exact word onwards with 1:1 character index accuracy.
    * **Floating Play/Pause Controller & Real-Time Streaming TTS**: Brutalist 54px circular button anchored above the send button on the right. Tapping Play while the model is actively streaming immediately begins reading the response out loud in real time from incoming tokens.
@@ -33,6 +33,7 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
 5. **User Profiles, Smart Titles & System Prompt**:
    * Global `username` and customizable `system_prompt` stored in the `profiles` table.
    * Model preference selection (`mimo-v2.6-pro`, `mimo-v2.6-flash`) and official Xiaomi MiMo **Thinking** toggle (`medium` / `off`).
+   * **Answer Provenance Caption**: Each assistant reply shows a small muted caption with the answering model and whether reasoning was on or off at answer time (`reasoning_enabled` persisted per message).
    * **Smart 4-Word Auto-Generated Titles**: Automatically summarizes the first turn into a concise 3–4 word conversation title via background LLM completion (`generateChatTitle`).
 6. **Brutalist Chat Experience & Android Parity**:
    * **Message Bubble Actions & Pointer-Anchored Dropdown**:

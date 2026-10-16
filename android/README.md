@@ -30,6 +30,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
   - **Markdown Tables (`MarkdownTableCard`)**: Specialized parser rendering aligned, padded monospaced tabular grids with header separation, dynamic column formatting, and 1:1 character index parity in `plainBuilder` to ensure uninterrupted TTS word-by-word tracking.
   - **Typography & Rich Elements**: Headers, blockquotes, ordered/unordered lists, bold/italic/strikethrough (`~~text~~`) formatting, and safe protocol-validated clickable `[label](url)` links.
 - **Zero-Shift Streaming Typography**: `StreamingAssistantMessageItem` and `AssistantMessageItem` share the exact same condensed 23sp line-height typographic pipeline, markdown preprocessing (`formatMarkdownForReading`), and padding layout. Scoped `ttsPlaybackState` passes non-null highlight state only to the active spoken message, preventing unnecessary recompositions across other bubbles in the list.
+- **Answer Provenance Caption**: `AssistantMessageItem` renders a small muted caption beneath each answer (e.g. `MiMo 2.6 Pro · Reasoning on`) from the persisted `modelName` and `reasoningEnabled` message fields.
 - **Selection & Double-Tap Actions**:
   - Native long-press text selection with system copy handles across all messages, streaming content, and reasoning blocks. Powered by a no-op `BringIntoViewSpec` provided to `LazyColumn` (`LocalBringIntoViewSpec`) and non-consuming gesture timeouts, ensuring text selection is 100% rock-solid with zero jumping, viewport snapping, or scrolling behind the floating capsule anywhere in messages of any length.
   - Double-tapping any sent user bubble opens an action menu anchored precisely at the touch coordinates:
@@ -41,6 +42,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 ### 2. Chat Input, Soft Keyboard & Multimodal Multi-Attachments
 - **Capsule Input & Keyboard Insets**:
   - Multiline text input with adaptive height (44dp–180dp), reactive `.imePadding()`, and auto-focus on launch.
+  - **Keyboard-Persistent Enter**: The Enter key inserts a newline and keeps the soft keyboard open. The key event is handled and fully consumed in `onPreviewKeyEvent`, IME actions are no-ops (never `clearFocus`), and the tap-to-dismiss surface uses plain tap detection so it can never act as a focus target.
   - In existing chats, when the soft keyboard appears, both `LazyColumn` and the input capsule adapt to IME insets; the message list auto-scrolls with tight, comfortable breathing room directly above the floating capsule, removing unnecessary empty space and keeping the conversation visible.
   - The floating TTS button gracefully fades out while typing (unless actively playing) to maximize visible viewport.
   - **Instant Top-Snapped Prompt on Send**:
@@ -114,13 +116,13 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 - **Concise Auto-Naming**: Automatically summarizes conversations into punchy 3 to 4-word titles.
 
 ### 6. Privacy & Data Storage
-- **Local Room SQLite (v10)**: On-device database for `chats`, `messages`, `projects`, and `project_files` with canonical `8-4-4-4-12` UUID `syncId`s, `modelName` persistence, and 6 foreign-key/syncId indices (`MIGRATION_9_10`).
+- **Local Room SQLite (v11)**: On-device database for `chats`, `messages`, `projects`, and `project_files` with canonical `8-4-4-4-12` UUID `syncId`s, `modelName` and `reasoningEnabled` persistence, and 6 foreign-key/syncId indices (`MIGRATION_9_10`, `MIGRATION_10_11`).
 - **Encrypted Storage**: Sensitive API keys stored in Keystore-backed `EncryptedSharedPreferences`, warmed up asynchronously on `Dispatchers.IO` off the main thread.
 
 ### 7. Cloud Synchronization (Supabase & Web Companion)
 - **Two-Way Real-Time Sync (`SupabaseSyncManager`)**:
   - Shares the application-wide `OkHttpClient` pool.
-  - Synchronizes all 4 `profiles` fields (`username`, `system_prompt`, `active_model`, `reasoning_effort`), `projects`, `project_files`, `chats` (including nullable `project_id`), and `messages` (including `model_name`).
+  - Synchronizes all 4 `profiles` fields (`username`, `system_prompt`, `active_model`, `reasoning_effort`), `projects`, `project_files`, `chats` (including nullable `project_id`), and `messages` (including `model_name` and `reasoning_enabled`).
   - **Batched Message Pull & Push**: Pulls all remote messages in a single PostgREST `chat_id=in.(...)` query and batch-inserts unsynced local messages in a single POST request, eliminating $N+1$ HTTP round-trips.
   - **Remote Deletion Reconciliation**: Reconciles remote deletions of projects, project files, chats, and messages against tracked synced IDs so deletions performed on Web immediately reflect on Android without re-uploading.
 

@@ -381,6 +381,7 @@ export const dbService = {
       content: msg.content,
       reasoning: msg.reasoning || null,
       model_name: msg.model_name || null,
+      reasoning_enabled: msg.reasoning_enabled ?? null,
       attachments: msg.attachments || [],
       created_at: new Date().toISOString(),
     }
@@ -399,6 +400,7 @@ export const dbService = {
           content: msg.content,
           reasoning: msg.reasoning || null,
           model_name: msg.model_name || null,
+          reasoning_enabled: msg.reasoning_enabled ?? null,
           attachments: msg.attachments || [],
         })
         .select()
@@ -433,6 +435,7 @@ export const dbService = {
       content: m.content,
       reasoning: m.reasoning || null,
       model_name: m.model_name || null,
+      reasoning_enabled: m.reasoning_enabled ?? null,
       attachments: m.attachments || [],
     }))
 

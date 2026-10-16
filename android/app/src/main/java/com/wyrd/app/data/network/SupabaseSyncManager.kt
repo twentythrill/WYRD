@@ -1361,6 +1361,11 @@ class SupabaseSyncManager(
                     } else {
                         put("model_name", JSONObject.NULL)
                     }
+                    if (msg.reasoningEnabled != null) {
+                        put("reasoning_enabled", msg.reasoningEnabled)
+                    } else {
+                        put("reasoning_enabled", JSONObject.NULL)
+                    }
                     put("attachments", attArray)
                     put("created_at", formatIsoDate(msg.timestamp))
                 })
@@ -1383,6 +1388,9 @@ class SupabaseSyncManager(
                     val modelName = if (rMsg.has("model_name") && !rMsg.isNull("model_name")) {
                         rMsg.optString("model_name", "").ifBlank { null }
                     } else null
+                    val reasoningEnabled = if (rMsg.has("reasoning_enabled") && !rMsg.isNull("reasoning_enabled")) {
+                        rMsg.optBoolean("reasoning_enabled", false)
+                    } else null
                     val attachmentsArr = rMsg.optJSONArray("attachments")
                     val attachmentsJson = if (attachmentsArr != null && attachmentsArr.length() > 0) attachmentsArr.toString() else null
                     val firstAtt = if (attachmentsArr != null && attachmentsArr.length() > 0) attachmentsArr.getJSONObject(0) else null
@@ -1404,7 +1412,8 @@ class SupabaseSyncManager(
                             attachmentName = attachmentName,
                             attachmentsJson = attachmentsJson,
                             syncId = rMsgId,
-                            modelName = modelName
+                            modelName = modelName,
+                            reasoningEnabled = reasoningEnabled
                         )
                     )
                 }

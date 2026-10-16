@@ -29,6 +29,8 @@ import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.runtime.CompositionLocalProvider
@@ -682,12 +684,14 @@ fun HomeScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            keyboardController?.hide()
-                            focusManager.clearFocus(force = true)
+                        // Tap-to-dismiss surface: plain tap detection only (no clickable), so it
+                        // is never a focus target and Enter key presses can't activate it and
+                        // collapse the keyboard.
+                        .pointerInput(Unit) {
+                            detectTapGestures {
+                                keyboardController?.hide()
+                                focusManager.clearFocus(force = true)
+                            }
                         }
                 ) {
                     if (messages.isEmpty() && !isGenerating) {

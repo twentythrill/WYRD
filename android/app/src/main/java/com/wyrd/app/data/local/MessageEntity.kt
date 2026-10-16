@@ -35,7 +35,8 @@ data class MessageEntity(
     val attachmentName: String? = null,
     val attachmentsJson: String? = null,
     val syncId: String = java.util.UUID.randomUUID().toString(),
-    val modelName: String? = null
+    val modelName: String? = null,
+    val reasoningEnabled: Boolean? = null
 ) {
     fun getAttachmentList(): List<AttachmentItemInfo> {
         if (!attachmentsJson.isNullOrBlank()) {

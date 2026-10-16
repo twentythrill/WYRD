@@ -833,6 +833,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         content = msg.content,
                         reasoning = msg.reasoning,
                         modelName = msg.modelName,
+                        reasoningEnabled = msg.reasoningEnabled,
                         timestamp = baseTime + (index * 1000L),
                         attachmentUri = msg.attachmentUri,
                         attachmentType = msg.attachmentType,
@@ -1083,7 +1084,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     role = "assistant",
                     content = effectiveContent,
                     reasoning = effectiveReasoning,
-                    modelName = activeModel.value.id
+                    modelName = activeModel.value.id,
+                    reasoningEnabled = isThinkingEnabled.value
                 )
                 val assistantMsgId = try {
                     messageDao.insertMessage(assistantMsg)
@@ -1188,7 +1190,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         role = "assistant",
                         content = effectiveContent,
                         reasoning = effectiveReasoning,
-                        modelName = activeModel.value.id
+                        modelName = activeModel.value.id,
+                        reasoningEnabled = isThinkingEnabled.value
                     )
                     try { messageDao.insertMessage(assistantMsg) } catch (e: Exception) {
                         Log.e("MainViewModel", "Failed to insert partial message", e)
@@ -1228,7 +1231,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 role = "assistant",
                 content = displayError,
                 reasoning = partialReasoning,
-                modelName = activeModel.value.id
+                modelName = activeModel.value.id,
+                reasoningEnabled = isThinkingEnabled.value
             )
             try { messageDao.insertMessage(assistantMsg) } catch (e: Exception) {
                 Log.e("MainViewModel", "Failed to insert error message", e)

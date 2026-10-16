@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [ChatEntity::class, MessageEntity::class, ProjectEntity::class, ProjectFileEntity::class],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -42,7 +42,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_6_7,
                         MIGRATION_7_8,
                         MIGRATION_8_9,
-                        MIGRATION_9_10
+                        MIGRATION_9_10,
+                        MIGRATION_10_11
                     )
                     .fallbackToDestructiveMigration()
                     .build()
@@ -148,6 +149,11 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL(
                     "UPDATE messages SET syncId = substr(syncId,1,8)||'-'||substr(syncId,9,4)||'-'||substr(syncId,13,4)||'-'||substr(syncId,17,4)||'-'||substr(syncId,21,12) WHERE length(syncId) = 32 AND instr(syncId, '-') = 0"
                 )
+            }
+        }
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE messages ADD COLUMN reasoningEnabled INTEGER")
             }
         }
     }
