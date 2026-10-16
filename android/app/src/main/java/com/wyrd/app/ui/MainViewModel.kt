@@ -1015,8 +1015,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 isThinkingEnabled = isThinkingEnabled.value,
                 systemPrompt = effectiveSystemPrompt,
                 messages = payloadList,
-                exaSearchService = if (isExaEnabled) exaSearchService else null,
+                exaSearchService = exaSearchService,
                 exaApiKey = liveExaApiKey,
+                isExaEnabled = isExaEnabled,
                 tavilySearchService = if (isTavilyEnabled) tavilySearchService else null,
                 tavilyApiKey = liveTavilyApiKey,
                 customBaseUrl = liveCustomBaseUrl

@@ -251,6 +251,7 @@ class XiaomiMimoService(
         messages: List<ChatMessagePayload>,
         exaSearchService: ExaSearchService? = null,
         exaApiKey: String? = null,
+        isExaEnabled: Boolean = true,
         tavilySearchService: TavilySearchService? = null,
         tavilyApiKey: String? = null,
         customBaseUrl: String? = null
@@ -271,8 +272,8 @@ class XiaomiMimoService(
         val temporalContext = "Current Device Date and Time: $currentDateTimeStr"
 
         val hasTavily = tavilySearchService != null
-        val hasExa = exaSearchService != null
-        val hasAnySearch = hasTavily || hasExa
+        val hasExa = exaSearchService != null && isExaEnabled
+        val hasAnySearch = true
 
         val effectiveSystemPrompt = buildString {
             if (systemPrompt.isNotBlank()) {
@@ -557,6 +558,24 @@ class XiaomiMimoService(
                 Log.d(TAG, "Autonomous web search (round $toolExecutionRounds) requested for: ${toolCall.query}")
 
                 val searchResult: String = coroutineScope {
+                    suspend fun executeExaFallback(query: String, useKey: Boolean): String {
+                        if (exaSearchService == null) return "No search engine available."
+                        val keyToUse = if (useKey) exaApiKey else null
+                        val res = exaSearchService.searchWeb(query, apiKey = keyToUse)
+                        val text = res.getOrNull()?.takeIf {
+                            res.isSuccess && it.isNotBlank() && it != ExaSearchService.ZERO_RESULTS_MESSAGE
+                        }
+                        if (text != null) return text
+                        if (useKey && !keyToUse.isNullOrBlank()) {
+                            val keylessRes = exaSearchService.searchWeb(query, apiKey = null)
+                            val keylessText = keylessRes.getOrNull()?.takeIf {
+                                keylessRes.isSuccess && it.isNotBlank() && it != ExaSearchService.ZERO_RESULTS_MESSAGE
+                            }
+                            if (keylessText != null) return keylessText
+                        }
+                        return res.getOrNull() ?: ExaSearchService.ZERO_RESULTS_MESSAGE
+                    }
+
                     if (hasTavily && hasExa) {
                         val tavilyDeferred = async {
                             try {
@@ -581,8 +600,15 @@ class XiaomiMimoService(
                         val tavilyText = tavilyRes?.getOrNull()?.takeIf {
                             tavilyRes.isSuccess && it.isNotBlank() && it != TavilySearchService.ZERO_RESULTS_MESSAGE
                         }
-                        val exaText = exaRes?.getOrNull()?.takeIf {
+                        var exaText = exaRes?.getOrNull()?.takeIf {
                             exaRes.isSuccess && it.isNotBlank() && it != ExaSearchService.ZERO_RESULTS_MESSAGE
+                        }
+
+                        if (exaText == null) {
+                            val mcpFallback = exaSearchService.searchWeb(toolCall.query, apiKey = null)
+                            exaText = mcpFallback.getOrNull()?.takeIf {
+                                mcpFallback.isSuccess && it.isNotBlank() && it != ExaSearchService.ZERO_RESULTS_MESSAGE
+                            }
                         }
 
                         when {
@@ -598,17 +624,25 @@ class XiaomiMimoService(
                             exaText != null -> exaText
                             tavilyText != null -> tavilyText
                             else -> {
-                                tavilyRes?.getOrNull() ?: exaRes?.getOrNull() ?: TavilySearchService.ZERO_RESULTS_MESSAGE
+                                executeExaFallback(toolCall.query, useKey = false)
                             }
                         }
-                    } else if (tavilySearchService != null) {
-                        val tavilyRes = tavilySearchService.searchWeb(toolCall.query, apiKey = tavilyApiKey)
-                        tavilyRes.getOrNull() ?: TavilySearchService.ZERO_RESULTS_MESSAGE
-                    } else if (exaSearchService != null) {
-                        val exaRes = exaSearchService.searchWeb(toolCall.query, apiKey = exaApiKey)
-                        exaRes.getOrNull() ?: ExaSearchService.ZERO_RESULTS_MESSAGE
+                    } else if (hasTavily) {
+                        val tavilyRes = tavilySearchService?.searchWeb(toolCall.query, apiKey = tavilyApiKey)
+                        val tavilyText = tavilyRes?.getOrNull()?.takeIf {
+                            tavilyRes.isSuccess && it.isNotBlank() && it != TavilySearchService.ZERO_RESULTS_MESSAGE
+                        }
+                        if (tavilyText != null) {
+                            tavilyText
+                        } else if (isExaEnabled) {
+                            executeExaFallback(toolCall.query, useKey = true)
+                        } else {
+                            executeExaFallback(toolCall.query, useKey = false)
+                        }
+                    } else if (hasExa) {
+                        executeExaFallback(toolCall.query, useKey = true)
                     } else {
-                        "No search engine available."
+                        executeExaFallback(toolCall.query, useKey = false)
                     }
                 }
                 Log.d(TAG, "Web search retrieved ${searchResult.length} chars of data")

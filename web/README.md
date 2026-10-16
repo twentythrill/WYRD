@@ -1,4 +1,4 @@
-# WYRD Web (Desktop & Browser Companion) (v1.6.0)
+# WYRD Web (Desktop & Browser Companion) (v1.6.1)
 
 A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversations, settings, and cognitive states in real-time with the Android application via Supabase.
 
@@ -47,13 +47,13 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
    * **Dedicated Supabase Storage Bucket (`attachments`)**: Uploaded images and files are automatically uploaded to the public Supabase Object Storage bucket (`attachments/${userId}/${timestamp}_${cleanFileName}`).
    * **Shared Attachment Protection**: Deleting a chat, wiping unpinned chats, or editing a turn inspects all other chats and project files before deleting from Supabase Storage so shared branch attachments are never broken.
    * **Client-Side Image Optimization**: High-resolution photos are downscaled to 1280px max dimension via HTML5 Canvas and compressed to 85% JPEG before upload.
-   * **PDF, Text & Code Extraction**: `.pdf` files are parsed client-side via `pdfExtractor.ts` (`extractTextFromPdf`), and text/code files are read up to 80KB into structured prompt fences (`[Attached File: <name>]`).
+   * **PDF, Text & Code Extraction**: `.pdf` files are parsed client-side via `pdfExtractor.ts` (`extractTextFromPdf`), prompt input text/code files are read up to 80KB into structured prompt fences (`[Attached File: <name>]`), and Project Knowledge Base documents support up to 150KB per file.
 8. **Browser Inference & Parallel Dual-Engine Web Search (`web_search`)**:
    * Direct SSE streaming via Xiaomi MiMo with automatic cluster routing (`tp-*` -> Token Plan, standard -> Pay-As-You-Go) and fast-fail on HTTP 401/403 errors.
    * **Autonomous Unified Multi-Engine Web Search Grounding (`web_search`)**:
      * Independent toggles in Settings for **Tavily Search** (`wyrd_tavily_enabled`) and **Exa Search** (`wyrd_exa_enabled`).
      * **Parallel Execution Engine**: When both Tavily and Exa are enabled in Settings, the browser executes both Tavily and Exa concurrently in parallel via `Promise.all()`, returning live factual sources alongside semantic community/forum/review discussions.
-     * **Fallback Resilience**: Automatically falls back to Exa when Tavily is disabled, unconfigured, or returns zero results.
+     * **Multi-Tiered Fallback Resilience**: If Tavily fails or returns zero results, the engine automatically falls back to Exa API (provided Exa has not been explicitly disabled in Settings); if neither API is working or both are disabled in settings, it seamlessly falls back to Exa's keyless MCP endpoint (`https://mcp.exa.ai/mcp`).
 9. **Projects & Knowledge Base Spaces**:
    * **Custom Project Colors & Palettes**: 9-color curated warm brutalist palette with swatches in the project modal.
    * **Custom System Prompt Override & Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code files to any project. Text (including extracted PDF text) is injected into the LLM context for all chats within that project.

@@ -1,4 +1,4 @@
-# WYRD — Native Android AI Client (v1.6.0)
+# WYRD — Native Android AI Client (v1.6.1)
 
 WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo) with parallel dual web search engines (Tavily AI for live web and Exa AI for semantic exploration), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (`gpt-4o-mini-transcribe`), and complete local session persistence.
 
@@ -53,7 +53,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
     - **Universal True Bottom Anchoring**: When opening any conversation from the history drawer or on launch, the message list automatically and consistently scrolls to the true bottom using a layout bottom anchor (`chat_bottom_anchor`), settling reliably through multi-stage layout measurement passes so conversation history is immediately ready at the latest message above the capsule.
     - Centered directly above the text input capsule with smooth scale and fade animations (`fadeIn` + `scaleIn` / `fadeOut` + `scaleOut`).
     - Automatically appears whenever the user scrolls up away from the bottom to read previous conversation turns or review earlier text.
-    - Tapping the 38dp brutalist circular arrow button fires tactile haptic feedback and smoothly scrolls the conversation down to the latest message (or active streaming chunk), fading out smoothly once the bottom is reached.
+    - Tapping the 44dp brutalist circular arrow button fires tactile haptic feedback and smoothly scrolls the conversation down to the latest message (or active streaming chunk), fading out smoothly once the bottom is reached.
     - Gracefully hides while typing when the soft keyboard is open, and seamlessly re-appears when the user drags the message list.
   - Keyboard collapses only upon sending, opening the drawer, or when the user manually drags the chat list (`collectIsDraggedAsState`), preventing programmatic scrolls from accidentally collapsing the keyboard.
   - **Dynamic Send / Stop Control**:
@@ -74,7 +74,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
   - **Prompt Flexibility**: The send button activates if text is typed or any attachments are present, allowing one-tap visual questions.
 - **Multimodal Intelligence, Supabase Object Storage & Cloud Parity**:
   - **Dedicated Supabase Storage Bucket (`attachments`)**: When syncing messages to Supabase, local attachments are automatically uploaded to the public Supabase Object Storage bucket (`attachments/${userId}/${timestamp}_${fileName}`). Only the lightweight public URL is recorded in the PostgreSQL `messages` table, preventing database quota exhaustion and eliminating Base64 payload bloat.
-  - **Shared Attachment Protection**: Deleting conversations, wiping unpinned chats, or editing/redoing turns automatically cross-references remaining messages (`getAllAttachmentsJsons`) and project files so attachments shared across branched chats or retained in edited prompts are never deleted.
+  - **Shared Attachment Protection**: Deleting conversations, wiping unpinned chats, or editing/redoing turns automatically cross-references remaining messages (`getAllMessages()`) and project files so attachments shared across branched chats or retained in edited prompts are never deleted.
   - **Asynchronous Image Loading with Memory & Disk Cache (`AttachmentImageLoader`)**: Asynchronously resolves local files, `data:image/...;base64,...` URIs, and remote Supabase Storage URLs on `Dispatchers.IO` using an in-memory `LruCache`, subsampled `BitmapFactory` decoding, and an on-device MD5 disk cache in `context.cacheDir/image_cache/`.
   - **Tap-to-Open Attachment Actions**: Tapping any image opens it in the system viewer via `FileProvider` or browser; tapping file attachments launches the appropriate document viewer.
 
@@ -112,7 +112,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 - **Autonomous Unified Multi-Engine Web Search Grounding (`web_search`)**:
   - **Unified Tool Interface (`web_search`)**: Exposes a single `web_search` tool to the model.
   - **Parallel Execution Engine**: When both Tavily and Exa are enabled in Settings, the pipeline executes both search engines concurrently in parallel via Kotlin coroutines (`coroutineScope { async }`), combining live factual web data (Tavily) and deep semantic community discussions (Exa).
-  - **Fallback Resilience**: If only one engine is enabled, `web_search` executes that engine; if Tavily returns zero results or fails, it automatically falls back to Exa.
+  - **Multi-Tiered Fallback Resilience**: If Tavily fails or yields zero results, the engine automatically falls back to Exa API (provided Exa has not been explicitly disabled in Settings); if neither API is working or both are disabled in settings, it seamlessly falls back to Exa's keyless MCP endpoint (`https://mcp.exa.ai/mcp`).
 - **Concise Auto-Naming**: Automatically summarizes conversations into punchy 3 to 4-word titles.
 
 ### 6. Privacy & Data Storage
@@ -123,7 +123,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 - **Two-Way Real-Time Sync (`SupabaseSyncManager`)**:
   - Shares the application-wide `OkHttpClient` pool.
   - Synchronizes all 4 `profiles` fields (`username`, `system_prompt`, `active_model`, `reasoning_effort`), `projects`, `project_files`, `chats` (including nullable `project_id`), and `messages` (including `model_name` and `reasoning_enabled`).
-  - **Batched Message Pull & Push**: Pulls all remote messages in a single PostgREST `chat_id=in.(...)` query and batch-inserts unsynced local messages in a single POST request, eliminating $N+1$ HTTP round-trips.
+  - **Batched Message Pull & Push**: Pulls all remote messages in a single PostgREST `user_id=eq.$userId` query and batch-inserts unsynced local messages in a single POST request, eliminating $N+1$ HTTP round-trips.
   - **Remote Deletion Reconciliation**: Reconciles remote deletions of projects, project files, chats, and messages against tracked synced IDs so deletions performed on Web immediately reflect on Android without re-uploading.
 
 ### 8. Projects & Knowledge Base Spaces
@@ -152,9 +152,9 @@ WYRD/android/
             ├── service/
             │   └── WyrdBackgroundService.kt # Foreground service for background LLM streaming
             ├── data/
-            │   ├── local/                  # Room AppDatabase (v10), ChatEntity, MessageEntity, ProjectEntity, ProjectFileEntity, DAOs
+            │   ├── local/                  # Room AppDatabase (v11), ChatEntity, MessageEntity, ProjectEntity, ProjectFileEntity, DAOs
             │   ├── preferences/            # PreferencesManager (DataStore) & SecureKeyStorage (Keystore)
-            │   ├── network/                # XiaomiMimoService, TavilySearchService, ExaSearchService, OpenAiSttService, SupabaseSyncManager
+            │   ├── network/                # XiaomiMimoService, TavilySearchService, ExaSearchService, OpenAiSttService, SupabaseSyncManager, AudioRecorderHelper
             │   └── tts/                    # NativeTtsManager
             ├── util/
             │   ├── AttachmentHelper.kt     # Subsampled image compression, file & PDF processing

@@ -315,8 +315,9 @@ export async function* streamLlmCompletion({
   const isTavilyActive =
     localStorage.getItem('wyrd_tavily_enabled') !== 'false' &&
     Boolean(localStorage.getItem('wyrd_tavily_api_key')?.trim())
-  const isExaActive = localStorage.getItem('wyrd_exa_enabled') !== 'false'
-  const isSearchEnabled = isTavilyActive || isExaActive
+  const isExaExplicitlyDisabled = localStorage.getItem('wyrd_exa_enabled') === 'false'
+  const isExaActive = !isExaExplicitlyDisabled
+  const isSearchEnabled = true
 
   const currentDateTimeStr = new Date().toLocaleString()
   const temporalContext = `Current Device Date and Time: ${currentDateTimeStr}`
@@ -574,6 +575,22 @@ If the request does not require external search, answer directly without invokin
       yield { status: `${statusPrefix}"${shortQuery}"...` }
 
       let searchOutput = ''
+
+      const executeExaFallback = async (useKey: boolean = true): Promise<string> => {
+        const keyToUse = useKey ? (localStorage.getItem('wyrd_exa_api_key')?.trim() || undefined) : ''
+        const res = await searchExaWeb(query, keyToUse).catch(() => ({ success: false, content: '' }))
+        if (res.success && res.content && res.content !== ZERO_RESULTS_MESSAGE) {
+          return res.content
+        }
+        if (useKey && keyToUse) {
+          const keylessRes = await searchExaWeb(query, '').catch(() => ({ success: false, content: '' }))
+          if (keylessRes.success && keylessRes.content && keylessRes.content !== ZERO_RESULTS_MESSAGE) {
+            return keylessRes.content
+          }
+        }
+        return res.content || ZERO_RESULTS_MESSAGE
+      }
+
       if (isTavilyActive && isExaActive) {
         const [tavilyRes, exaRes] = await Promise.all([
           searchTavilyWeb(query).catch((e) => ({ success: false, content: '', error: String(e) })),
@@ -587,12 +604,19 @@ If the request does not require external search, answer directly without invokin
             ? tavilyRes.content
             : null
 
-        const exaText =
+        let exaText =
           exaRes.success &&
           exaRes.content &&
           exaRes.content !== ZERO_RESULTS_MESSAGE
             ? exaRes.content
             : null
+
+        if (!exaText) {
+          const mcpFallback = await searchExaWeb(query, '').catch(() => null)
+          if (mcpFallback?.success && mcpFallback.content && mcpFallback.content !== ZERO_RESULTS_MESSAGE) {
+            exaText = mcpFallback.content
+          }
+        }
 
         if (tavilyText && exaText) {
           searchOutput = `### Live Web & Official Sources:\n${tavilyText}\n\n---\n\n### Community Discussions, Reviews & Semantic Results:\n${exaText}`
@@ -601,14 +625,28 @@ If the request does not require external search, answer directly without invokin
         } else if (tavilyText) {
           searchOutput = tavilyText
         } else {
-          searchOutput = tavilyRes.content || exaRes.content || TAVILY_ZERO_RESULTS_MESSAGE
+          searchOutput = await executeExaFallback(false)
         }
       } else if (isTavilyActive) {
         const tavilyRes = await searchTavilyWeb(query).catch((e) => ({ success: false, content: '', error: String(e) }))
-        searchOutput = tavilyRes.content || TAVILY_ZERO_RESULTS_MESSAGE
+        const tavilyText =
+          tavilyRes.success &&
+          tavilyRes.content &&
+          tavilyRes.content !== TAVILY_ZERO_RESULTS_MESSAGE
+            ? tavilyRes.content
+            : null
+
+        if (tavilyText) {
+          searchOutput = tavilyText
+        } else if (!isExaExplicitlyDisabled) {
+          searchOutput = await executeExaFallback(true)
+        } else {
+          searchOutput = await executeExaFallback(false)
+        }
       } else if (isExaActive) {
-        const exaRes = await searchExaWeb(query).catch((e) => ({ success: false, content: '', error: String(e) }))
-        searchOutput = exaRes.content || ZERO_RESULTS_MESSAGE
+        searchOutput = await executeExaFallback(true)
+      } else {
+        searchOutput = await executeExaFallback(false)
       }
 
       yield { status: 'Synthesizing answer...' }

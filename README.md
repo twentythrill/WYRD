@@ -1,4 +1,4 @@
-# WYRD (v1.6.0)
+# WYRD (v1.6.1)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -13,15 +13,15 @@ WYRD/
 ├── android/          # Native Android AI Client (Kotlin + Jetpack Compose)
 │   ├── app/          # App source, UI components, Room database, network services
 │   ├── build.gradle.kts
-│   └── README.md     # Android client architecture & documentation (v1.6.0)
+│   └── README.md     # Android client architecture & documentation (v1.6.1)
 │
 ├── web/              # Desktop & Browser Companion (React 19 + TypeScript + Vite)
 │   ├── src/          # React components, services, Supabase integration
 │   ├── package.json
-│   └── README.md     # Web client architecture & documentation (v1.6.0)
+│   └── README.md     # Web client architecture & documentation (v1.6.1)
 │
 ├── .gitignore        # Unified repository ignore rules
-└── README.md         # Master repository overview (v1.6.0)
+└── README.md         # Master repository overview (v1.6.1)
 ```
 
 ---
@@ -40,7 +40,7 @@ WYRD/
 * **Smart 4-Word Auto-Generated Chat Titles**: Both Android and Web automatically generate concise 3–4 word conversation titles via background LLM completion after the first assistant reply.
 * **Autonomous Parallel Dual-Engine Web Search Grounding (`web_search`)**:
   * **Parallel Execution When Both Active**: When both Tavily and Exa are enabled in Settings, both Android (`coroutineScope { async }`) and Web (`Promise.all`) execute **Tavily AI Search** (live factual web & breaking news) and **Exa AI Search** (neural semantic & community discussions) in parallel and merge their structured results into a unified grounding block.
-  * **Automatic Fallback**: If only one engine is active or configured, `web_search` routes to the active engine and automatically falls back to Exa if Tavily returns zero results or encounters an error.
+  * **Multi-Tier Fallback Hierarchy**: If only Tavily is configured or Tavily fails/returns 0 results, the search engine falls back to Exa API search; if neither API works or both are disabled in settings, the search pipeline automatically falls back to the keyless Exa MCP endpoint (`https://mcp.exa.ai/mcp`) as a last resort, ensuring uninterrupted search grounding.
   * **Snippet Highlights & Verification Guards**: Structured source blocks (`URL`, `Publication Date`, `Highlights / Snippets`), tool-boundary zero-result guards, and strict verification trailers to eliminate hallucinations.
 * **Answer Provenance Caption**: Every assistant reply ends with a small muted caption showing which model produced it (e.g. `MiMo 2.6 Pro`) and whether reasoning was on or off at answer time. The reasoning state is persisted per message (`reasoning_enabled`), so captions stay accurate even after the thinking toggle changes.
 * **Zero-Leak Stream Demuxer (`ThinkAndToolParser`)**: Isolates `<think>` reasoning and `<tool_call>` definitions, completely preventing raw tool XML from leaking into user-facing content.
@@ -53,7 +53,7 @@ WYRD/
 
 ### 4. Cloud Synchronization (Supabase)
 * **Real-Time Two-Way Sync**: PostgreSQL database with Row-Level Security, PostgREST APIs, and realtime replication for `profiles` (`username`, `system_prompt`, `active_model`, `reasoning_effort`), `projects`, `project_files`, `chats`, and `messages` (including `model_name` and `reasoning_enabled`). Existing deployments migrate with `ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS reasoning_enabled BOOLEAN;`.
-* **Batch Sync & Remote Deletion Reconciliation**: Android fetches messages in a single batched PostgREST query (`chat_id=in.(...)`), batch-upserts unsynced messages, and reconciles remote deletions of chats, projects, and project files across devices.
+* **Batch Sync & Remote Deletion Reconciliation**: Android fetches messages in a single batched PostgREST query (`user_id=eq.$userId`), batch-upserts unsynced messages, and reconciles remote deletions of chats, projects, and project files across devices.
 * **Deterministic Chain Truncation & Shared Attachment Protection (Edit, Redo & Branch)**: Editing or redoing prompts permanently truncates all subsequent turns across local stores and Supabase while preserving attachments still referenced by edited prompts or branched conversations.
 * **Supabase Object Storage (`attachments`)**: Uploaded images and documents are stored in the public `attachments` bucket; database records only lightweight public URLs.
 
@@ -79,6 +79,7 @@ WYRD/
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.6.1** | 2026-10-17 | Documentation Parity & Search Resilience: Harmonized Android scroll-to-bottom button dimension to 44dp for 1:1 parity with Web; implemented resilient multi-tier web search fallback across Android and Web (Tavily -> Exa API -> keyless Exa MCP endpoint); consolidated Room v11 schema documentation (`modelName`, `reasoningEnabled`, canonical UUIDs, 6 foreign-key indices); aligned Supabase batch message sync documentation with `user_id=eq.$userId` PostgREST query; updated Web documentation for 80KB prompt input and 150KB project file limits; bumped version to 1.6.1 across Android, Web, and root workspace. |
 | **v1.6.0** | 2026-10-14 | Full Cross-Platform Audit & Performance Overhaul: Unified STT on `gpt-4o-mini-transcribe` across Android and Web; aligned `web_search` to execute Tavily and Exa in parallel when both are active in Settings; added smart 4-word LLM chat title generation to Web; implemented zero-dependency client-side PDF text extraction on both Android (`PdfTextExtractor.kt`) and Web (`pdfExtractor.ts`); upgraded Android Room database to v10 (`modelName` column, 6 missing indices, canonical UUID normalization); replaced `material-icons-extended` with custom `WyrdIcons` and enabled R8 minification + resource shrinking; added batched Supabase message sync, full 4-field profile sync, remote deletion reconciliation, and shared attachment protection across branched/edited chats; added LRU + subsampled `AttachmentImageLoader` on Android and memoized event-delegated `FormattedMessage` on Web. |
 | **v1.5.8** | 2026-10-13 | Edit & Redo Truncation Fix & Cloud Sync Reconciliation: Solved message resurrection and overlap bugs when editing or redoing prompts. In both Android and Web, redoing or editing a prompt now permanently purges subsequent conversation turns locally and deletes them from Supabase (by exact message IDs and timestamps). Added deleted sync ID tracking (`deletedMessageSyncIds`) in Android's `SupabaseSyncManager` to prevent incoming sync cycles from re-inserting deleted turns, and implemented remote deletion detection to automatically prune locally cached messages when deleted remotely from another client, ensuring perfectly consistent conversation chains across devices. |
 | **v1.5.7** | 2026-10-13 | Real-Time Mid-Stream TTS Playback & Touch-Anchored Dropdowns: Tapping the floating Play button while the model is actively streaming an answer immediately begins speech synthesis in real time from whatever tokens have arrived so far, dynamically enqueuing incoming sentence and clause chunks as generation continues, with live word-by-word brutalist highlighting tracking the stream seamlessly across Android and Web. On Android, double-tapping any message bubble now anchors the action context menu (Copy, Edit, Branch, Redo) precisely at the user's touch contact point with automatic screen boundary clamping. |
@@ -99,5 +100,5 @@ WYRD/
 
 ## Client Documentation
 
-* **Android Client**: See [`android/README.md`](android/README.md) for Android SDK setup, Gradle build instructions, TTS engine profiles, and Room SQLite architecture.
+* **Android Client**: See [`android/README.md`](android/README.md) for Gradle build instructions, TTS engine profiles, and Room SQLite architecture.
 * **Web Companion**: See [`web/README.md`](web/README.md) for Vite dev server commands, Tailwind CSS v4 styling, and Netlify serverless deployment instructions.

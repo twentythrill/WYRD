@@ -940,7 +940,7 @@ fun HomeScreen(
                                 Box(
                                     modifier = Modifier
                                         .padding(bottom = 14.dp)
-                                        .size(38.dp)
+                                        .size(44.dp)
                                         .clip(CircleShape)
                                         .background(DarkSurfaceElevated)
                                         .border(
