@@ -12,7 +12,22 @@ import { ProjectModal } from '@/components/ProjectModal'
 export function App() {
   const [session, setSession] = useState<any>(null)
   const [loadingAuth, setLoadingAuth] = useState(true)
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    try {
+      const cached = localStorage.getItem('wyrd_cached_profile')
+      return cached ? JSON.parse(cached) : null
+    } catch {
+      return null
+    }
+  })
+
+  useEffect(() => {
+    if (profile) {
+      try {
+        localStorage.setItem('wyrd_cached_profile', JSON.stringify(profile))
+      } catch {}
+    }
+  }, [profile])
 
   const [projects, setProjects] = useState<Project[]>([])
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
@@ -120,8 +135,13 @@ export function App() {
 
   // 2. Fetch User Profile & Chats on Login
   useEffect(() => {
+    if (loadingAuth) return
+
     if (!session?.user) {
       setProfile(null)
+      try {
+        localStorage.removeItem('wyrd_cached_profile')
+      } catch {}
       setChats([])
       setMessages([])
       setActiveChatId(null)
@@ -200,7 +220,7 @@ export function App() {
       unsubscribeChats()
       unsubscribeProjects()
     }
-  }, [session?.user?.id])
+  }, [session?.user?.id, loadingAuth])
 
   // 3. Load Messages when Active Chat changes
   useEffect(() => {
@@ -503,6 +523,9 @@ export function App() {
     } catch (e) {
       console.error('Sign out error:', e)
     } finally {
+      try {
+        localStorage.removeItem('wyrd_cached_profile')
+      } catch {}
       setSession(null)
       setProfile(null)
       setChats([])

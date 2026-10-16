@@ -139,37 +139,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Preferences & Settings
     val username: StateFlow<String> = preferencesManager.usernameFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, PreferencesManager.DEFAULT_USERNAME)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferencesManager.getCachedUsername())
 
     val systemPrompt: StateFlow<String> = preferencesManager.systemPromptFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, PreferencesManager.DEFAULT_SYSTEM_PROMPT)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferencesManager.getCachedSystemPrompt())
 
     val activeModel: StateFlow<SupportedModel> = preferencesManager.activeModelFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, SupportedModel.MIMO_2_6_PRO)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferencesManager.getCachedActiveModel())
 
     val isThinkingEnabled: StateFlow<Boolean> = preferencesManager.isThinkingEnabledFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferencesManager.getCachedThinkingEnabled())
 
     val reasoningEffort: StateFlow<ReasoningEffort> = preferencesManager.reasoningEffortFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, ReasoningEffort.MEDIUM)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferencesManager.getCachedReasoningEffort())
 
     val isXiaomiMimoEnabled: StateFlow<Boolean> = preferencesManager.isXiaomiMimoEnabledFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferencesManager.getCachedXiaomiMimoEnabled())
 
     val isOpenAiSttEnabled: StateFlow<Boolean> = preferencesManager.isOpenAiSttEnabledFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferencesManager.getCachedOpenAiSttEnabled())
 
     val isExaSearchEnabled: StateFlow<Boolean> = preferencesManager.isExaSearchEnabledFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferencesManager.getCachedExaSearchEnabled())
 
     val isTavilySearchEnabled: StateFlow<Boolean> = preferencesManager.isTavilySearchEnabledFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferencesManager.getCachedTavilySearchEnabled())
 
     val customBaseUrl: StateFlow<String> = preferencesManager.customBaseUrlFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferencesManager.getCachedCustomBaseUrl())
 
     val appTheme: StateFlow<AppTheme> = preferencesManager.appThemeFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, AppTheme.SYSTEM)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferencesManager.getCachedAppTheme())
 
     // STT Recording state
     private val _isRecordingAudio = MutableStateFlow(false)
@@ -194,10 +194,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val ttsEngine: StateFlow<String> = preferencesManager.ttsEngineFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferencesManager.getCachedTtsEngine())
 
     val ttsVoice: StateFlow<String> = preferencesManager.ttsVoiceFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferencesManager.getCachedTtsVoice())
 
     val availableTtsEngines: StateFlow<List<com.wyrd.app.data.tts.TtsEngineInfo>> = nativeTtsManager.availableEngines
     val availableTtsVoices: StateFlow<List<com.wyrd.app.data.tts.TtsVoiceInfo>> = nativeTtsManager.availableVoices
