@@ -406,8 +406,16 @@ private fun formatTextSegment(
                 inlineCodeColor = inlineCodeColor
             )
             if (lineIndex < lines.size - 1) {
-                builder.append("\n")
-                plainBuilder.append("\n")
+                // Blank line between consecutive bullet points for airy reading rhythm.
+                val nextTrimmed = lines[lineIndex + 1].trim()
+                val nextIsBullet = (nextTrimmed.startsWith("- ") || nextTrimmed.startsWith("* ")) && nextTrimmed.length > 2
+                if (nextIsBullet) {
+                    builder.append("\n\n")
+                    plainBuilder.append("\n\n")
+                } else {
+                    builder.append("\n")
+                    plainBuilder.append("\n")
+                }
             }
             lineIndex++
             continue

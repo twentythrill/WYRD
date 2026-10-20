@@ -86,6 +86,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.Lifecycle
@@ -127,6 +128,8 @@ import com.wyrd.app.util.AttachmentHelper
 import com.wyrd.app.ui.components.DrawerContent
 import com.wyrd.app.ui.components.SpringLoadedPullIndicator
 import com.wyrd.app.ui.components.StreamingAssistantMessageItem
+import com.wyrd.app.ui.components.LocalTableTouchState
+import com.wyrd.app.ui.components.TableTouchState
 import com.wyrd.app.ui.components.formatMarkdownForReading
 import com.wyrd.app.data.local.ProjectEntity
 import com.wyrd.app.ui.components.ProjectDialog
@@ -192,7 +195,20 @@ fun HomeScreen(
 
     val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
     val isImeOpen = imeBottom > 0
-    var prevImeBottom by remember { mutableStateOf(0) }
+
+    // Whether the reader is pinned to the true bottom of the conversation. Frozen the instant the
+    // keyboard starts opening: the IME-driven viewport resize itself flips `canScrollForward`, so
+    // the decision must be based on the state from before the keyboard showed.
+    val isImeOpenState = rememberUpdatedState(isImeOpen)
+    var wasAtBottomBeforeIme by remember { mutableStateOf(true) }
+    LaunchedEffect(listState) {
+        snapshotFlow { !listState.canScrollForward }.collect { atBottom ->
+            if (!isImeOpenState.value) wasAtBottomBeforeIme = atBottom
+        }
+    }
+
+    // Horizontal table pans must never arm the spring-loaded pull-to-record gesture.
+    val tableTouchState = remember { TableTouchState() }
 
     LaunchedEffect(drawerState.isOpen) {
         if (drawerState.isOpen) {
@@ -302,16 +318,15 @@ fun HomeScreen(
         }
     }
 
-    // Auto-scroll to bottom when keyboard opens in an existing chat so messages are visible above capsule
+    // Keyboard opening: never move the reading position. The only scroll allowed is keeping the
+    // true bottom pinned above the capsule (so the newest messages stay visible) when the reader
+    // was already at the bottom before the keyboard showed. A reader anywhere else in the
+    // conversation is left exactly where they are.
     LaunchedEffect(imeBottom) {
-        if (imeBottom > 0 && prevImeBottom == 0) {
-            userScrolledUp = false
-        }
-        prevImeBottom = imeBottom
-
-        if (imeBottom > 0 && messages.isNotEmpty() && !userScrolledUp && !isGenerating && !isProgrammaticScroll) {
-            val targetIndex = messages.size - 1
-            listState.scrollToItem(targetIndex, 0)
+        if (imeBottom > 0 && messages.isNotEmpty() && !userScrolledUp && !isGenerating &&
+            !isProgrammaticScroll && wasAtBottomBeforeIme
+        ) {
+            listState.scrollToItem(messages.size)
         }
     }
 
@@ -570,6 +585,10 @@ fun HomeScreen(
                                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
                                 if (!change.pressed) break
 
+                                // Gesture began inside a markdown table: stand down completely so
+                                // horizontal pans reveal the table columns instead of arming STT.
+                                if (tableTouchState.isTouchingTable) break
+
                                 val dx = change.position.x - change.previousPosition.x
                                 val dy = change.position.y - change.previousPosition.y
                                 totalX += dx
@@ -787,7 +806,8 @@ fun HomeScreen(
                         // LocalBringIntoViewSpec provides NoOpBringIntoViewSpec to completely prevent LazyColumn from snapping or
                         // jumping when text is selected (long-press) anywhere in a message.
                         CompositionLocalProvider(
-                            LocalBringIntoViewSpec provides NoOpBringIntoViewSpec
+                            LocalBringIntoViewSpec provides NoOpBringIntoViewSpec,
+                            LocalTableTouchState provides tableTouchState
                         ) {
                             LazyColumn(
                                 state = listState,

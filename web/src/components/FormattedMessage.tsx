@@ -82,6 +82,7 @@ export const FormattedMessage = React.memo(function FormattedMessage({
         <RenderBlock
           key={bIdx}
           block={block}
+          prevBlockType={bIdx > 0 ? blocks[bIdx - 1].type : undefined}
           activeHighlightRange={activeHighlightRange}
           isDark={isDark}
           textColor={textColor}
@@ -96,6 +97,7 @@ export const FormattedMessage = React.memo(function FormattedMessage({
 
 function RenderBlock({
   block,
+  prevBlockType,
   activeHighlightRange,
   isDark,
   textColor,
@@ -104,6 +106,7 @@ function RenderBlock({
   activeWordRef,
 }: {
   block: ReadingBlock
+  prevBlockType?: ReadingBlock['type']
   activeHighlightRange: [number, number] | null
   isDark: boolean
   textColor: string
@@ -149,7 +152,12 @@ function RenderBlock({
 
     case 'bullet':
       return (
-        <div className="flex items-start gap-2 my-1 leading-[24px]">
+        // Blank line ("space") between consecutive bullet points for airy reading rhythm.
+        <div
+          className={`flex items-start gap-2 leading-[24px] ${
+            prevBlockType === 'bullet' ? 'mt-5 mb-1' : 'my-1'
+          }`}
+        >
           <span className={`select-none font-bold ${mutedColor} shrink-0`}>•</span>
           <div className="flex-1">
             <RenderSpans

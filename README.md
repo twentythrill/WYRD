@@ -1,4 +1,4 @@
-# WYRD (v1.6.1)
+# WYRD (v1.6.2)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -13,15 +13,15 @@ WYRD/
 ├── android/          # Native Android AI Client (Kotlin + Jetpack Compose)
 │   ├── app/          # App source, UI components, Room database, network services
 │   ├── build.gradle.kts
-│   └── README.md     # Android client architecture & documentation (v1.6.1)
+│   └── README.md     # Android client architecture & documentation (v1.6.2)
 │
 ├── web/              # Desktop & Browser Companion (React 19 + TypeScript + Vite)
 │   ├── src/          # React components, services, Supabase integration
 │   ├── package.json
-│   └── README.md     # Web client architecture & documentation (v1.6.1)
+│   └── README.md     # Web client architecture & documentation (v1.6.2)
 │
 ├── .gitignore        # Unified repository ignore rules
-└── README.md         # Master repository overview (v1.6.1)
+└── README.md         # Master repository overview (v1.6.2)
 ```
 
 ---
@@ -79,6 +79,7 @@ WYRD/
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.6.2** | 2026-10-21 | Keyboard Stability, Airy Bullets & Table-Safe STT: Opening the keyboard no longer yanks the conversation to a random scroll position — the reading position is preserved exactly (only the true bottom stays pinned when the reader was already at the bottom) across Android. Bullet lists now render with a blank line between each bullet point on both Android and Web. Horizontal swipes over markdown tables pan the table without arming the spring-loaded pull-to-record STT gesture on Android. |
 | **v1.6.1** | 2026-10-17 | Documentation Parity & Search Resilience: Harmonized Android scroll-to-bottom button dimension to 44dp for 1:1 parity with Web; implemented resilient multi-tier web search fallback across Android and Web (Tavily -> Exa API -> keyless Exa MCP endpoint); consolidated Room v11 schema documentation (`modelName`, `reasoningEnabled`, canonical UUIDs, 6 foreign-key indices); aligned Supabase batch message sync documentation with `user_id=eq.$userId` PostgREST query; updated Web documentation for 80KB prompt input and 150KB project file limits; bumped version to 1.6.1 across Android, Web, and root workspace. |
 | **v1.6.0** | 2026-10-14 | Full Cross-Platform Audit & Performance Overhaul: Unified STT on `gpt-4o-mini-transcribe` across Android and Web; aligned `web_search` to execute Tavily and Exa in parallel when both are active in Settings; added smart 4-word LLM chat title generation to Web; implemented zero-dependency client-side PDF text extraction on both Android (`PdfTextExtractor.kt`) and Web (`pdfExtractor.ts`); upgraded Android Room database to v10 (`modelName` column, 6 missing indices, canonical UUID normalization); replaced `material-icons-extended` with custom `WyrdIcons` and enabled R8 minification + resource shrinking; added batched Supabase message sync, full 4-field profile sync, remote deletion reconciliation, and shared attachment protection across branched/edited chats; added LRU + subsampled `AttachmentImageLoader` on Android and memoized event-delegated `FormattedMessage` on Web. |
 | **v1.5.8** | 2026-10-13 | Edit & Redo Truncation Fix & Cloud Sync Reconciliation: Solved message resurrection and overlap bugs when editing or redoing prompts. In both Android and Web, redoing or editing a prompt now permanently purges subsequent conversation turns locally and deletes them from Supabase (by exact message IDs and timestamps). Added deleted sync ID tracking (`deletedMessageSyncIds`) in Android's `SupabaseSyncManager` to prevent incoming sync cycles from re-inserting deleted turns, and implemented remote deletion detection to automatically prune locally cached messages when deleted remotely from another client, ensuring perfectly consistent conversation chains across devices. |

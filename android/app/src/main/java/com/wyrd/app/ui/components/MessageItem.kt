@@ -750,8 +750,27 @@ fun MarkdownTableCard(
     val numCols = table.headers.size
     if (numCols == 0) return
 
+    val tableTouchState = LocalTableTouchState.current
+
     BoxWithConstraints(
         modifier = modifier
+            // Marks the whole table card as a horizontal-pan zone for the duration of any gesture
+            // that starts inside it, so the global pull-to-record swipe stands down and lets the
+            // table be panned without ever triggering STT.
+            .pointerInput(tableTouchState) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    tableTouchState.isTouchingTable = true
+                    try {
+                        do {
+                            val event = awaitPointerEvent()
+                            if (event.changes.none { it.id == down.id && it.pressed }) break
+                        } while (true)
+                    } finally {
+                        tableTouchState.isTouchingTable = false
+                    }
+                }
+            }
             .padding(vertical = 6.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(currentSurfaceElevated)
