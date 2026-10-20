@@ -86,7 +86,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.Lifecycle
@@ -195,17 +194,6 @@ fun HomeScreen(
 
     val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
     val isImeOpen = imeBottom > 0
-
-    // Whether the reader is pinned to the true bottom of the conversation. Frozen the instant the
-    // keyboard starts opening: the IME-driven viewport resize itself flips `canScrollForward`, so
-    // the decision must be based on the state from before the keyboard showed.
-    val isImeOpenState = rememberUpdatedState(isImeOpen)
-    var wasAtBottomBeforeIme by remember { mutableStateOf(true) }
-    LaunchedEffect(listState) {
-        snapshotFlow { !listState.canScrollForward }.collect { atBottom ->
-            if (!isImeOpenState.value) wasAtBottomBeforeIme = atBottom
-        }
-    }
 
     // Horizontal table pans must never arm the spring-loaded pull-to-record gesture.
     val tableTouchState = remember { TableTouchState() }
@@ -318,13 +306,13 @@ fun HomeScreen(
         }
     }
 
-    // Keyboard opening: never move the reading position. The only scroll allowed is keeping the
-    // true bottom pinned above the capsule (so the newest messages stay visible) when the reader
-    // was already at the bottom before the keyboard showed. A reader anywhere else in the
-    // conversation is left exactly where they are.
+    // Keyboard opening: keep the true bottom pinned above the capsule (so the newest messages stay
+    // visible) only when the reader is following the bottom; a reader elsewhere in the conversation
+    // keeps their exact position. Target is the chat_bottom_anchor item, which clamps to the real
+    // end of the list instead of pinning the last message's top to the viewport.
     LaunchedEffect(imeBottom) {
         if (imeBottom > 0 && messages.isNotEmpty() && !userScrolledUp && !isGenerating &&
-            !isProgrammaticScroll && wasAtBottomBeforeIme
+            !isProgrammaticScroll
         ) {
             listState.scrollToItem(messages.size)
         }
