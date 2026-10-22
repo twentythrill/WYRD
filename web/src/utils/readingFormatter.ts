@@ -16,7 +16,7 @@ export interface FormattedWord {
   trailingSpace: string
 }
 
-export type InlineTokenType = 'text' | 'bold' | 'italic' | 'boldItalic' | 'code' | 'link'
+export type InlineTokenType = 'text' | 'bold' | 'italic' | 'boldItalic' | 'strike' | 'code' | 'link'
 
 export interface InlineSpan {
   type: InlineTokenType
@@ -45,6 +45,7 @@ export type ReadingBlockType =
   | 'numbered'
   | 'codeBlock'
   | 'table'
+  | 'horizontalRule'
 
 export interface ReadingBlock {
   type: ReadingBlockType
@@ -235,6 +236,24 @@ function parseInlineSpans(
       }
     }
 
+    // Strikethrough: ~~text~~
+    if (cursor + 1 < len && line[cursor] === '~' && line[cursor + 1] === '~') {
+      const end = line.indexOf('~~', cursor + 2)
+      if (end !== -1) {
+        const strikeText = line.substring(cursor + 2, end)
+        const words = tokenizeTextIntoWords(strikeText, currentOffset)
+        spans.push({
+          type: 'strike',
+          text: strikeText,
+          words,
+        })
+        currentOffset += strikeText.length
+        plainAcc += strikeText
+        cursor = end + 2
+        continue
+      }
+    }
+
     // Markdown link: [label](url)
     if (line[cursor] === '[') {
       const closingBracket = line.indexOf(']', cursor + 1)
@@ -267,7 +286,7 @@ function parseInlineSpans(
     let nextSpecial = len
     for (let i = cursor + 1; i < len; i++) {
       const c = line[i]
-      if (c === '`' || c === '*' || c === '_' || c === '[') {
+      if (c === '`' || c === '*' || c === '_' || c === '[' || c === '~') {
         nextSpecial = i
         break
       }
@@ -384,7 +403,8 @@ export function formatMarkdownForReading(markdown: string): FormattedReadingCont
       // Parse headers
       const tableHeaders: TableCell[] = []
       const allTableWords: FormattedWord[] = []
-      for (const hText of rawHeaderCells) {
+      for (let c = 0; c < rawHeaderCells.length; c++) {
+        const hText = rawHeaderCells[c]
         const startOffset = plainText.length
         const { spans, plainAcc } = parseInlineSpans(hText, startOffset)
         const words = spans.flatMap((s) => s.words)
@@ -394,9 +414,13 @@ export function formatMarkdownForReading(markdown: string): FormattedReadingCont
           words,
           rawText: hText,
         })
-        plainText += plainAcc + ' '
+        plainText += plainAcc
+        if (c < rawHeaderCells.length - 1) {
+          plainText += ' | '
+        } else {
+          plainText += '\n'
+        }
       }
-      plainText = plainText.trimEnd() + '\n'
 
       // Skip separator line in loop
       i += 1
@@ -430,9 +454,13 @@ export function formatMarkdownForReading(markdown: string): FormattedReadingCont
             words,
             rawText: cellText,
           })
-          plainText += plainAcc + ' '
+          plainText += plainAcc
+          if (c < rawHeaderCells.length - 1) {
+            plainText += ' — '
+          } else {
+            plainText += '\n'
+          }
         }
-        plainText = plainText.trimEnd() + '\n'
         tableRows.push({ cells: rowCells })
       }
 
@@ -448,6 +476,17 @@ export function formatMarkdownForReading(markdown: string): FormattedReadingCont
         words: allTableWords,
         spans: [],
       })
+      continue
+    }
+
+    // Horizontal Rule: --- or *** or ___
+    if (/^(?:-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      blocks.push({
+        type: 'horizontalRule',
+        spans: [],
+        words: [],
+      })
+      plainText += '\n\n'
       continue
     }
 
@@ -502,7 +541,13 @@ export function formatMarkdownForReading(markdown: string): FormattedReadingCont
       })
       plainText += plainAcc
       if (i < lines.length - 1) {
-        plainText += '\n'
+        const nextTrimmed = lines[i + 1].trim()
+        const nextIsBullet = (nextTrimmed.startsWith('- ') || nextTrimmed.startsWith('* ')) && nextTrimmed.length > 2
+        if (nextIsBullet) {
+          plainText += '\n\n'
+        } else {
+          plainText += '\n'
+        }
       }
       continue
     }
@@ -522,7 +567,13 @@ export function formatMarkdownForReading(markdown: string): FormattedReadingCont
       })
       plainText += plainAcc
       if (i < lines.length - 1) {
-        plainText += '\n'
+        const nextTrimmed = lines[i + 1].trim()
+        const nextIsNum = /^(\d+)\.\s+(.*)$/.test(nextTrimmed)
+        if (nextIsNum) {
+          plainText += '\n\n'
+        } else {
+          plainText += '\n'
+        }
       }
       continue
     }

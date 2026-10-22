@@ -25,6 +25,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -508,18 +509,25 @@ fun ReasoningBlock(
         ) {
             Column(modifier = Modifier.padding(top = 10.dp)) {
                 HorizontalDivider(color = DarkBorder, modifier = Modifier.padding(bottom = 8.dp))
-                SelectionContainer(
-                    modifier = Modifier.suppressBringIntoView()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 260.dp)
+                        .verticalScroll(rememberScrollState())
                 ) {
-                    Text(
-                        text = reasoning + (if (isStreaming) " ▌" else ""),
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = SpaceGrotesk,
-                            color = TextMuted,
-                            fontSize = 13.sp,
-                            lineHeight = 18.sp
+                    SelectionContainer(
+                        modifier = Modifier.suppressBringIntoView()
+                    ) {
+                        Text(
+                            text = reasoning + (if (isStreaming) " ▌" else ""),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = SpaceGrotesk,
+                                color = TextMuted,
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
@@ -722,8 +730,8 @@ fun CodeBlockCard(
                         onTextLayout = { textLayoutResult = it },
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 17.sp,
-                            lineHeight = 23.sp,
+                            fontSize = 14.5.sp,
+                            lineHeight = 22.sp,
                             color = currentTextPrimary
                         ),
                         modifier = Modifier.fillMaxWidth()
@@ -1099,10 +1107,119 @@ private fun TextBlockItem(
                 color = textColor,
                 fontFamily = SpaceGrotesk,
                 fontSize = 17.sp,
-                lineHeight = 23.sp
+                lineHeight = 25.sp
             ),
             modifier = Modifier.fillMaxWidth()
         )
+    }
+}
+
+@Composable
+private fun BlockquoteCard(
+    block: MessageContentBlock.Blockquote,
+    activeHighlightRange: Pair<Int, Int>?,
+    textColor: Color,
+    borderColor: Color,
+    onSeek: (charOffset: Int) -> Unit,
+    onActiveWordPosition: ((line: Int, wordTopInItem: Float, wordBottomInItem: Float) -> Unit)? = null
+) {
+    val wyrdColors = LocalWyrdColors.current
+    val currentTextPrimary = wyrdColors.textPrimary
+    val currentBackground = wyrdColors.background
+
+    val blockStart = block.startOffset
+    val blockEnd = blockStart + block.formatted.baseAnnotatedString.length
+
+    val localHighlightRange = remember(activeHighlightRange, blockStart, blockEnd) {
+        if (activeHighlightRange != null) {
+            val (hs, he) = activeHighlightRange
+            val overlapStart = maxOf(hs, blockStart)
+            val overlapEnd = minOf(he, blockEnd)
+            if (overlapStart < overlapEnd) {
+                Pair(overlapStart - blockStart, overlapEnd - blockStart)
+            } else null
+        } else null
+    }
+
+    val blockAnnotatedText = remember(block.formatted, localHighlightRange, currentTextPrimary, currentBackground) {
+        getHighlightedAnnotatedString(
+            formatted = block.formatted,
+            highlightRange = localHighlightRange,
+            highlightBg = currentTextPrimary,
+            highlightTextColor = currentBackground
+        )
+    }
+
+    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    var blockTopInParent by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(localHighlightRange, textLayoutResult) {
+        if (localHighlightRange == null) return@LaunchedEffect
+        val layout = textLayoutResult ?: return@LaunchedEffect
+        val (start, _) = localHighlightRange
+        val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
+        val line = layout.getLineForOffset(safeOffset)
+        val lineTop = layout.getLineTop(line) + blockTopInParent
+        val lineBottom = layout.getLineBottom(line) + blockTopInParent
+        onActiveWordPosition?.invoke(line, lineTop, lineBottom)
+    }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .onGloballyPositioned { coordinates ->
+                blockTopInParent = coordinates.positionInParent().y
+            }
+    ) {
+        Box(
+            modifier = Modifier
+                .width(2.5.dp)
+                .heightIn(min = 20.dp)
+                .background(borderColor, RoundedCornerShape(2.dp))
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .pointerInput(blockStart, block.formatted.plainText) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val longPressTimeout = viewConfiguration.longPressTimeoutMillis
+                        val up = withTimeoutOrNull(longPressTimeout) {
+                            waitForUpOrCancellation()
+                        }
+                        if (up != null && !up.isConsumed) {
+                            val layout = textLayoutResult ?: return@awaitEachGesture
+                            val localOffset = layout.getOffsetForPosition(up.position)
+                            val urlAnnotation = block.formatted.baseAnnotatedString
+                                .getStringAnnotations(tag = "URL", start = localOffset, end = localOffset)
+                                .firstOrNull()
+                            if (urlAnnotation != null) {
+                                openAttachmentUri(context, urlAnnotation.item, isImage = false)
+                            } else {
+                                val globalOffset = blockStart + localOffset
+                                onSeek(globalOffset)
+                            }
+                        }
+                    }
+                }
+        ) {
+            Text(
+                text = blockAnnotatedText,
+                onTextLayout = { textLayoutResult = it },
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = textColor,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    fontFamily = SpaceGrotesk,
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -1128,6 +1245,14 @@ fun AssistantMessageItem(
     val context = androidx.compose.ui.platform.LocalContext.current
     val isCurrentMessage = ttsPlaybackState.messageId == message.id
     val activeHighlightRange = if (isCurrentMessage) ttsPlaybackState.currentRange else null
+
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(1800)
+            copied = false
+        }
+    }
 
     val wyrdColors = LocalWyrdColors.current
     val currentTextPrimary = wyrdColors.textPrimary
@@ -1227,7 +1352,7 @@ fun AssistantMessageItem(
                             color = currentTextPrimary,
                             fontFamily = SpaceGrotesk,
                             fontSize = 17.sp,
-                            lineHeight = 23.sp
+                            lineHeight = 25.sp
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1259,6 +1384,27 @@ fun AssistantMessageItem(
                                         onActiveWordPosition = if (isCurrentMessage) { line, top, bottom ->
                                             onActiveWordPosition?.invoke(line, top + textTopInItem, bottom + textTopInItem)
                                         } else null
+                                    )
+                                }
+                                is MessageContentBlock.Blockquote -> {
+                                    BlockquoteCard(
+                                        block = block,
+                                        activeHighlightRange = activeHighlightRange,
+                                        textColor = currentTextSecondary,
+                                        borderColor = currentTextSecondary,
+                                        onSeek = { charOffset -> onSeek(formatted.plainText, charOffset) },
+                                        onActiveWordPosition = if (isCurrentMessage) { line, top, bottom ->
+                                            onActiveWordPosition?.invoke(line, top + textTopInItem, bottom + textTopInItem)
+                                        } else null
+                                    )
+                                }
+                                is MessageContentBlock.HorizontalRule -> {
+                                    HorizontalDivider(
+                                        color = currentBorder,
+                                        thickness = 1.dp,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 12.dp)
                                     )
                                 }
                                 is MessageContentBlock.Table -> {
@@ -1329,15 +1475,27 @@ fun AssistantMessageItem(
                 contentAlignment = Alignment.Center
             ) {
                 IconButton(
-                    onClick = onCopy,
+                    onClick = {
+                        onCopy()
+                        copied = true
+                    },
                     modifier = Modifier.size(48.dp)
                 ) {
-                    Icon(
-                        imageVector = WyrdIcons.ContentCopy,
-                        contentDescription = "Copy message",
-                        tint = currentTextSecondary,
-                        modifier = Modifier.size(22.dp)
-                    )
+                    if (copied) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Copied",
+                            tint = AccentGreen,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = WyrdIcons.ContentCopy,
+                            contentDescription = "Copy message",
+                            tint = currentTextSecondary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
             }
         }
@@ -1355,6 +1513,7 @@ fun StreamingAssistantMessageItem(
     val wyrdColors = LocalWyrdColors.current
     val currentTextPrimary = wyrdColors.textPrimary
     val currentSurfaceElevated = wyrdColors.surfaceElevated
+    val currentBorder = wyrdColors.border
     val currentTextSecondary = wyrdColors.textSecondary
     val currentBackground = wyrdColors.background
 
@@ -1409,12 +1568,29 @@ fun StreamingAssistantMessageItem(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(vertical = 4.dp)
             ) {
+                val infiniteTransition = rememberInfiniteTransition(label = "status_pulse")
+                val alpha by infiniteTransition.animateFloat(
+                    initialValue = 0.3f,
+                    targetValue = 1.0f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(600, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "status_alpha"
+                )
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(currentTextPrimary.copy(alpha = alpha))
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = streamingStatus,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = SpaceGrotesk,
                         color = TextMuted,
-                        fontSize = 14.sp
+                        fontSize = 13.sp
                     )
                 )
             }
@@ -1434,7 +1610,7 @@ fun StreamingAssistantMessageItem(
                                 color = currentTextPrimary,
                                 fontFamily = SpaceGrotesk,
                                 fontSize = 17.sp,
-                                lineHeight = 23.sp
+                                lineHeight = 25.sp
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -1480,12 +1656,47 @@ fun StreamingAssistantMessageItem(
                                                 color = currentTextPrimary,
                                                 fontFamily = SpaceGrotesk,
                                                 fontSize = 17.sp,
-                                                lineHeight = 23.sp
+                                                lineHeight = 25.sp
                                             ),
                                             modifier = Modifier.fillMaxWidth()
                                         )
                                     }
-                                    is MessageContentBlock.Table -> {
+                                    is MessageContentBlock.Blockquote -> {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(2.5.dp)
+                                                    .heightIn(min = 20.dp)
+                                                    .background(currentTextSecondary, RoundedCornerShape(2.dp))
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            androidx.compose.material3.Text(
+                                                text = block.formatted.baseAnnotatedString,
+                                                style = MaterialTheme.typography.bodyLarge.copy(
+                                                    color = currentTextSecondary,
+                                                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                                    fontFamily = SpaceGrotesk,
+                                                    fontSize = 16.sp,
+                                                    lineHeight = 24.sp
+                                                ),
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                    }
+                                    is MessageContentBlock.HorizontalRule -> {
+                                        HorizontalDivider(
+                                            color = currentBorder,
+                                            thickness = 1.dp,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 12.dp)
+                                        )
+                                    }
+                                is MessageContentBlock.Table -> {
                                         MarkdownTableCard(
                                             table = block.table,
                                             activeHighlightRange = activeHighlightRange,

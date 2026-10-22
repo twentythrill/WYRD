@@ -207,6 +207,7 @@ class ThinkAndToolParser {
           } else if (tagType === 'think_close') {
             this.buffer = this.buffer.substring(firstTagIdx + matchedTagStr.length)
             this.inThink = false
+            this.buffer = this.buffer.replace(/^[\r\n]+/, '')
             continue
           }
         } else {

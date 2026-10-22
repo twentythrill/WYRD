@@ -57,6 +57,15 @@ sealed class MessageContentBlock {
         val code: MarkdownCodeData,
         val startOffset: Int
     ) : MessageContentBlock()
+
+    data class Blockquote(
+        val formatted: FormattedReadingContent,
+        val startOffset: Int
+    ) : MessageContentBlock()
+
+    data class HorizontalRule(
+        val startOffset: Int
+    ) : MessageContentBlock()
 }
 
 data class FormattedReadingContent(
@@ -124,7 +133,7 @@ private fun appendInlineFormatted(
                         fontFamily = FontFamily.Monospace,
                         background = inlineCodeBg,
                         color = inlineCodeColor,
-                        fontSize = 15.sp
+                        fontSize = 14.5.sp
                     )
                 )
                 builder.append(code)
@@ -333,8 +342,12 @@ private fun formatTextSegment(
                 val headerContent = trimmed.drop(level + 1).trim()
                 val fontSize = when (level) {
                     1 -> 22.sp
-                    2 -> 20.sp
-                    else -> 18.sp
+                    2 -> 19.sp
+                    else -> 17.sp
+                }
+                if (builder.length > 0 && !plainBuilder.endsWith("\n\n")) {
+                    builder.append("\n")
+                    plainBuilder.append("\n")
                 }
                 builder.pushStyle(
                     SpanStyle(
@@ -440,8 +453,15 @@ private fun formatTextSegment(
                 inlineCodeColor = inlineCodeColor
             )
             if (lineIndex < lines.size - 1) {
-                builder.append("\n")
-                plainBuilder.append("\n")
+                val nextTrimmed = lines[lineIndex + 1].trim()
+                val nextIsNum = ORDERED_LIST_REGEX.matches(nextTrimmed)
+                if (nextIsNum) {
+                    builder.append("\n\n")
+                    plainBuilder.append("\n\n")
+                } else {
+                    builder.append("\n")
+                    plainBuilder.append("\n")
+                }
             }
             lineIndex++
             continue
@@ -449,8 +469,15 @@ private fun formatTextSegment(
 
         if (trimmed.isEmpty()) {
             if (lineIndex < lines.size - 1) {
-                builder.append("\n")
-                plainBuilder.append("\n")
+                val nextTrimmed = lines[lineIndex + 1].trim()
+                val nextIsNum = ORDERED_LIST_REGEX.matches(nextTrimmed)
+                if (nextIsNum) {
+                    builder.append("\n\n")
+                    plainBuilder.append("\n\n")
+                } else {
+                    builder.append("\n")
+                    plainBuilder.append("\n")
+                }
             }
             lineIndex++
             continue
@@ -496,7 +523,11 @@ fun formatMarkdownForReading(
     val overallAnnotatedBuilder = AnnotatedString.Builder()
 
     val currentTextLines = mutableListOf<String>()
-    var lineIndex = 0
+    var startIndex = 0
+    while (startIndex < lines.size && lines[startIndex].trim().isEmpty()) {
+        startIndex++
+    }
+    var lineIndex = startIndex
 
     fun flushCurrentText() {
         if (currentTextLines.isEmpty()) return
@@ -522,6 +553,46 @@ fun formatMarkdownForReading(
     while (lineIndex < lines.size) {
         val line = lines[lineIndex]
         val trimmed = line.trim()
+
+        // Check if this line is a horizontal rule
+        if (trimmed.matches(Regex("^(-{3,}|\\*{3,}|_{3,})$"))) {
+            flushCurrentText()
+            val hrStartOffset = overallPlainBuilder.length
+            blocks.add(MessageContentBlock.HorizontalRule(hrStartOffset))
+            overallPlainBuilder.append("\n\n")
+            overallAnnotatedBuilder.append("\n\n")
+            lineIndex++
+            continue
+        }
+
+        // Check if this line starts a blockquote
+        if (trimmed.startsWith(">")) {
+            flushCurrentText()
+            val quoteStartOffset = overallPlainBuilder.length
+            val quoteLines = mutableListOf<String>()
+            while (lineIndex < lines.size && lines[lineIndex].trim().startsWith(">")) {
+                quoteLines.add(lines[lineIndex].trim().removePrefix(">").trim())
+                lineIndex++
+            }
+            val quoteContent = formatTextSegment(
+                lines = quoteLines,
+                headerColor = headerColor,
+                inlineCodeBg = inlineCodeBg,
+                inlineCodeColor = inlineCodeColor,
+                boldColor = boldColor,
+                italicColor = italicColor,
+                quoteColor = quoteColor,
+                bulletColor = bulletColor
+            )
+            overallPlainBuilder.append(quoteContent.plainText)
+            overallAnnotatedBuilder.append(quoteContent.baseAnnotatedString)
+            blocks.add(MessageContentBlock.Blockquote(quoteContent, quoteStartOffset))
+            if (lineIndex < lines.size) {
+                overallPlainBuilder.append("\n\n")
+                overallAnnotatedBuilder.append("\n\n")
+            }
+            continue
+        }
 
         // Check if this line starts a code block
         if (trimmed.startsWith("```")) {

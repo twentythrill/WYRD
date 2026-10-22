@@ -169,6 +169,9 @@ class ThinkAndToolParser(
                         TagType.LONE_THINK_CLOSE, TagType.THINK_CLOSE -> {
                             buffer.delete(0, firstTagIdx + matchedTagStr.length)
                             inThink = false
+                            while (buffer.startsWith("\n") || buffer.startsWith("\r")) {
+                                buffer.delete(0, 1)
+                            }
                             continue
                         }
                         TagType.NONE -> break

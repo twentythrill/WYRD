@@ -74,7 +74,7 @@ export const FormattedMessage = React.memo(function FormattedMessage({
 
   return (
     <div
-      className={`text-[17px] leading-[24px] font-sans ${textColor} select-text w-full transition-colors`}
+      className={`text-[17px] leading-[25px] font-sans ${textColor} select-text w-full transition-colors`}
       data-message-id={messageId}
       onDoubleClick={handleContainerDoubleClick}
     >
@@ -119,10 +119,10 @@ function RenderBlock({
       const level = block.level || 1
       const headerClass =
         level === 1
-          ? `text-xl font-bold mt-5 mb-2.5 ${textColor} leading-snug`
+          ? `text-[22px] font-bold mt-6 mb-2.5 first:mt-0 ${textColor} leading-tight`
           : level === 2
-          ? `text-lg font-bold mt-4.5 mb-2 ${textColor} leading-snug`
-          : `text-base font-semibold mt-4 mb-2 ${textColor} leading-snug`
+          ? `text-[19px] font-bold mt-5 mb-2 first:mt-0 ${textColor} leading-snug`
+          : `text-[17px] font-semibold mt-4 mb-1.5 first:mt-0 ${textColor} leading-snug`
 
       return (
         <div className={headerClass}>
@@ -136,10 +136,17 @@ function RenderBlock({
       )
     }
 
+    case 'horizontalRule':
+      return (
+        <hr
+          className={`my-5 border-t border-[#262626] dark:border-[#262626] light:border-[#CECDC4]`}
+        />
+      )
+
     case 'blockquote':
       return (
         <blockquote
-          className={`border-l-2 ${quoteBorder} pl-3.5 my-3 italic ${mutedColor} leading-[22px]`}
+          className={`border-l-2 ${quoteBorder} pl-3.5 my-3.5 italic ${mutedColor} leading-[24px]`}
         >
           <RenderSpans
             spans={block.spans}
@@ -152,14 +159,13 @@ function RenderBlock({
 
     case 'bullet':
       return (
-        // Blank line ("space") between consecutive bullet points for airy reading rhythm.
         <div
-          className={`flex items-start gap-2 leading-[24px] ${
-            prevBlockType === 'bullet' ? 'mt-5 mb-1' : 'my-1'
+          className={`flex items-start gap-2.5 leading-[25px] ${
+            prevBlockType === 'bullet' ? 'mt-2.5 mb-1' : 'mt-2 mb-1'
           }`}
         >
-          <span className={`select-none font-bold ${mutedColor} shrink-0`}>•</span>
-          <div className="flex-1">
+          <span className={`select-none font-bold ${mutedColor} shrink-0 text-sm pt-0.5`}>•</span>
+          <div className="flex-1 min-w-0">
             <RenderSpans
               spans={block.spans}
               activeHighlightRange={activeHighlightRange}
@@ -172,11 +178,15 @@ function RenderBlock({
 
     case 'numbered':
       return (
-        <div className="flex items-start gap-2 my-1 leading-[24px]">
-          <span className={`select-none font-mono text-xs font-semibold ${mutedColor} shrink-0 pt-0.5`}>
+        <div
+          className={`flex items-start gap-2.5 leading-[25px] ${
+            prevBlockType === 'numbered' ? 'mt-2.5 mb-1' : 'mt-2 mb-1'
+          }`}
+        >
+          <span className={`select-none font-mono text-xs font-semibold ${mutedColor} shrink-0 pt-1`}>
             {block.numberPrefix || '1. '}
           </span>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <RenderSpans
               spans={block.spans}
               activeHighlightRange={activeHighlightRange}
@@ -214,7 +224,7 @@ function RenderBlock({
     case 'paragraph':
     default:
       return (
-        <p className="mb-3.5 last:mb-0 leading-[24px]">
+        <p className="mb-3.5 last:mb-0 leading-[25px]">
           <RenderSpans
             spans={block.spans}
             activeHighlightRange={activeHighlightRange}
@@ -244,8 +254,9 @@ function RenderSpans({
         if (span.type === 'bold') spanClasses = 'font-bold'
         else if (span.type === 'italic') spanClasses = 'italic'
         else if (span.type === 'boldItalic') spanClasses = 'font-bold italic'
+        else if (span.type === 'strike') spanClasses = 'line-through opacity-75'
         else if (span.type === 'code') {
-          spanClasses = `px-1.5 py-0.5 rounded font-mono text-xs border ${
+          spanClasses = `px-1.5 py-0.5 rounded-[4px] font-mono text-[14.5px] border ${
             isDark
               ? 'bg-[#141414] border-[#262626] text-[#CECDC4]'
               : 'bg-[#E8E7E1] border-[#CECDC4] text-[#141414]'
@@ -376,7 +387,7 @@ function CodeBlockItem({
           <span>{copied ? 'Copied' : 'Copy'}</span>
         </button>
       </div>
-      <pre className={`p-3.5 text-[17px] font-mono ${codeColor} leading-[24px] select-text whitespace-pre-wrap break-words [overflow-wrap:anywhere]`}>
+      <pre className={`p-3.5 text-[14.5px] font-mono ${codeColor} leading-[22px] select-text whitespace-pre-wrap break-words [overflow-wrap:anywhere]`}>
         <code className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
           {words.map((w, wIdx) => (
             <WordItem
@@ -437,7 +448,7 @@ function TableBlockItem({
                 return (
                   <th
                     key={hIdx}
-                    className={`px-3.5 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-wider border-b ${headerTextColor} ${getAlignClass(
+                    className={`px-3.5 py-2.5 font-sans text-xs font-bold uppercase tracking-wider border-b ${headerTextColor} ${getAlignClass(
                       align
                     )}`}
                   >
@@ -457,7 +468,9 @@ function TableBlockItem({
           {rows.map((row, rIdx) => (
             <tr
               key={rIdx}
-              className={`border-b ${rowBorder} last:border-b-0 ${hoverRowBg} transition-colors`}
+              className={`border-b ${rowBorder} last:border-b-0 ${hoverRowBg} ${
+                rIdx % 2 === 1 ? (isDark ? 'bg-[#101010]/60' : 'bg-[#E5E4DD]/60') : 'bg-transparent'
+              } transition-colors`}
             >
               {row.cells.map((cell, cIdx) => {
                 const align = alignments[cIdx] || 'default'
