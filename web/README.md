@@ -1,4 +1,4 @@
-# WYRD Web (Desktop & Browser Companion) (v1.6.4)
+# WYRD Web (Desktop & Browser Companion) (v1.6.5)
 
 A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversations, settings, and cognitive states in real-time with the Android application via Supabase.
 
@@ -6,7 +6,7 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
 
 * **Framework**: React 19 + TypeScript + Vite 8
 * **Styling**: Tailwind CSS v4 + Space Grotesk & JetBrains Mono typography
-* **Markdown & Tables**: Custom brutalist reading formatter (`readingFormatter.ts`) with responsive Markdown Tables (`| Col |`), styled headers, aligned cells, protocol-validated links, and 1:1 character index TTS sync.
+* **Markdown & Tables**: Custom brutalist reading formatter (`readingFormatter.ts`) with responsive Markdown Tables (`| Col |`), styled headers (including standalone bold lines `**Heading**`), aligned cells with dynamic word-width accommodation, protocol-validated links, and 1:1 character index TTS sync.
 * **PDF Extraction**: Zero-dependency client-side PDF text extractor (`pdfExtractor.ts`) using browser `DecompressionStream` and `/ToUnicode` CMap parsing for both chat attachments and Project Knowledge Base files.
 * **Audio & Speech**: OpenAI **`gpt-4o-mini-transcribe`** for speech-to-text (STT) + Native Web Speech API (`window.speechSynthesis`) for zero-latency Text-to-Speech (TTS)
 * **Backend & Sync**: Supabase (PostgreSQL + Row-Level Security + Realtime Replication + Object Storage)

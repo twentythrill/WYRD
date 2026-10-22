@@ -47,6 +47,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -674,9 +675,10 @@ fun HomeScreen(
                     }
             ) { _ ->
                 val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-                val topBarHeight = statusBarTop + 56.dp
-                val topFadeHeight = 48.dp
-                val topGradientHeight = topBarHeight + topFadeHeight
+                val topBarHeight = statusBarTop + 60.dp
+                val topSolidHeight = topBarHeight + 8.dp
+                val topFadeHeight = 24.dp
+                val topGradientHeight = topSolidHeight + topFadeHeight
                 val topGradientHeightPx = with(density) { topGradientHeight.toPx() }
 
                 val listBottomPadding = when {
@@ -800,7 +802,7 @@ fun HomeScreen(
                         ) {
                             LazyColumn(
                                 state = listState,
-                                contentPadding = PaddingValues(top = topBarHeight + 12.dp, bottom = listBottomPadding),
+                                contentPadding = PaddingValues(top = topSolidHeight + 8.dp, bottom = listBottomPadding),
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .imePadding()
@@ -885,23 +887,27 @@ fun HomeScreen(
                         }
                     }
 
-                    // Subtle fade-to-background gradient: messages smoothly dissolve behind floating input capsule and navbar
-                    val bottomGradientHeight = if (isImeOpen) 90.dp else 230.dp
+                    // Solid-to-fade bottom gradient: messages smoothly dissolve before the input capsule, with 100% solid background behind the capsule and navbar
+                    val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                    val bottomSolidHeight = if (isImeOpen) 70.dp else navBarBottom + 74.dp
+                    val bottomFadeHeight = 44.dp
+                    val totalBottomScrimHeight = bottomSolidHeight + bottomFadeHeight
+                    val fadeFraction = if (totalBottomScrimHeight > 0.dp) (bottomFadeHeight / totalBottomScrimHeight).coerceIn(0f, 1f) else 0.4f
+                    val currentBottomBg = LocalWyrdColors.current.background
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(bottomGradientHeight)
+                            .height(totalBottomScrimHeight)
                             .align(Alignment.BottomCenter)
                             .imePadding()
                             .background(
                                 Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        Black.copy(alpha = 0.12f),
-                                        Black.copy(alpha = 0.38f),
-                                        Black.copy(alpha = 0.70f),
-                                        Black.copy(alpha = 0.90f),
-                                        Black
+                                    colorStops = arrayOf(
+                                        0.0f to Color.Transparent,
+                                        fadeFraction * 0.35f to currentBottomBg.copy(alpha = 0.25f),
+                                        fadeFraction * 0.70f to currentBottomBg.copy(alpha = 0.65f),
+                                        fadeFraction to currentBottomBg,
+                                        1.0f to currentBottomBg
                                     )
                                 )
                             )
@@ -1172,8 +1178,8 @@ fun HomeScreen(
                     }
 
                     // Subtle fade-to-background top gradient: messages smoothly dissolve behind top bar and status bar
-                    // The region behind the top bar is completely solid (alpha = 1.0) to eliminate text ghosting/collision.
-                    val topBarFraction = if (topGradientHeight > 0.dp) (topBarHeight / topGradientHeight).coerceIn(0f, 1f) else 0.5f
+                    // The region behind the top bar is completely solid (alpha = 1.0) through topSolidHeight to eliminate text ghosting/collision.
+                    val solidFraction = if (topGradientHeight > 0.dp) (topSolidHeight / topGradientHeight).coerceIn(0f, 1f) else 0.7f
                     val currentBg = LocalWyrdColors.current.background
                     Box(
                         modifier = Modifier
@@ -1184,10 +1190,9 @@ fun HomeScreen(
                                 Brush.verticalGradient(
                                     colorStops = arrayOf(
                                         0.0f to currentBg,
-                                        topBarFraction to currentBg,
-                                        topBarFraction + (1f - topBarFraction) * 0.30f to currentBg.copy(alpha = 0.85f),
-                                        topBarFraction + (1f - topBarFraction) * 0.60f to currentBg.copy(alpha = 0.45f),
-                                        topBarFraction + (1f - topBarFraction) * 0.85f to currentBg.copy(alpha = 0.15f),
+                                        solidFraction to currentBg,
+                                        solidFraction + (1f - solidFraction) * 0.40f to currentBg.copy(alpha = 0.70f),
+                                        solidFraction + (1f - solidFraction) * 0.75f to currentBg.copy(alpha = 0.30f),
                                         1.0f to Color.Transparent
                                     )
                                 )

@@ -1,4 +1,4 @@
-# WYRD (v1.6.4)
+# WYRD (v1.6.5)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -13,15 +13,15 @@ WYRD/
 ├── android/          # Native Android AI Client (Kotlin + Jetpack Compose)
 │   ├── app/          # App source, UI components, Room database, network services
 │   ├── build.gradle.kts
-│   └── README.md     # Android client architecture & documentation (v1.6.4)
+│   └── README.md     # Android client architecture & documentation (v1.6.5)
 │
 ├── web/              # Desktop & Browser Companion (React 19 + TypeScript + Vite)
 │   ├── src/          # React components, services, Supabase integration
 │   ├── package.json
-│   └── README.md     # Web client architecture & documentation (v1.6.4)
+│   └── README.md     # Web client architecture & documentation (v1.6.5)
 │
 ├── .gitignore        # Unified repository ignore rules
-└── README.md         # Master repository overview (v1.6.4)
+└── README.md         # Master repository overview (v1.6.5)
 ```
 
 ---
@@ -32,8 +32,8 @@ WYRD/
 * **AMOLED Dark**: Pure black (`#000000`) background, `#141414` elevated surfaces, `#1A1A1A` message bubbles, `#CECDC4` bone-white accents.
 * **Inverted Light**: Warm off-white (`#F9F9F7`) background, `#E8E7E1` elevated cards, `#DFDED8` message bubbles, `#141414` deep charcoal text.
 * **Modular AST Block Architecture & Hanging Indents**: Both Android and Desktop Web render assistant responses through discrete modular block components (`Header`, `Paragraph`, `Bullet`, `Numbered`, `Blockquote`, `Table`, `Code`, `HorizontalRule`). Multi-line bullet (`•`) and numbered list items render in a two-column layout (`Row` on Android, `flex` on Web) with dedicated fixed-width leading badge containers (`20dp` / `28dp`), ensuring multi-line list text wraps strictly indented to the right of the bullet/number rather than collapsing under it.
-* **Heading Scale & Gestalt Proximity Spacing**: Heading tags (`#`, `##`, `###`) are elevated with clear typographic hierarchy (22sp bold for H1, 19sp bold for H2, 17sp semibold for H3) and asymmetric Gestalt proximity margins (20–24dp top margin, 8dp bottom margin), visually grouping headers with the sections they introduce.
-* **TopBar Scrim Protection**: Multi-stop vertical fade gradients ensure 100% solid opacity across the entire top bar region on both platforms before smoothly dissolving downward, completely eliminating text bleed-through and ghosting behind the model selector and action buttons during scroll.
+* **Heading Scale & Gestalt Proximity Spacing**: Heading tags (`#`, `##`, `###`) as well as standalone bold header lines (`**Heading**` / `__Heading__`) are elevated with clear typographic hierarchy (22sp bold for H1, 19sp bold for H2, 17sp semibold for H3) and asymmetric Gestalt proximity margins (20–24dp top margin, 8dp bottom margin), visually grouping headers with the sections they introduce. Models like Xiaomi MiMo that emit standalone bold lines instead of `#` headers now render with flawless editorial hierarchy.
+* **TopBar & Bottom Scrim Protection**: Multi-stop vertical fade gradients ensure 100% solid opacity across the entire top bar region and through the floating input capsule and Android 3-button system navigation bar on both platforms before smoothly dissolving, completely eliminating text bleed-through and ghosting behind controls during scroll.
 * **Typographic & Code Block Pipeline**: Space Grotesk variable typography and JetBrains Mono monospace code formatting with condensed line-height parity (23sp on Android, leading-[24px]/[23px] on Web). Native fenced code blocks render inside dedicated Warm Brutalist cards (`CodeBlockCard` on Android, `CodeBlockItem` on Web) featuring a language badge, one-tap copy button with haptic feedback, automatic soft line-wrapping (eliminating horizontal scrolling), and 1:1 TTS word-seek highlight synchronization.
 
 ### 2. Dual-Engine LLM Intelligence & Parallel Web Grounding (Tavily + Exa)
@@ -72,7 +72,7 @@ WYRD/
 * **Full Cloud & Offline Sync**: Full Room database support (v11 migration with `modelName` and `reasoningEnabled`, canonical UUID normalization, and 6 foreign-key/syncId indices) and Supabase tables (`projects`, `project_files`, `chats.project_id`) with real-time bidirectional synchronization across Android and Web.
 
 ### 6. Full Markdown Tables & Typography Engine
-* **Brutalist Tables Rendering**: Parses standard Markdown tables (`| Col 1 | Col 2 |`) into clean, responsive tabular cards with header distinctions, column alignment (`left`, `center`, `right`), horizontal scrolling, and custom borders.
+* **Brutalist Tables Rendering**: Parses standard Markdown tables (`| Col 1 | Col 2 |`) into clean, responsive tabular cards with header distinctions, column alignment (`left`, `center`, `right`), horizontal scrolling, and custom borders. Table columns dynamically compute minimum word widths (`minWordWidth = (longestWordChars * 11f + 32f).coerceAtLeast(125f)`), eliminating awkward character wrapping and mid-word hyphenation.
 * **100% TTS Character Index Parity**: Formatted table cells maintain exact character offsets and plain-text representation on both Web and Android, preserving seamless word-by-word TTS highlighting and tap/double-click seek.
 
 ---
@@ -81,6 +81,8 @@ WYRD/
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.6.5** | 2026-10-22 | Bold Headings, Dynamic Table Columns & Multi-Stop Scrim Opacity: Parsed standalone bold lines (`**Heading**` and `__Heading__`) into Level 2 Header blocks (19sp bold Space Grotesk, 20dp top margin, 8dp bottom margin) across both Android and Web, restoring typographic hierarchy for models like Xiaomi MiMo that emit bold lines instead of `#` headers; dynamic column width calculation (`minWordWidth = (longestWordChars * 11f + 32f).coerceAtLeast(125f)`) preventing multi-character word hyphenation and character wrapping in markdown tables; multi-stop bottom scrim gradient with 100% solid opacity extending through the floating input capsule and Android 3-button system navigation bar with zero text bleed-through or button collision; and elevated top bar scrim fade geometry. |
+| **v1.6.4** | 2026-10-22 | Hanging Indents, Heading Proximity & TopBar Scrim Ghosting: Modular AST block architecture on Android and Web rendering bullet (`•`) and numbered list items in two-column layouts with fixed-width leading badge containers (`20dp` / `28dp`), ensuring multi-line list text wraps strictly indented to the right; elevated heading hierarchy (`#`, `##`, `###`) with asymmetric Gestalt proximity margins (20–24dp top margin, 8dp bottom margin); and multi-stop vertical fade gradients ensuring 100% solid opacity across the entire top bar region. |
 | **v1.6.3** | 2026-10-22 | Elevated LLM Output & Typography Engine: Flawless typographic aeration and editorial hierarchy across Android and Web. Space Grotesk body line-height elevated to 25px/sp for effortless reading cadence; developer-grade 14.5px/15px monospace code cards (line-height 22px/sp) eliminating bloated glyphs and excessive wrapping; first-class Brutalist hairline horizontal rules (`---`); Web strikethrough (`~~text~~`) support; 2dp left-accent-bordered blockquotes on Android; harmonized 10–12px vertical rhythm for bullet and numbered lists; 100% TTS plainText character offset parity across tables, lists, and code blocks; checkmark copy confirmation on Android assistant bubbles; and height-clamped (260dp) scrollable reasoning blocks on Android. |
 | **v1.6.2** | 2026-10-21 | Keyboard Stability, Airy Bullets & Table-Safe STT: Opening the keyboard no longer yanks the conversation to a random scroll position — the reading position is preserved exactly (only the true bottom stays pinned when the reader was already at the bottom) across Android. Bullet lists now render with a blank line between each bullet point on both Android and Web. Horizontal swipes over markdown tables pan the table without arming the spring-loaded pull-to-record STT gesture on Android. |
 | **v1.6.1** | 2026-10-17 | Documentation Parity & Search Resilience: Harmonized Android scroll-to-bottom button dimension to 44dp for 1:1 parity with Web; implemented resilient multi-tier web search fallback across Android and Web (Tavily -> Exa API -> keyless Exa MCP endpoint); consolidated Room v11 schema documentation (`modelName`, `reasoningEnabled`, canonical UUIDs, 6 foreign-key indices); aligned Supabase batch message sync documentation with `user_id=eq.$userId` PostgREST query; updated Web documentation for 80KB prompt input and 150KB project file limits; bumped version to 1.6.1 across Android, Web, and root workspace. |

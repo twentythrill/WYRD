@@ -818,14 +818,21 @@ fun MarkdownTableCard(
                 }
             } else {
                 // 3 or more columns
-                val baseWidths = colMaxChars.map { maxChars ->
-                    when {
-                        maxChars <= 8 -> 75f
-                        maxChars <= 16 -> 105f
-                        maxChars <= 30 -> 145f
-                        maxChars <= 60 -> 190f
-                        else -> 240f
+                val baseWidths = colMaxChars.mapIndexed { c, maxChars ->
+                    val longestWordChars = (listOf(table.headers.getOrNull(c)?.plainText ?: "") +
+                            table.rows.map { it.cells.getOrNull(c)?.plainText ?: "" })
+                        .flatMap { it.split(Regex("\\s+")) }
+                        .maxOfOrNull { it.length } ?: 0
+
+                    val minWordWidth = (longestWordChars * 11f + 32f).coerceAtLeast(125f)
+                    val charBasedWidth = when {
+                        maxChars <= 8 -> 115f
+                        maxChars <= 16 -> 145f
+                        maxChars <= 30 -> 175f
+                        maxChars <= 60 -> 215f
+                        else -> 260f
                     }
+                    maxOf(minWordWidth, charBasedWidth)
                 }
                 val totalBase = baseWidths.sum()
                 val scale = if (totalBase < availDp && totalBase > 0f) (availDp / totalBase) else 1f

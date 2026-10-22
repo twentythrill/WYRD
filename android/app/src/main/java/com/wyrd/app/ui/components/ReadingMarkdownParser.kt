@@ -484,6 +484,30 @@ fun formatMarkdownForReading(
             }
         }
 
+        // Standalone bold heading line: **Heading** or __Heading__
+        val isBoldHeader = (trimmed.startsWith("**") && (trimmed.endsWith("**") || trimmed.endsWith("**:") || trimmed.endsWith("**?"))) ||
+                (trimmed.startsWith("__") && (trimmed.endsWith("__") || trimmed.endsWith("__:") || trimmed.endsWith("__?")))
+        if (isBoldHeader) {
+            val innerHeading = trimmed
+                .removePrefix("**").removePrefix("__")
+                .removeSuffix(":").removeSuffix("?")
+                .removeSuffix("**").removeSuffix("__")
+                .trim()
+            if (innerHeading.isNotEmpty() && innerHeading.length <= 80 && !innerHeading.contains("\n") && !Regex("\\.\\s+[A-Z]").containsMatchIn(innerHeading)) {
+                val startOffset = overallPlainBuilder.length
+                val formattedHeader = formatInlineContent(innerHeading, boldColor, italicColor, inlineCodeBg, inlineCodeColor)
+                blocks.add(MessageContentBlock.Header(level = 2, formatted = formattedHeader, startOffset = startOffset))
+                overallPlainBuilder.append(formattedHeader.plainText)
+                overallAnnotatedBuilder.append(formattedHeader.baseAnnotatedString)
+                if (lineIndex < lines.size - 1) {
+                    overallPlainBuilder.append("\n\n")
+                    overallAnnotatedBuilder.append("\n\n")
+                }
+                lineIndex++
+                continue
+            }
+        }
+
         // 5. Blockquote (>)
         if (trimmed.startsWith(">")) {
             val quoteText = trimmed.removePrefix(">").trim()

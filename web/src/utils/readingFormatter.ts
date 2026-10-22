@@ -512,6 +512,32 @@ export function formatMarkdownForReading(markdown: string): FormattedReadingCont
       }
     }
 
+    // Standalone bold heading: **Heading** or __Heading__
+    const isBoldHeader =
+      (trimmed.startsWith('**') && (trimmed.endsWith('**') || trimmed.endsWith('**:') || trimmed.endsWith('**?'))) ||
+      (trimmed.startsWith('__') && (trimmed.endsWith('__') || trimmed.endsWith('__:') || trimmed.endsWith('__?')))
+    if (isBoldHeader) {
+      const innerHeading = trimmed
+        .replace(/^(\*\*|__)/, '')
+        .replace(/[:?]?(\*\*|__)$/, '')
+        .trim()
+      if (innerHeading && innerHeading.length <= 80 && !/\.\s+[A-Z]/.test(innerHeading)) {
+        const startOffset = plainText.length
+        const { spans, plainAcc } = parseInlineSpans(innerHeading, startOffset)
+        blocks.push({
+          type: 'header',
+          level: 2,
+          spans,
+          words: spans.flatMap((s) => s.words),
+        })
+        plainText += plainAcc
+        if (i < lines.length - 1) {
+          plainText += '\n\n'
+        }
+        continue
+      }
+    }
+
     // Blockquote: > quote
     if (trimmed.startsWith('>')) {
       const content = trimmed.replace(/^>\s*/, '')

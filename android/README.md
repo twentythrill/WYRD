@@ -1,4 +1,4 @@
-# WYRD — Native Android AI Client (v1.6.4)
+# WYRD — Native Android AI Client (v1.6.5)
 
 WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo) with parallel dual web search engines (Tavily AI for live web and Exa AI for semantic exploration), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (`gpt-4o-mini-transcribe`), and complete local session persistence.
 
@@ -17,18 +17,18 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 - **Typography & Brand Mark**:
   - Global variable Space Grotesk typography (`MaterialTheme`) with calibrated weights.
   - Home screen centered eye mark (30% opacity, auto-switching dark/light assets), personalized greeting ("Welcome Back, **[Name]**"), and `(◕‿◕)` kaomoji.
-  - **Transparent Edge-to-Edge System Bars & Subtle Gemini-Style Fade Gradients**:
+  - **Transparent Edge-to-Edge System Bars & Multi-Stop Fade Gradients**:
     - Status bar and 3-button navigation bar are 100% transparent (`android.graphics.Color.TRANSPARENT`) with OS contrast enforcement disabled (`isStatusBarContrastEnforced = false`, `isNavigationBarContrastEnforced = false`), eliminating gray scrims.
-    - **Top Subtle Gradient**: Multi-stop vertical gradient (~130dp) softly dissolving text scrolling behind the status bar and top bar without harsh solid black blocks.
-    - **Bottom Subtle Gradient**: 230dp multi-stop vertical gradient dissolving text smoothly behind the floating capsule and through the transparent navigation bar, delivering pure seamless continuity.
+    - **Top Subtle Gradient**: Multi-stop vertical gradient (~150dp) with solid opacity across the entire top bar and status bar before smoothly dissolving downward, completely eliminating text bleed-through and ghosting behind the model selector and action buttons during scroll.
+    - **Bottom Solid Scrim & Fade**: Multi-stop vertical gradient with 100% solid opacity extending through the floating input capsule and Android 3-button system navigation bar (`bottomSolidHeight = navBarBottom + 74.dp`), dissolving smoothly over 44dp above the capsule with zero bleed-through or button collision.
 - **Markdown, Code Block & Tabular Layout Engine (`ReadingMarkdownParser`)**:
   - **Native Markdown Code Blocks (`CodeBlockCard`)**: Fenced code blocks (` ```lang ... ``` `) render inside dedicated, Warm Brutalist cards adhering to active theme tokens (`wyrdColors.surface`, `1.dp` border `wyrdColors.border`, `12.dp` rounded corners). Features:
     - **Header Bar**: Displays language title (`FontFamily.Monospace`, 11sp) on `wyrdColors.surfaceElevated` alongside a one-tap copy button with instant mechanical haptic feedback and a dynamic green checkmark (`AccentGreen`, "Copied") state.
     - **Natural Line Wrapping & Text Selection**: Monospace code body (`17sp`, `23sp` line height, matching body text) with natural soft line-wrapping, eliminating horizontal scrolling even for long code lines or minified tokens, and non-jumping text selection (`SelectionContainer` with `suppressBringIntoView()`).
     - **Audio & TTS Parity**: Preserves 1:1 character index offsets in `plainBuilder` and `annotatedBuilder`, allowing word-by-word reading highlight pills and tap-to-seek playback inside code blocks.
     - **Streaming Resilient**: Streams in real-time without layout jumps even while code blocks are unclosed mid-stream.
-  - **Markdown Tables (`MarkdownTableCard`)**: Specialized parser rendering aligned, padded monospaced tabular grids with header separation, dynamic column formatting, and 1:1 character index parity in `plainBuilder` to ensure uninterrupted TTS word-by-word tracking.
-  - **Typography & Rich Elements**: Headers, blockquotes, ordered/unordered lists, bold/italic/strikethrough (`~~text~~`) formatting, and safe protocol-validated clickable `[label](url)` links.
+  - **Markdown Tables (`MarkdownTableCard`)**: Specialized parser rendering aligned, padded monospaced tabular grids with header separation, dynamic column width calculation (`minWordWidth = (longestWordChars * 11f + 32f).coerceAtLeast(125f)`) preventing multi-character word hyphenation, and 1:1 character index parity in `plainBuilder` to ensure uninterrupted TTS word-by-word tracking.
+  - **Typography & Rich Elements**: Headers (`#`, `##`, `###` and standalone bold lines `**Heading**` / `__Heading__` with 20dp top and 8dp bottom Gestalt margins), blockquotes, ordered/unordered lists with dedicated fixed-width badge containers (`20dp` / `28dp`) for hanging indents, bold/italic/strikethrough (`~~text~~`) formatting, and safe protocol-validated clickable `[label](url)` links.
 - **Zero-Shift Streaming Typography**: `StreamingAssistantMessageItem` and `AssistantMessageItem` share the exact same condensed 23sp line-height typographic pipeline, markdown preprocessing (`formatMarkdownForReading`), and padding layout. Scoped `ttsPlaybackState` passes non-null highlight state only to the active spoken message, preventing unnecessary recompositions across other bubbles in the list.
 - **Answer Provenance Caption**: `AssistantMessageItem` renders a small muted caption beneath each answer (e.g. `MiMo 2.6 Pro · Reasoning on`) from the persisted `modelName` and `reasoningEnabled` message fields.
 - **Selection & Double-Tap Actions**:
