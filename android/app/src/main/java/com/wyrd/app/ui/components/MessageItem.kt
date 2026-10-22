@@ -1021,8 +1021,9 @@ fun MarkdownTableCard(
 }
 
 @Composable
-private fun TextBlockItem(
-    block: MessageContentBlock.Text,
+private fun HeaderBlockItem(
+    block: MessageContentBlock.Header,
+    isFirst: Boolean,
     activeHighlightRange: Pair<Int, Int>?,
     textColor: Color,
     onSeek: (charOffset: Int) -> Unit,
@@ -1040,9 +1041,123 @@ private fun TextBlockItem(
             val (hs, he) = activeHighlightRange
             val overlapStart = maxOf(hs, blockStart)
             val overlapEnd = minOf(he, blockEnd)
-            if (overlapStart < overlapEnd) {
-                Pair(overlapStart - blockStart, overlapEnd - blockStart)
-            } else null
+            if (overlapStart < overlapEnd) Pair(overlapStart - blockStart, overlapEnd - blockStart) else null
+        } else null
+    }
+
+    val blockAnnotatedText = remember(block.formatted, localHighlightRange, currentTextPrimary, currentBackground) {
+        getHighlightedAnnotatedString(
+            formatted = block.formatted,
+            highlightRange = localHighlightRange,
+            highlightBg = currentTextPrimary,
+            highlightTextColor = currentBackground
+        )
+    }
+
+    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    var blockTopInParent by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(localHighlightRange, textLayoutResult) {
+        if (localHighlightRange == null) return@LaunchedEffect
+        val layout = textLayoutResult ?: return@LaunchedEffect
+        val (start, _) = localHighlightRange
+        val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
+        val line = layout.getLineForOffset(safeOffset)
+        val lineTop = layout.getLineTop(line) + blockTopInParent
+        val lineBottom = layout.getLineBottom(line) + blockTopInParent
+        onActiveWordPosition?.invoke(line, lineTop, lineBottom)
+    }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    val topPadding = if (isFirst) 0.dp else when (block.level) {
+        1 -> 24.dp
+        2 -> 20.dp
+        else -> 16.dp
+    }
+    val bottomPadding = 8.dp
+
+    val fontSize = when (block.level) {
+        1 -> 22.sp
+        2 -> 19.sp
+        else -> 17.sp
+    }
+    val lineHeight = when (block.level) {
+        1 -> 28.sp
+        2 -> 25.sp
+        else -> 23.sp
+    }
+    val fontWeight = when (block.level) {
+        1, 2 -> FontWeight.Bold
+        else -> FontWeight.SemiBold
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = topPadding, bottom = bottomPadding)
+            .onGloballyPositioned { coordinates ->
+                blockTopInParent = coordinates.positionInParent().y
+            }
+            .pointerInput(blockStart, block.formatted.plainText) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val longPressTimeout = viewConfiguration.longPressTimeoutMillis
+                    val up = withTimeoutOrNull(longPressTimeout) {
+                        waitForUpOrCancellation()
+                    }
+                    if (up != null && !up.isConsumed) {
+                        val layout = textLayoutResult ?: return@awaitEachGesture
+                        val localOffset = layout.getOffsetForPosition(up.position)
+                        val urlAnnotation = block.formatted.baseAnnotatedString
+                            .getStringAnnotations(tag = "URL", start = localOffset, end = localOffset)
+                            .firstOrNull()
+                        if (urlAnnotation != null) {
+                            openAttachmentUri(context, urlAnnotation.item, isImage = false)
+                        } else {
+                            val globalOffset = blockStart + localOffset
+                            onSeek(globalOffset)
+                        }
+                    }
+                }
+            }
+    ) {
+        Text(
+            text = blockAnnotatedText,
+            onTextLayout = { textLayoutResult = it },
+            style = MaterialTheme.typography.titleMedium.copy(
+                color = textColor,
+                fontFamily = SpaceGrotesk,
+                fontWeight = fontWeight,
+                fontSize = fontSize,
+                lineHeight = lineHeight
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun ParagraphBlockItem(
+    block: MessageContentBlock.Paragraph,
+    activeHighlightRange: Pair<Int, Int>?,
+    textColor: Color,
+    onSeek: (charOffset: Int) -> Unit,
+    onActiveWordPosition: ((line: Int, wordTopInItem: Float, wordBottomInItem: Float) -> Unit)? = null
+) {
+    val wyrdColors = LocalWyrdColors.current
+    val currentTextPrimary = wyrdColors.textPrimary
+    val currentBackground = wyrdColors.background
+
+    val blockStart = block.startOffset
+    val blockEnd = blockStart + block.formatted.baseAnnotatedString.length
+
+    val localHighlightRange = remember(activeHighlightRange, blockStart, blockEnd) {
+        if (activeHighlightRange != null) {
+            val (hs, he) = activeHighlightRange
+            val overlapStart = maxOf(hs, blockStart)
+            val overlapEnd = minOf(he, blockEnd)
+            if (overlapStart < overlapEnd) Pair(overlapStart - blockStart, overlapEnd - blockStart) else null
         } else null
     }
 
@@ -1074,6 +1189,7 @@ private fun TextBlockItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(bottom = 10.dp)
             .onGloballyPositioned { coordinates ->
                 blockTopInParent = coordinates.positionInParent().y
             }
@@ -1111,6 +1227,232 @@ private fun TextBlockItem(
             ),
             modifier = Modifier.fillMaxWidth()
         )
+    }
+}
+
+@Composable
+private fun BulletBlockItem(
+    block: MessageContentBlock.Bullet,
+    bulletColor: Color,
+    activeHighlightRange: Pair<Int, Int>?,
+    textColor: Color,
+    onSeek: (charOffset: Int) -> Unit,
+    onActiveWordPosition: ((line: Int, wordTopInItem: Float, wordBottomInItem: Float) -> Unit)? = null
+) {
+    val wyrdColors = LocalWyrdColors.current
+    val currentTextPrimary = wyrdColors.textPrimary
+    val currentBackground = wyrdColors.background
+
+    val blockStart = block.startOffset
+    val blockEnd = blockStart + block.formatted.baseAnnotatedString.length
+
+    val localHighlightRange = remember(activeHighlightRange, blockStart, blockEnd) {
+        if (activeHighlightRange != null) {
+            val (hs, he) = activeHighlightRange
+            val overlapStart = maxOf(hs, blockStart)
+            val overlapEnd = minOf(he, blockEnd)
+            if (overlapStart < overlapEnd) Pair(overlapStart - blockStart, overlapEnd - blockStart) else null
+        } else null
+    }
+
+    val blockAnnotatedText = remember(block.formatted, localHighlightRange, currentTextPrimary, currentBackground) {
+        getHighlightedAnnotatedString(
+            formatted = block.formatted,
+            highlightRange = localHighlightRange,
+            highlightBg = currentTextPrimary,
+            highlightTextColor = currentBackground
+        )
+    }
+
+    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    var blockTopInParent by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(localHighlightRange, textLayoutResult) {
+        if (localHighlightRange == null) return@LaunchedEffect
+        val layout = textLayoutResult ?: return@LaunchedEffect
+        val (start, _) = localHighlightRange
+        val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
+        val line = layout.getLineForOffset(safeOffset)
+        val lineTop = layout.getLineTop(line) + blockTopInParent
+        val lineBottom = layout.getLineBottom(line) + blockTopInParent
+        onActiveWordPosition?.invoke(line, lineTop, lineBottom)
+    }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+            .onGloballyPositioned { coordinates ->
+                blockTopInParent = coordinates.positionInParent().y
+            },
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            text = "•",
+            style = MaterialTheme.typography.bodyLarge.copy(
+                color = bulletColor,
+                fontFamily = SpaceGrotesk,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                lineHeight = 25.sp
+            ),
+            modifier = Modifier
+                .width(20.dp)
+                .padding(top = 1.dp)
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .pointerInput(blockStart, block.formatted.plainText) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val longPressTimeout = viewConfiguration.longPressTimeoutMillis
+                        val up = withTimeoutOrNull(longPressTimeout) {
+                            waitForUpOrCancellation()
+                        }
+                        if (up != null && !up.isConsumed) {
+                            val layout = textLayoutResult ?: return@awaitEachGesture
+                            val localOffset = layout.getOffsetForPosition(up.position)
+                            val urlAnnotation = block.formatted.baseAnnotatedString
+                                .getStringAnnotations(tag = "URL", start = localOffset, end = localOffset)
+                                .firstOrNull()
+                            if (urlAnnotation != null) {
+                                openAttachmentUri(context, urlAnnotation.item, isImage = false)
+                            } else {
+                                val globalOffset = blockStart + localOffset
+                                onSeek(globalOffset)
+                            }
+                        }
+                    }
+                }
+        ) {
+            Text(
+                text = blockAnnotatedText,
+                onTextLayout = { textLayoutResult = it },
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = textColor,
+                    fontFamily = SpaceGrotesk,
+                    fontSize = 17.sp,
+                    lineHeight = 25.sp
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun NumberedBlockItem(
+    block: MessageContentBlock.Numbered,
+    numeralColor: Color,
+    activeHighlightRange: Pair<Int, Int>?,
+    textColor: Color,
+    onSeek: (charOffset: Int) -> Unit,
+    onActiveWordPosition: ((line: Int, wordTopInItem: Float, wordBottomInItem: Float) -> Unit)? = null
+) {
+    val wyrdColors = LocalWyrdColors.current
+    val currentTextPrimary = wyrdColors.textPrimary
+    val currentBackground = wyrdColors.background
+
+    val blockStart = block.startOffset
+    val blockEnd = blockStart + block.formatted.baseAnnotatedString.length
+
+    val localHighlightRange = remember(activeHighlightRange, blockStart, blockEnd) {
+        if (activeHighlightRange != null) {
+            val (hs, he) = activeHighlightRange
+            val overlapStart = maxOf(hs, blockStart)
+            val overlapEnd = minOf(he, blockEnd)
+            if (overlapStart < overlapEnd) Pair(overlapStart - blockStart, overlapEnd - blockStart) else null
+        } else null
+    }
+
+    val blockAnnotatedText = remember(block.formatted, localHighlightRange, currentTextPrimary, currentBackground) {
+        getHighlightedAnnotatedString(
+            formatted = block.formatted,
+            highlightRange = localHighlightRange,
+            highlightBg = currentTextPrimary,
+            highlightTextColor = currentBackground
+        )
+    }
+
+    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    var blockTopInParent by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(localHighlightRange, textLayoutResult) {
+        if (localHighlightRange == null) return@LaunchedEffect
+        val layout = textLayoutResult ?: return@LaunchedEffect
+        val (start, _) = localHighlightRange
+        val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
+        val line = layout.getLineForOffset(safeOffset)
+        val lineTop = layout.getLineTop(line) + blockTopInParent
+        val lineBottom = layout.getLineBottom(line) + blockTopInParent
+        onActiveWordPosition?.invoke(line, lineTop, lineBottom)
+    }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+            .onGloballyPositioned { coordinates ->
+                blockTopInParent = coordinates.positionInParent().y
+            },
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            text = block.numberPrefix,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                color = numeralColor,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                lineHeight = 25.sp
+            ),
+            modifier = Modifier
+                .width(28.dp)
+                .padding(top = 1.dp)
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .pointerInput(blockStart, block.formatted.plainText) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val longPressTimeout = viewConfiguration.longPressTimeoutMillis
+                        val up = withTimeoutOrNull(longPressTimeout) {
+                            waitForUpOrCancellation()
+                        }
+                        if (up != null && !up.isConsumed) {
+                            val layout = textLayoutResult ?: return@awaitEachGesture
+                            val localOffset = layout.getOffsetForPosition(up.position)
+                            val urlAnnotation = block.formatted.baseAnnotatedString
+                                .getStringAnnotations(tag = "URL", start = localOffset, end = localOffset)
+                                .firstOrNull()
+                            if (urlAnnotation != null) {
+                                openAttachmentUri(context, urlAnnotation.item, isImage = false)
+                            } else {
+                                val globalOffset = blockStart + localOffset
+                                onSeek(globalOffset)
+                            }
+                        }
+                    }
+                }
+        ) {
+            Text(
+                text = blockAnnotatedText,
+                onTextLayout = { textLayoutResult = it },
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = textColor,
+                    fontFamily = SpaceGrotesk,
+                    fontSize = 17.sp,
+                    lineHeight = 25.sp
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -1275,32 +1617,7 @@ fun AssistantMessageItem(
         )
     }
 
-    val annotatedText = remember(formatted, activeHighlightRange, currentTextPrimary, currentBackground) {
-        getHighlightedAnnotatedString(
-            formatted = formatted,
-            highlightRange = activeHighlightRange,
-            highlightBg = currentTextPrimary,
-            highlightTextColor = currentBackground
-        )
-    }
-
-    val hasComplexBlocks = remember(formatted) {
-        formatted.blocks.any { it !is MessageContentBlock.Text }
-    }
-
-    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     var textTopInItem by remember { mutableStateOf(0f) }
-
-    LaunchedEffect(activeHighlightRange, textLayoutResult, isCurrentMessage) {
-        if (!isCurrentMessage || activeHighlightRange == null || hasComplexBlocks) return@LaunchedEffect
-        val layout = textLayoutResult ?: return@LaunchedEffect
-        val (start, _) = activeHighlightRange
-        val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
-        val line = layout.getLineForOffset(safeOffset)
-        val lineTop = layout.getLineTop(line) + textTopInItem
-        val lineBottom = layout.getLineBottom(line) + textTopInItem
-        onActiveWordPosition?.invoke(line, lineTop, lineBottom)
-    }
 
     Column(
         modifier = modifier
@@ -1312,120 +1629,111 @@ fun AssistantMessageItem(
             ReasoningBlock(reasoning = message.reasoning)
         }
 
-        // Synchronized ElevenReader style reading & Tap-to-seek
-        if (!hasComplexBlocks) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { coordinates ->
-                        textTopInItem = coordinates.positionInParent().y
-                    }
-                    .pointerInput(message.id, formatted.plainText) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            val longPressTimeout = viewConfiguration.longPressTimeoutMillis
-                            val up = withTimeoutOrNull(longPressTimeout) {
-                                waitForUpOrCancellation()
-                            }
-                            if (up != null && !up.isConsumed) {
-                                val layout = textLayoutResult ?: return@awaitEachGesture
-                                val charOffset = layout.getOffsetForPosition(up.position)
-                                val urlAnnotation = formatted.baseAnnotatedString
-                                    .getStringAnnotations(tag = "URL", start = charOffset, end = charOffset)
-                                    .firstOrNull()
-                                if (urlAnnotation != null) {
-                                    openAttachmentUri(context, urlAnnotation.item, isImage = false)
-                                } else {
-                                    onSeek(formatted.plainText, charOffset)
-                                }
-                            }
-                        }
-                    }
-            ) {
-                SelectionContainer(
-                    modifier = Modifier.suppressBringIntoView()
-                ) {
-                    Text(
-                        text = annotatedText,
-                        onTextLayout = { textLayoutResult = it },
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            color = currentTextPrimary,
-                            fontFamily = SpaceGrotesk,
-                            fontSize = 17.sp,
-                            lineHeight = 25.sp
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { coordinates ->
+                    textTopInItem = coordinates.positionInParent().y
                 }
-            }
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { coordinates ->
-                        textTopInItem = coordinates.positionInParent().y
-                    }
+        ) {
+            SelectionContainer(
+                modifier = Modifier.suppressBringIntoView()
             ) {
-                SelectionContainer(
-                    modifier = Modifier.suppressBringIntoView()
+                Column(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        formatted.blocks.forEach { block ->
-                            when (block) {
-                                is MessageContentBlock.Text -> {
-                                    TextBlockItem(
-                                        block = block,
-                                        activeHighlightRange = activeHighlightRange,
-                                        textColor = currentTextPrimary,
-                                        onSeek = { charOffset -> onSeek(formatted.plainText, charOffset) },
-                                        onActiveWordPosition = if (isCurrentMessage) { line, top, bottom ->
-                                            onActiveWordPosition?.invoke(line, top + textTopInItem, bottom + textTopInItem)
-                                        } else null
-                                    )
-                                }
-                                is MessageContentBlock.Blockquote -> {
-                                    BlockquoteCard(
-                                        block = block,
-                                        activeHighlightRange = activeHighlightRange,
-                                        textColor = currentTextSecondary,
-                                        borderColor = currentTextSecondary,
-                                        onSeek = { charOffset -> onSeek(formatted.plainText, charOffset) },
-                                        onActiveWordPosition = if (isCurrentMessage) { line, top, bottom ->
-                                            onActiveWordPosition?.invoke(line, top + textTopInItem, bottom + textTopInItem)
-                                        } else null
-                                    )
-                                }
-                                is MessageContentBlock.HorizontalRule -> {
-                                    HorizontalDivider(
-                                        color = currentBorder,
-                                        thickness = 1.dp,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 12.dp)
-                                    )
-                                }
-                                is MessageContentBlock.Table -> {
-                                    MarkdownTableCard(
-                                        table = block.table,
-                                        activeHighlightRange = activeHighlightRange,
-                                        onSeek = { charOffset -> onSeek(formatted.plainText, charOffset) },
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-                                is MessageContentBlock.Code -> {
-                                    CodeBlockCard(
-                                        codeData = block.code,
-                                        activeHighlightRange = activeHighlightRange,
-                                        onSeek = { charOffset -> onSeek(formatted.plainText, charOffset) },
-                                        onActiveWordPosition = if (isCurrentMessage) { line, top, bottom ->
-                                            onActiveWordPosition?.invoke(line, top + textTopInItem, bottom + textTopInItem)
-                                        } else null,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
+                    formatted.blocks.forEachIndexed { index, block ->
+                        when (block) {
+                            is MessageContentBlock.Header -> {
+                                HeaderBlockItem(
+                                    block = block,
+                                    isFirst = index == 0,
+                                    activeHighlightRange = activeHighlightRange,
+                                    textColor = currentTextPrimary,
+                                    onSeek = { charOffset -> onSeek(formatted.plainText, charOffset) },
+                                    onActiveWordPosition = if (isCurrentMessage) { line, top, bottom ->
+                                        onActiveWordPosition?.invoke(line, top + textTopInItem, bottom + textTopInItem)
+                                    } else null
+                                )
+                            }
+                            is MessageContentBlock.Paragraph -> {
+                                ParagraphBlockItem(
+                                    block = block,
+                                    activeHighlightRange = activeHighlightRange,
+                                    textColor = currentTextPrimary,
+                                    onSeek = { charOffset -> onSeek(formatted.plainText, charOffset) },
+                                    onActiveWordPosition = if (isCurrentMessage) { line, top, bottom ->
+                                        onActiveWordPosition?.invoke(line, top + textTopInItem, bottom + textTopInItem)
+                                    } else null
+                                )
+                            }
+                            is MessageContentBlock.Bullet -> {
+                                BulletBlockItem(
+                                    block = block,
+                                    bulletColor = currentTextSecondary,
+                                    activeHighlightRange = activeHighlightRange,
+                                    textColor = currentTextPrimary,
+                                    onSeek = { charOffset -> onSeek(formatted.plainText, charOffset) },
+                                    onActiveWordPosition = if (isCurrentMessage) { line, top, bottom ->
+                                        onActiveWordPosition?.invoke(line, top + textTopInItem, bottom + textTopInItem)
+                                    } else null
+                                )
+                            }
+                            is MessageContentBlock.Numbered -> {
+                                NumberedBlockItem(
+                                    block = block,
+                                    numeralColor = currentTextSecondary,
+                                    activeHighlightRange = activeHighlightRange,
+                                    textColor = currentTextPrimary,
+                                    onSeek = { charOffset -> onSeek(formatted.plainText, charOffset) },
+                                    onActiveWordPosition = if (isCurrentMessage) { line, top, bottom ->
+                                        onActiveWordPosition?.invoke(line, top + textTopInItem, bottom + textTopInItem)
+                                    } else null
+                                )
+                            }
+                            is MessageContentBlock.Blockquote -> {
+                                BlockquoteCard(
+                                    block = block,
+                                    activeHighlightRange = activeHighlightRange,
+                                    textColor = currentTextSecondary,
+                                    borderColor = currentTextSecondary,
+                                    onSeek = { charOffset -> onSeek(formatted.plainText, charOffset) },
+                                    onActiveWordPosition = if (isCurrentMessage) { line, top, bottom ->
+                                        onActiveWordPosition?.invoke(line, top + textTopInItem, bottom + textTopInItem)
+                                    } else null
+                                )
+                            }
+                            is MessageContentBlock.HorizontalRule -> {
+                                HorizontalDivider(
+                                    color = currentBorder,
+                                    thickness = 1.dp,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 14.dp)
+                                )
+                            }
+                            is MessageContentBlock.Table -> {
+                                MarkdownTableCard(
+                                    table = block.table,
+                                    activeHighlightRange = activeHighlightRange,
+                                    onSeek = { charOffset -> onSeek(formatted.plainText, charOffset) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                )
+                            }
+                            is MessageContentBlock.Code -> {
+                                CodeBlockCard(
+                                    codeData = block.code,
+                                    activeHighlightRange = activeHighlightRange,
+                                    onSeek = { charOffset -> onSeek(formatted.plainText, charOffset) },
+                                    onActiveWordPosition = if (isCurrentMessage) { line, top, bottom ->
+                                        onActiveWordPosition?.invoke(line, top + textTopInItem, bottom + textTopInItem)
+                                    } else null,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                )
                             }
                         }
                     }
@@ -1536,21 +1844,6 @@ fun StreamingAssistantMessageItem(
         } else null
     }
 
-    val annotatedText = remember(formatted, activeHighlightRange, currentTextPrimary, currentBackground) {
-        if (formatted != null) {
-            getHighlightedAnnotatedString(
-                formatted = formatted,
-                highlightRange = activeHighlightRange,
-                highlightBg = currentTextPrimary,
-                highlightTextColor = currentBackground
-            )
-        } else null
-    }
-
-    val hasComplexBlocks = remember(formatted) {
-        formatted?.blocks?.any { it !is MessageContentBlock.Text } == true
-    }
-
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -1596,120 +1889,88 @@ fun StreamingAssistantMessageItem(
             }
         }
 
-        if (!hasComplexBlocks) {
-            if (annotatedText != null) {
-                Box(
-                    modifier = Modifier.fillMaxWidth()
+        if (formatted != null) {
+            Box(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                SelectionContainer(
+                    modifier = Modifier.suppressBringIntoView()
                 ) {
-                    SelectionContainer(
-                        modifier = Modifier.suppressBringIntoView()
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        androidx.compose.material3.Text(
-                            text = annotatedText,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                color = currentTextPrimary,
-                                fontFamily = SpaceGrotesk,
-                                fontSize = 17.sp,
-                                lineHeight = 25.sp
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-            }
-        } else {
-            if (formatted != null) {
-                Box(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    SelectionContainer(
-                        modifier = Modifier.suppressBringIntoView()
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            formatted.blocks.forEach { block ->
-                                when (block) {
-                                    is MessageContentBlock.Text -> {
-                                        val blockStart = block.startOffset
-                                        val blockEnd = blockStart + block.formatted.baseAnnotatedString.length
-                                        val localHighlightRange = if (activeHighlightRange != null) {
-                                            val (hs, he) = activeHighlightRange
-                                            val overlapStart = maxOf(hs, blockStart)
-                                            val overlapEnd = minOf(he, blockEnd)
-                                            if (overlapStart < overlapEnd) Pair(overlapStart - blockStart, overlapEnd - blockStart) else null
-                                        } else null
-
-                                        val blockAnnotated = remember(block.formatted, localHighlightRange, currentTextPrimary, currentBackground) {
-                                            getHighlightedAnnotatedString(
-                                                formatted = block.formatted,
-                                                highlightRange = localHighlightRange,
-                                                highlightBg = currentTextPrimary,
-                                                highlightTextColor = currentBackground
-                                            )
-                                        }
-
-                                        androidx.compose.material3.Text(
-                                            text = blockAnnotated,
-                                            style = MaterialTheme.typography.bodyLarge.copy(
-                                                color = currentTextPrimary,
-                                                fontFamily = SpaceGrotesk,
-                                                fontSize = 17.sp,
-                                                lineHeight = 25.sp
-                                            ),
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                    }
-                                    is MessageContentBlock.Blockquote -> {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 4.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .width(2.5.dp)
-                                                    .heightIn(min = 20.dp)
-                                                    .background(currentTextSecondary, RoundedCornerShape(2.dp))
-                                            )
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            androidx.compose.material3.Text(
-                                                text = block.formatted.baseAnnotatedString,
-                                                style = MaterialTheme.typography.bodyLarge.copy(
-                                                    color = currentTextSecondary,
-                                                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                                                    fontFamily = SpaceGrotesk,
-                                                    fontSize = 16.sp,
-                                                    lineHeight = 24.sp
-                                                ),
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                        }
-                                    }
-                                    is MessageContentBlock.HorizontalRule -> {
-                                        HorizontalDivider(
-                                            color = currentBorder,
-                                            thickness = 1.dp,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 12.dp)
-                                        )
-                                    }
+                        formatted.blocks.forEachIndexed { index, block ->
+                            when (block) {
+                                is MessageContentBlock.Header -> {
+                                    HeaderBlockItem(
+                                        block = block,
+                                        isFirst = index == 0,
+                                        activeHighlightRange = activeHighlightRange,
+                                        textColor = currentTextPrimary,
+                                        onSeek = {}
+                                    )
+                                }
+                                is MessageContentBlock.Paragraph -> {
+                                    ParagraphBlockItem(
+                                        block = block,
+                                        activeHighlightRange = activeHighlightRange,
+                                        textColor = currentTextPrimary,
+                                        onSeek = {}
+                                    )
+                                }
+                                is MessageContentBlock.Bullet -> {
+                                    BulletBlockItem(
+                                        block = block,
+                                        bulletColor = currentTextSecondary,
+                                        activeHighlightRange = activeHighlightRange,
+                                        textColor = currentTextPrimary,
+                                        onSeek = {}
+                                    )
+                                }
+                                is MessageContentBlock.Numbered -> {
+                                    NumberedBlockItem(
+                                        block = block,
+                                        numeralColor = currentTextSecondary,
+                                        activeHighlightRange = activeHighlightRange,
+                                        textColor = currentTextPrimary,
+                                        onSeek = {}
+                                    )
+                                }
+                                is MessageContentBlock.Blockquote -> {
+                                    BlockquoteCard(
+                                        block = block,
+                                        activeHighlightRange = activeHighlightRange,
+                                        textColor = currentTextSecondary,
+                                        borderColor = currentTextSecondary,
+                                        onSeek = {}
+                                    )
+                                }
+                                is MessageContentBlock.HorizontalRule -> {
+                                    HorizontalDivider(
+                                        color = currentBorder,
+                                        thickness = 1.dp,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 14.dp)
+                                    )
+                                }
                                 is MessageContentBlock.Table -> {
-                                        MarkdownTableCard(
-                                            table = block.table,
-                                            activeHighlightRange = activeHighlightRange,
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                    }
-                                    is MessageContentBlock.Code -> {
-                                        CodeBlockCard(
-                                            codeData = block.code,
-                                            activeHighlightRange = activeHighlightRange,
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                    }
+                                    MarkdownTableCard(
+                                        table = block.table,
+                                        activeHighlightRange = activeHighlightRange,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp)
+                                    )
+                                }
+                                is MessageContentBlock.Code -> {
+                                    CodeBlockCard(
+                                        codeData = block.code,
+                                        activeHighlightRange = activeHighlightRange,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp)
+                                    )
                                 }
                             }
                         }

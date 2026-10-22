@@ -726,8 +726,8 @@ export function ChatArea({
   const isEmptyState = (!chat || displayedMessages.length === 0) && !isGenerating
 
   const topGradient = isDark
-    ? 'linear-gradient(to bottom, #000000 0%, rgba(0,0,0,0.90) 30%, rgba(0,0,0,0.70) 55%, rgba(0,0,0,0.40) 75%, rgba(0,0,0,0.15) 90%, transparent 100%)'
-    : 'linear-gradient(to bottom, #F9F9F7 0%, rgba(249,249,247,0.90) 30%, rgba(249,249,247,0.70) 55%, rgba(249,249,247,0.40) 75%, rgba(249,249,247,0.15) 90%, transparent 100%)'
+    ? 'linear-gradient(to bottom, #000000 0%, #000000 52px, rgba(0,0,0,0.85) 70px, rgba(0,0,0,0.45) 88px, rgba(0,0,0,0.12) 102px, transparent 112px)'
+    : 'linear-gradient(to bottom, #F9F9F7 0%, #F9F9F7 52px, rgba(249,249,247,0.85) 70px, rgba(249,249,247,0.45) 88px, rgba(249,249,247,0.12) 102px, transparent 112px)'
 
   const bottomGradient = isDark
     ? 'linear-gradient(to top, #000000 0%, rgba(0,0,0,0.90) 25%, rgba(0,0,0,0.70) 50%, rgba(0,0,0,0.38) 75%, rgba(0,0,0,0.12) 90%, transparent 100%)'

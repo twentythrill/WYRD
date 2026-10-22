@@ -43,7 +43,29 @@ data class MarkdownTableData(
 )
 
 sealed class MessageContentBlock {
-    data class Text(
+    data class Paragraph(
+        val formatted: FormattedReadingContent,
+        val startOffset: Int
+    ) : MessageContentBlock()
+
+    data class Header(
+        val level: Int,
+        val formatted: FormattedReadingContent,
+        val startOffset: Int
+    ) : MessageContentBlock()
+
+    data class Bullet(
+        val formatted: FormattedReadingContent,
+        val startOffset: Int
+    ) : MessageContentBlock()
+
+    data class Numbered(
+        val numberPrefix: String,
+        val formatted: FormattedReadingContent,
+        val startOffset: Int
+    ) : MessageContentBlock()
+
+    data class Blockquote(
         val formatted: FormattedReadingContent,
         val startOffset: Int
     ) : MessageContentBlock()
@@ -55,11 +77,6 @@ sealed class MessageContentBlock {
 
     data class Code(
         val code: MarkdownCodeData,
-        val startOffset: Int
-    ) : MessageContentBlock()
-
-    data class Blockquote(
-        val formatted: FormattedReadingContent,
         val startOffset: Int
     ) : MessageContentBlock()
 
@@ -290,216 +307,24 @@ private fun formatCellContent(
     return Pair(builder.toAnnotatedString(), plainBuilder.toString())
 }
 
-private fun formatTextSegment(
-    lines: List<String>,
-    headerColor: Color,
-    inlineCodeBg: Color,
-    inlineCodeColor: Color,
+private fun formatInlineContent(
+    text: String,
     boldColor: Color,
     italicColor: Color,
-    quoteColor: Color,
-    bulletColor: Color
+    inlineCodeBg: Color,
+    inlineCodeColor: Color
 ): FormattedReadingContent {
     val builder = AnnotatedString.Builder()
     val plainBuilder = StringBuilder()
-    var inCodeBlock = false
-    var lineIndex = 0
-
-    while (lineIndex < lines.size) {
-        val line = lines[lineIndex]
-        val trimmed = line.trim()
-
-        if (trimmed.startsWith("```")) {
-            inCodeBlock = !inCodeBlock
-            lineIndex++
-            continue
-        }
-
-        if (inCodeBlock) {
-            builder.pushStyle(
-                SpanStyle(
-                    fontFamily = FontFamily.Monospace,
-                    background = inlineCodeBg,
-                    color = inlineCodeColor,
-                    fontSize = 14.sp
-                )
-            )
-            builder.append(line)
-            builder.pop()
-            plainBuilder.append(line)
-            if (lineIndex < lines.size - 1) {
-                builder.append("\n")
-                plainBuilder.append("\n")
-            }
-            lineIndex++
-            continue
-        }
-
-        // Headers
-        if (trimmed.startsWith("#")) {
-            val level = trimmed.takeWhile { it == '#' }.length
-            if (level in 1..6 && trimmed.length > level && trimmed[level] == ' ') {
-                val headerContent = trimmed.drop(level + 1).trim()
-                val fontSize = when (level) {
-                    1 -> 22.sp
-                    2 -> 19.sp
-                    else -> 17.sp
-                }
-                if (builder.length > 0 && !plainBuilder.endsWith("\n\n")) {
-                    builder.append("\n")
-                    plainBuilder.append("\n")
-                }
-                builder.pushStyle(
-                    SpanStyle(
-                        fontSize = fontSize,
-                        fontWeight = FontWeight.Bold,
-                        color = headerColor
-                    )
-                )
-                appendInlineFormatted(
-                    builder = builder,
-                    plainBuilder = plainBuilder,
-                    text = headerContent,
-                    boldColor = boldColor,
-                    italicColor = italicColor,
-                    inlineCodeBg = inlineCodeBg,
-                    inlineCodeColor = inlineCodeColor
-                )
-                builder.pop()
-                if (lineIndex < lines.size - 1) {
-                    builder.append("\n")
-                    plainBuilder.append("\n")
-                }
-                lineIndex++
-                continue
-            }
-        }
-
-        // Blockquotes
-        if (trimmed.startsWith(">")) {
-            val quoteContent = trimmed.removePrefix(">").trim()
-            builder.pushStyle(
-                SpanStyle(
-                    fontStyle = FontStyle.Italic,
-                    color = quoteColor
-                )
-            )
-            appendInlineFormatted(
-                builder = builder,
-                plainBuilder = plainBuilder,
-                text = quoteContent,
-                boldColor = boldColor,
-                italicColor = italicColor,
-                inlineCodeBg = inlineCodeBg,
-                inlineCodeColor = inlineCodeColor
-            )
-            builder.pop()
-            if (lineIndex < lines.size - 1) {
-                builder.append("\n")
-                plainBuilder.append("\n")
-            }
-            lineIndex++
-            continue
-        }
-
-        // Unordered List
-        if ((trimmed.startsWith("- ") || trimmed.startsWith("* ")) && trimmed.length > 2) {
-            val itemContent = trimmed.drop(2).trim()
-            builder.pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = bulletColor))
-            builder.append("• ")
-            builder.pop()
-            plainBuilder.append("• ")
-            appendInlineFormatted(
-                builder = builder,
-                plainBuilder = plainBuilder,
-                text = itemContent,
-                boldColor = boldColor,
-                italicColor = italicColor,
-                inlineCodeBg = inlineCodeBg,
-                inlineCodeColor = inlineCodeColor
-            )
-            if (lineIndex < lines.size - 1) {
-                // Blank line between consecutive bullet points for airy reading rhythm.
-                val nextTrimmed = lines[lineIndex + 1].trim()
-                val nextIsBullet = (nextTrimmed.startsWith("- ") || nextTrimmed.startsWith("* ")) && nextTrimmed.length > 2
-                if (nextIsBullet) {
-                    builder.append("\n\n")
-                    plainBuilder.append("\n\n")
-                } else {
-                    builder.append("\n")
-                    plainBuilder.append("\n")
-                }
-            }
-            lineIndex++
-            continue
-        }
-
-        // Ordered List
-        val numMatch = ORDERED_LIST_REGEX.matchEntire(trimmed)
-        if (numMatch != null) {
-            val num = numMatch.groupValues[1]
-            val itemContent = numMatch.groupValues[2].trim()
-            builder.pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = bulletColor))
-            builder.append("$num. ")
-            builder.pop()
-            plainBuilder.append("$num. ")
-            appendInlineFormatted(
-                builder = builder,
-                plainBuilder = plainBuilder,
-                text = itemContent,
-                boldColor = boldColor,
-                italicColor = italicColor,
-                inlineCodeBg = inlineCodeBg,
-                inlineCodeColor = inlineCodeColor
-            )
-            if (lineIndex < lines.size - 1) {
-                val nextTrimmed = lines[lineIndex + 1].trim()
-                val nextIsNum = ORDERED_LIST_REGEX.matches(nextTrimmed)
-                if (nextIsNum) {
-                    builder.append("\n\n")
-                    plainBuilder.append("\n\n")
-                } else {
-                    builder.append("\n")
-                    plainBuilder.append("\n")
-                }
-            }
-            lineIndex++
-            continue
-        }
-
-        if (trimmed.isEmpty()) {
-            if (lineIndex < lines.size - 1) {
-                val nextTrimmed = lines[lineIndex + 1].trim()
-                val nextIsNum = ORDERED_LIST_REGEX.matches(nextTrimmed)
-                if (nextIsNum) {
-                    builder.append("\n\n")
-                    plainBuilder.append("\n\n")
-                } else {
-                    builder.append("\n")
-                    plainBuilder.append("\n")
-                }
-            }
-            lineIndex++
-            continue
-        }
-
-        // Normal paragraph text
-        appendInlineFormatted(
-            builder = builder,
-            plainBuilder = plainBuilder,
-            text = line,
-            boldColor = boldColor,
-            italicColor = italicColor,
-            inlineCodeBg = inlineCodeBg,
-            inlineCodeColor = inlineCodeColor
-        )
-        if (lineIndex < lines.size - 1) {
-            builder.append("\n")
-            plainBuilder.append("\n")
-        }
-        lineIndex++
-    }
-
+    appendInlineFormatted(
+        builder = builder,
+        plainBuilder = plainBuilder,
+        text = text,
+        boldColor = boldColor,
+        italicColor = italicColor,
+        inlineCodeBg = inlineCodeBg,
+        inlineCodeColor = inlineCodeColor
+    )
     return FormattedReadingContent(
         plainText = plainBuilder.toString(),
         baseAnnotatedString = builder.toAnnotatedString()
@@ -517,92 +342,23 @@ fun formatMarkdownForReading(
     quoteColor: Color = textColor.copy(alpha = 0.75f),
     bulletColor: Color = textColor.copy(alpha = 0.65f)
 ): FormattedReadingContent {
+    if (markdown.isEmpty()) {
+        return FormattedReadingContent("", AnnotatedString(""))
+    }
+
     val lines = markdown.split("\n")
     val blocks = mutableListOf<MessageContentBlock>()
     val overallPlainBuilder = StringBuilder()
     val overallAnnotatedBuilder = AnnotatedString.Builder()
 
-    val currentTextLines = mutableListOf<String>()
-    var startIndex = 0
-    while (startIndex < lines.size && lines[startIndex].trim().isEmpty()) {
-        startIndex++
-    }
-    var lineIndex = startIndex
-
-    fun flushCurrentText() {
-        if (currentTextLines.isEmpty()) return
-        val textStartOffset = overallPlainBuilder.length
-        val textContent = formatTextSegment(
-            lines = currentTextLines,
-            headerColor = headerColor,
-            inlineCodeBg = inlineCodeBg,
-            inlineCodeColor = inlineCodeColor,
-            boldColor = boldColor,
-            italicColor = italicColor,
-            quoteColor = quoteColor,
-            bulletColor = bulletColor
-        )
-        if (textContent.plainText.isNotEmpty() || textContent.baseAnnotatedString.isNotEmpty()) {
-            overallPlainBuilder.append(textContent.plainText)
-            overallAnnotatedBuilder.append(textContent.baseAnnotatedString)
-            blocks.add(MessageContentBlock.Text(textContent, textStartOffset))
-        }
-        currentTextLines.clear()
-    }
+    var lineIndex = 0
 
     while (lineIndex < lines.size) {
         val line = lines[lineIndex]
         val trimmed = line.trim()
 
-        // Check if this line is a horizontal rule
-        if (trimmed.matches(Regex("^(-{3,}|\\*{3,}|_{3,})$"))) {
-            flushCurrentText()
-            val hrStartOffset = overallPlainBuilder.length
-            blocks.add(MessageContentBlock.HorizontalRule(hrStartOffset))
-            overallPlainBuilder.append("\n\n")
-            overallAnnotatedBuilder.append("\n\n")
-            lineIndex++
-            continue
-        }
-
-        // Check if this line starts a blockquote
-        if (trimmed.startsWith(">")) {
-            flushCurrentText()
-            val quoteStartOffset = overallPlainBuilder.length
-            val quoteLines = mutableListOf<String>()
-            while (lineIndex < lines.size && lines[lineIndex].trim().startsWith(">")) {
-                quoteLines.add(lines[lineIndex].trim().removePrefix(">").trim())
-                lineIndex++
-            }
-            val quoteContent = formatTextSegment(
-                lines = quoteLines,
-                headerColor = headerColor,
-                inlineCodeBg = inlineCodeBg,
-                inlineCodeColor = inlineCodeColor,
-                boldColor = boldColor,
-                italicColor = italicColor,
-                quoteColor = quoteColor,
-                bulletColor = bulletColor
-            )
-            overallPlainBuilder.append(quoteContent.plainText)
-            overallAnnotatedBuilder.append(quoteContent.baseAnnotatedString)
-            blocks.add(MessageContentBlock.Blockquote(quoteContent, quoteStartOffset))
-            if (lineIndex < lines.size) {
-                overallPlainBuilder.append("\n\n")
-                overallAnnotatedBuilder.append("\n\n")
-            }
-            continue
-        }
-
-        // Check if this line starts a code block
+        // 1. Code Block Fence (```)
         if (trimmed.startsWith("```")) {
-            flushCurrentText()
-
-            if (overallPlainBuilder.isNotEmpty() && !overallPlainBuilder.endsWith("\n")) {
-                overallPlainBuilder.append("\n")
-                overallAnnotatedBuilder.append("\n")
-            }
-
             val codeStartOffset = overallPlainBuilder.length
             val lang = trimmed.removePrefix("```").trim()
             lineIndex++ // skip opening fence
@@ -632,16 +388,14 @@ fun formatMarkdownForReading(
             blocks.add(MessageContentBlock.Code(codeData, codeStartOffset))
 
             if (lineIndex < lines.size) {
-                if (!overallPlainBuilder.endsWith("\n\n")) overallPlainBuilder.append("\n")
-                if (!overallAnnotatedBuilder.toAnnotatedString().text.endsWith("\n\n")) overallAnnotatedBuilder.append("\n")
+                overallPlainBuilder.append("\n\n")
+                overallAnnotatedBuilder.append("\n\n")
             }
             continue
         }
 
-        // Check if this line starts a table
+        // 2. Table detection (line has '|' and next line is separator)
         if (trimmed.contains("|") && lineIndex + 1 < lines.size && isTableSeparator(lines[lineIndex + 1])) {
-            flushCurrentText()
-
             val tableStartOffset = overallPlainBuilder.length
             val headerCellsRaw = parseTableCells(line)
             val sepLine = lines[lineIndex + 1]
@@ -694,22 +448,125 @@ fun formatMarkdownForReading(
                 overallAnnotatedBuilder.append(tablePlainText)
 
                 if (lineIndex < lines.size) {
-                    if (!overallPlainBuilder.endsWith("\n\n")) overallPlainBuilder.append("\n")
-                    if (!overallAnnotatedBuilder.toAnnotatedString().text.endsWith("\n\n")) overallAnnotatedBuilder.append("\n")
+                    overallPlainBuilder.append("\n")
+                    overallAnnotatedBuilder.append("\n")
                 }
             }
             continue
         }
 
-        currentTextLines.add(line)
+        // 3. Horizontal Rule (---, ***, ___)
+        if (trimmed.matches(Regex("^(-{3,}|\\*{3,}|_{3,})$"))) {
+            val hrStartOffset = overallPlainBuilder.length
+            blocks.add(MessageContentBlock.HorizontalRule(hrStartOffset))
+            overallPlainBuilder.append("\n\n")
+            overallAnnotatedBuilder.append("\n\n")
+            lineIndex++
+            continue
+        }
+
+        // 4. Header (#, ##, ###...)
+        if (trimmed.startsWith("#")) {
+            val level = trimmed.takeWhile { it == '#' }.length
+            if (level in 1..6 && trimmed.length > level && trimmed[level] == ' ') {
+                val headerText = trimmed.drop(level + 1).trim()
+                val startOffset = overallPlainBuilder.length
+                val formattedHeader = formatInlineContent(headerText, boldColor, italicColor, inlineCodeBg, inlineCodeColor)
+                blocks.add(MessageContentBlock.Header(level = level, formatted = formattedHeader, startOffset = startOffset))
+                overallPlainBuilder.append(formattedHeader.plainText)
+                overallAnnotatedBuilder.append(formattedHeader.baseAnnotatedString)
+                if (lineIndex < lines.size - 1) {
+                    overallPlainBuilder.append("\n\n")
+                    overallAnnotatedBuilder.append("\n\n")
+                }
+                lineIndex++
+                continue
+            }
+        }
+
+        // 5. Blockquote (>)
+        if (trimmed.startsWith(">")) {
+            val quoteText = trimmed.removePrefix(">").trim()
+            val startOffset = overallPlainBuilder.length
+            val formattedQuote = formatInlineContent(quoteText, quoteColor, italicColor, inlineCodeBg, inlineCodeColor)
+            blocks.add(MessageContentBlock.Blockquote(formatted = formattedQuote, startOffset = startOffset))
+            overallPlainBuilder.append(formattedQuote.plainText)
+            overallAnnotatedBuilder.append(formattedQuote.baseAnnotatedString)
+            if (lineIndex < lines.size - 1) {
+                overallPlainBuilder.append("\n\n")
+                overallAnnotatedBuilder.append("\n\n")
+            }
+            lineIndex++
+            continue
+        }
+
+        // 6. Unordered List (- item or * item)
+        if ((trimmed.startsWith("- ") || trimmed.startsWith("* ")) && trimmed.length > 2) {
+            val itemContent = trimmed.drop(2).trim()
+            val startOffset = overallPlainBuilder.length
+            val formattedBullet = formatInlineContent(itemContent, boldColor, italicColor, inlineCodeBg, inlineCodeColor)
+            blocks.add(MessageContentBlock.Bullet(formatted = formattedBullet, startOffset = startOffset))
+            overallPlainBuilder.append(formattedBullet.plainText)
+            overallAnnotatedBuilder.append(formattedBullet.baseAnnotatedString)
+            if (lineIndex < lines.size - 1) {
+                val nextTrimmed = lines[lineIndex + 1].trim()
+                val nextIsBullet = (nextTrimmed.startsWith("- ") || nextTrimmed.startsWith("* ")) && nextTrimmed.length > 2
+                val sep = if (nextIsBullet) "\n\n" else "\n"
+                overallPlainBuilder.append(sep)
+                overallAnnotatedBuilder.append(sep)
+            }
+            lineIndex++
+            continue
+        }
+
+        // 7. Ordered List (1. item)
+        val numMatch = ORDERED_LIST_REGEX.matchEntire(trimmed)
+        if (numMatch != null) {
+            val num = numMatch.groupValues[1]
+            val numPrefix = "$num. "
+            val itemContent = numMatch.groupValues[2].trim()
+            val startOffset = overallPlainBuilder.length
+            val formattedNumbered = formatInlineContent(itemContent, boldColor, italicColor, inlineCodeBg, inlineCodeColor)
+            blocks.add(MessageContentBlock.Numbered(numberPrefix = numPrefix, formatted = formattedNumbered, startOffset = startOffset))
+            overallPlainBuilder.append(formattedNumbered.plainText)
+            overallAnnotatedBuilder.append(formattedNumbered.baseAnnotatedString)
+            if (lineIndex < lines.size - 1) {
+                val nextTrimmed = lines[lineIndex + 1].trim()
+                val nextIsNum = ORDERED_LIST_REGEX.matches(nextTrimmed)
+                val sep = if (nextIsNum) "\n\n" else "\n"
+                overallPlainBuilder.append(sep)
+                overallAnnotatedBuilder.append(sep)
+            }
+            lineIndex++
+            continue
+        }
+
+        // 8. Blank Line
+        if (trimmed.isEmpty()) {
+            if (lineIndex < lines.size - 1) {
+                overallPlainBuilder.append("\n")
+                overallAnnotatedBuilder.append("\n")
+            }
+            lineIndex++
+            continue
+        }
+
+        // 9. Standard Paragraph Line
+        val startOffset = overallPlainBuilder.length
+        val formattedParagraph = formatInlineContent(line, boldColor, italicColor, inlineCodeBg, inlineCodeColor)
+        blocks.add(MessageContentBlock.Paragraph(formatted = formattedParagraph, startOffset = startOffset))
+        overallPlainBuilder.append(formattedParagraph.plainText)
+        overallAnnotatedBuilder.append(formattedParagraph.baseAnnotatedString)
+        if (lineIndex < lines.size - 1) {
+            overallPlainBuilder.append("\n")
+            overallAnnotatedBuilder.append("\n")
+        }
         lineIndex++
     }
 
-    flushCurrentText()
-
     if (blocks.isEmpty()) {
         val emptyContent = FormattedReadingContent("", AnnotatedString(""))
-        blocks.add(MessageContentBlock.Text(emptyContent, 0))
+        blocks.add(MessageContentBlock.Paragraph(emptyContent, 0))
     }
 
     return FormattedReadingContent(

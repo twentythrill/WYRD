@@ -1,4 +1,4 @@
-# WYRD (v1.6.3)
+# WYRD (v1.6.4)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -13,15 +13,15 @@ WYRD/
 ├── android/          # Native Android AI Client (Kotlin + Jetpack Compose)
 │   ├── app/          # App source, UI components, Room database, network services
 │   ├── build.gradle.kts
-│   └── README.md     # Android client architecture & documentation (v1.6.2)
+│   └── README.md     # Android client architecture & documentation (v1.6.4)
 │
 ├── web/              # Desktop & Browser Companion (React 19 + TypeScript + Vite)
 │   ├── src/          # React components, services, Supabase integration
 │   ├── package.json
-│   └── README.md     # Web client architecture & documentation (v1.6.2)
+│   └── README.md     # Web client architecture & documentation (v1.6.4)
 │
 ├── .gitignore        # Unified repository ignore rules
-└── README.md         # Master repository overview (v1.6.2)
+└── README.md         # Master repository overview (v1.6.4)
 ```
 
 ---
@@ -31,8 +31,10 @@ WYRD/
 ### 1. Unified Design Language (Warm Brutalism)
 * **AMOLED Dark**: Pure black (`#000000`) background, `#141414` elevated surfaces, `#1A1A1A` message bubbles, `#CECDC4` bone-white accents.
 * **Inverted Light**: Warm off-white (`#F9F9F7`) background, `#E8E7E1` elevated cards, `#DFDED8` message bubbles, `#141414` deep charcoal text.
+* **Modular AST Block Architecture & Hanging Indents**: Both Android and Desktop Web render assistant responses through discrete modular block components (`Header`, `Paragraph`, `Bullet`, `Numbered`, `Blockquote`, `Table`, `Code`, `HorizontalRule`). Multi-line bullet (`•`) and numbered list items render in a two-column layout (`Row` on Android, `flex` on Web) with dedicated fixed-width leading badge containers (`20dp` / `28dp`), ensuring multi-line list text wraps strictly indented to the right of the bullet/number rather than collapsing under it.
+* **Heading Scale & Gestalt Proximity Spacing**: Heading tags (`#`, `##`, `###`) are elevated with clear typographic hierarchy (22sp bold for H1, 19sp bold for H2, 17sp semibold for H3) and asymmetric Gestalt proximity margins (20–24dp top margin, 8dp bottom margin), visually grouping headers with the sections they introduce.
+* **TopBar Scrim Protection**: Multi-stop vertical fade gradients ensure 100% solid opacity across the entire top bar region on both platforms before smoothly dissolving downward, completely eliminating text bleed-through and ghosting behind the model selector and action buttons during scroll.
 * **Typographic & Code Block Pipeline**: Space Grotesk variable typography and JetBrains Mono monospace code formatting with condensed line-height parity (23sp on Android, leading-[24px]/[23px] on Web). Native fenced code blocks render inside dedicated Warm Brutalist cards (`CodeBlockCard` on Android, `CodeBlockItem` on Web) featuring a language badge, one-tap copy button with haptic feedback, automatic soft line-wrapping (eliminating horizontal scrolling), and 1:1 TTS word-seek highlight synchronization.
-* **Top & Bottom Fade Gradients**: Transparent bars with multi-stop vertical gradients that softly dissolve scrolling text without harsh solid bars.
 
 ### 2. Dual-Engine LLM Intelligence & Parallel Web Grounding (Tavily + Exa)
 * **Xiaomi MiMo Streaming**: Direct SSE token streaming with automatic cluster routing based on API key tier (`Token Plan` vs `Pay-As-You-Go`).

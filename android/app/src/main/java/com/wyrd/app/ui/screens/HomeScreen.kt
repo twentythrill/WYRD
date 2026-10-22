@@ -141,6 +141,7 @@ import com.wyrd.app.ui.theme.DarkBorder
 import com.wyrd.app.ui.theme.DarkCard
 import com.wyrd.app.ui.theme.DarkSurface
 import com.wyrd.app.ui.theme.DarkSurfaceElevated
+import com.wyrd.app.ui.theme.LocalWyrdColors
 import com.wyrd.app.ui.theme.SpaceGrotesk
 import com.wyrd.app.ui.theme.TextGray
 import com.wyrd.app.ui.theme.TextMuted
@@ -1171,6 +1172,9 @@ fun HomeScreen(
                     }
 
                     // Subtle fade-to-background top gradient: messages smoothly dissolve behind top bar and status bar
+                    // The region behind the top bar is completely solid (alpha = 1.0) to eliminate text ghosting/collision.
+                    val topBarFraction = if (topGradientHeight > 0.dp) (topBarHeight / topGradientHeight).coerceIn(0f, 1f) else 0.5f
+                    val currentBg = LocalWyrdColors.current.background
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1178,13 +1182,13 @@ fun HomeScreen(
                             .align(Alignment.TopCenter)
                             .background(
                                 Brush.verticalGradient(
-                                    colors = listOf(
-                                        Black,
-                                        Black.copy(alpha = 0.90f),
-                                        Black.copy(alpha = 0.70f),
-                                        Black.copy(alpha = 0.40f),
-                                        Black.copy(alpha = 0.15f),
-                                        Color.Transparent
+                                    colorStops = arrayOf(
+                                        0.0f to currentBg,
+                                        topBarFraction to currentBg,
+                                        topBarFraction + (1f - topBarFraction) * 0.30f to currentBg.copy(alpha = 0.85f),
+                                        topBarFraction + (1f - topBarFraction) * 0.60f to currentBg.copy(alpha = 0.45f),
+                                        topBarFraction + (1f - topBarFraction) * 0.85f to currentBg.copy(alpha = 0.15f),
+                                        1.0f to Color.Transparent
                                     )
                                 )
                             )
