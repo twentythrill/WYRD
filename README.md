@@ -1,4 +1,4 @@
-# WYRD (v1.6.5)
+# WYRD (v1.6.6)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -13,15 +13,15 @@ WYRD/
 ├── android/          # Native Android AI Client (Kotlin + Jetpack Compose)
 │   ├── app/          # App source, UI components, Room database, network services
 │   ├── build.gradle.kts
-│   └── README.md     # Android client architecture & documentation (v1.6.5)
+│   └── README.md     # Android client architecture & documentation (v1.6.6)
 │
 ├── web/              # Desktop & Browser Companion (React 19 + TypeScript + Vite)
 │   ├── src/          # React components, services, Supabase integration
 │   ├── package.json
-│   └── README.md     # Web client architecture & documentation (v1.6.5)
+│   └── README.md     # Web client architecture & documentation (v1.6.6)
 │
 ├── .gitignore        # Unified repository ignore rules
-└── README.md         # Master repository overview (v1.6.5)
+└── README.md         # Master repository overview (v1.6.6)
 ```
 
 ---
@@ -36,9 +36,12 @@ WYRD/
 * **TopBar & Bottom Scrim Protection**: Multi-stop vertical fade gradients ensure 100% solid opacity across the entire top bar region and through the floating input capsule and Android 3-button system navigation bar on both platforms before smoothly dissolving, completely eliminating text bleed-through and ghosting behind controls during scroll.
 * **Typographic & Code Block Pipeline**: Space Grotesk variable typography and JetBrains Mono monospace code formatting with condensed line-height parity (23sp on Android, leading-[24px]/[23px] on Web). Native fenced code blocks render inside dedicated Warm Brutalist cards (`CodeBlockCard` on Android, `CodeBlockItem` on Web) featuring a language badge, one-tap copy button with haptic feedback, automatic soft line-wrapping (eliminating horizontal scrolling), and 1:1 TTS word-seek highlight synchronization.
 
-### 2. Dual-Engine LLM Intelligence & Parallel Web Grounding (Tavily + Exa)
+### 2. Multi-Model LLM Intelligence (Xiaomi MiMo & OpenAI GPT 6.1 Sol) & Parallel Web Grounding (Tavily + Exa)
+* **Model Selection**: Switch seamlessly between **Xiaomi MiMo 2.6 Pro** (`mimo-v2.6-pro`), **Xiaomi MiMo 2.6 Flash** (`mimo-v2.6-flash`), and OpenAI's **GPT 6.1 Sol** (`gpt-6.1-sol`) directly from the top bar or STT recording capsule dropdown.
+* **OpenAI GPT 6.1 Sol Architecture**: Native integration with OpenAI's Chat Completions API (`https://api.openai.com/v1/chat/completions`) using standard Bearer authentication. When the Thinking toggle is enabled, Sol runs with hardcoded `medium` reasoning effort (`reasoning_effort: "medium"`); when Thinking is toggled off, reasoning is completely shut off (`reasoning_effort: "none"` / suppressed).
 * **Xiaomi MiMo Streaming**: Direct SSE token streaming with automatic cluster routing based on API key tier (`Token Plan` vs `Pay-As-You-Go`).
-* **Official Xiaomi MiMo Thinking Toggle**: Native request parameterization matching the official Xiaomi MiMo specification (`thinking: { type: "enabled" | "disabled" }`, `temperature: 1.0` when enabled / `0.7` when disabled, and dynamic token allocations of 32k/8k). Artificial prompt injection budget overrides are completely eliminated in favor of a sleek on/off Thinking switch inside the model selector across both MiMo 2.6 Flash and Pro.
+* **Official Xiaomi MiMo Thinking Toggle**: Native request parameterization matching the official Xiaomi MiMo specification (`thinking: { type: "enabled" | "disabled" }`, `temperature: 1.0` when enabled / `0.7` when disabled, and dynamic token allocations of 32k/8k). Artificial prompt injection budget overrides are completely eliminated in favor of a sleek on/off Thinking switch inside the model selector across all supported models.
+* **Unified OpenAI API Configuration (Inference & STT)**: Settings provides a clean, unified OpenAI configuration section powering both GPT 6.1 Sol model inference and `gpt-4o-mini-transcribe` voice dictation.
 * **Smart 4-Word Auto-Generated Chat Titles**: Both Android and Web automatically generate concise 3–4 word conversation titles via background LLM completion after the first assistant reply.
 * **Autonomous Parallel Dual-Engine Web Search Grounding (`web_search`)**:
   * **Parallel Execution When Both Active**: When both Tavily and Exa are enabled in Settings, both Android (`coroutineScope { async }`) and Web (`Promise.all`) execute **Tavily AI Search** (live factual web & breaking news) and **Exa AI Search** (neural semantic & community discussions) in parallel and merge their structured results into a unified grounding block.
@@ -81,6 +84,7 @@ WYRD/
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.6.6** | 2026-10-30 | OpenAI GPT 6.1 Sol Integration & Unified Inference/STT Architecture: Added OpenAI GPT 6.1 Sol (`gpt-6.1-sol`) to model selector dropdowns across Android and Web; wired native OpenAI API request formatting with hardcoded medium reasoning effort when Thinking toggle is on and complete reasoning shutoff when off; renamed Settings OpenAI section to accurately reflect unified inference and gpt-4o-mini-transcribe voice STT usage; and bumped versions to v1.6.6 across Android and Web. |
 | **v1.6.5** | 2026-10-22 | Bold Headings, Dynamic Table Columns & Multi-Stop Scrim Opacity: Parsed standalone bold lines (`**Heading**` and `__Heading__`) into Level 2 Header blocks (19sp bold Space Grotesk, 20dp top margin, 8dp bottom margin) across both Android and Web, restoring typographic hierarchy for models like Xiaomi MiMo that emit bold lines instead of `#` headers; dynamic column width calculation (`minWordWidth = (longestWordChars * 11f + 32f).coerceAtLeast(125f)`) preventing multi-character word hyphenation and character wrapping in markdown tables; multi-stop bottom scrim gradient with 100% solid opacity extending through the floating input capsule and Android 3-button system navigation bar with zero text bleed-through or button collision; and elevated top bar scrim fade geometry. |
 | **v1.6.4** | 2026-10-22 | Hanging Indents, Heading Proximity & TopBar Scrim Ghosting: Modular AST block architecture on Android and Web rendering bullet (`•`) and numbered list items in two-column layouts with fixed-width leading badge containers (`20dp` / `28dp`), ensuring multi-line list text wraps strictly indented to the right; elevated heading hierarchy (`#`, `##`, `###`) with asymmetric Gestalt proximity margins (20–24dp top margin, 8dp bottom margin); and multi-stop vertical fade gradients ensuring 100% solid opacity across the entire top bar region. |
 | **v1.6.3** | 2026-10-22 | Elevated LLM Output & Typography Engine: Flawless typographic aeration and editorial hierarchy across Android and Web. Space Grotesk body line-height elevated to 25px/sp for effortless reading cadence; developer-grade 14.5px/15px monospace code cards (line-height 22px/sp) eliminating bloated glyphs and excessive wrapping; first-class Brutalist hairline horizontal rules (`---`); Web strikethrough (`~~text~~`) support; 2dp left-accent-bordered blockquotes on Android; harmonized 10–12px vertical rhythm for bullet and numbered lists; 100% TTS plainText character offset parity across tables, lists, and code blocks; checkmark copy confirmation on Android assistant bubbles; and height-clamped (260dp) scrollable reasoning blocks on Android. |

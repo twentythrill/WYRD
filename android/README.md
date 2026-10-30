@@ -1,6 +1,6 @@
-# WYRD — Native Android AI Client (v1.6.5)
+# WYRD — Native Android AI Client (v1.6.6)
 
-WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo) with parallel dual web search engines (Tavily AI for live web and Exa AI for semantic exploration), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (`gpt-4o-mini-transcribe`), and complete local session persistence.
+WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo & OpenAI GPT 6.1 Sol) with parallel dual web search engines (Tavily AI for live web and Exa AI for semantic exploration), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (`gpt-4o-mini-transcribe`), and complete local session persistence.
 
 ---
 
@@ -94,18 +94,23 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 ### 4. Speech-to-Text Pipeline (STT)
 - **Spring-Loaded Pull-to-Record**: Swiping right-to-left across the screen (~95dp threshold) features elastic spring resistance with progressive mechanical haptic ticks, collapsing the keyboard and opening the fullscreen STT screen.
 - **Interactive Recording Controls**:
-  - **Top Model & Thinking Selector**: Elevated brutalist capsule pill positioned directly above the central recording button, allowing the user to switch the active LLM model (`MiMo 2.6 Pro` vs `MiMo 2.6 Flash`) and toggle Thinking (on / off) mid-speaking before hitting send.
+  - **Top Model & Thinking Selector**: Elevated brutalist capsule pill positioned directly above the central recording button, allowing the user to switch the active LLM model (`MiMo 2.6 Pro`, `MiMo 2.6 Flash`, or `GPT 6.1 Sol`) and toggle Thinking (on / off) mid-speaking before hitting send.
   - **Center Glowing Button**: Stops recording, transcribes audio via OpenAI **`gpt-4o-mini-transcribe`**, pastes into prompt, and immediately sends with conversational streaming TTS.
   - **Stop Button**: Stops recording, transcribes audio via `gpt-4o-mini-transcribe`, and pastes into the prompt for review without sending.
   - **Cancel (✕) Button & Swipe Right**: Discards captured audio and collapses the overlay.
 
 ### 5. Intelligence, Streaming & Tools
-- **Xiaomi MiMo Streaming**:
-  - Model selection: **Xiaomi MiMo 2.6 Flash** (`mimo-v2.6-flash`, high-speed multimodal reasoning) and **Xiaomi MiMo 2.6 Pro** (`mimo-v2.6-pro`, deep complex reasoning).
-  - Dual-cluster auto-routing (Token Plan vs. Pay-As-You-Go) with optional custom base URL and dual-header (`Authorization` + `api-key`) authentication; fails fast on HTTP 401/403 authentication errors.
-  - **Official Thinking Parameter & On/Off Toggle**:
-    - When enabled: sends `"thinking": {"type": "enabled"}` along with `temperature: 1.0` and a 32,768 completion token budget.
-    - When disabled: sends `"thinking": {"type": "disabled"}` along with `temperature: 0.7` and an 8,192 token allocation for instant direct answers.
+- **Multi-Model LLM Intelligence**:
+  - Model selection: **Xiaomi MiMo 2.6 Pro** (`mimo-v2.6-pro`, deep complex reasoning), **Xiaomi MiMo 2.6 Flash** (`mimo-v2.6-flash`, high-speed multimodal reasoning), and **OpenAI GPT 6.1 Sol** (`gpt-6.1-sol`, high-performance frontier reasoning).
+  - **OpenAI GPT 6.1 Sol Integration**:
+    - Direct SSE chat completions via `https://api.openai.com/v1/chat/completions` using the user's OpenAI API key.
+    - **Reasoning Effort Control**: When the Thinking toggle is ON, GPT 6.1 Sol defaults to hardcoded `medium` reasoning effort (`reasoning_effort: "medium"`). When the Thinking toggle is OFF, reasoning is completely shut off (`reasoning_effort: "none"` / suppressed).
+  - **Xiaomi MiMo Streaming**:
+    - Dual-cluster auto-routing (Token Plan vs. Pay-As-You-Go) with optional custom base URL and dual-header (`Authorization` + `api-key`) authentication; fails fast on HTTP 401/403 authentication errors.
+    - **Official Thinking Parameter & On/Off Toggle**:
+      - When enabled: sends `"thinking": {"type": "enabled"}` along with `temperature: 1.0` and a 32,768 completion token budget.
+      - When disabled: sends `"thinking": {"type": "disabled"}` along with `temperature: 0.7` and an 8,192 token allocation for instant direct answers.
+  - **Unified OpenAI API Configuration (Inference & STT)**: In Settings, the OpenAI configuration section manages the API key for both GPT 6.1 Sol inference and `gpt-4o-mini-transcribe` speech-to-text.
   - `ThinkAndToolParser`: High-precision streaming parser demuxing reasoning tags (`<think>`, `<thought>`, `<thinking>`) to reasoning memory and buffering tool call XML (`<tool_call>`, `<function_call>`, `<tool>`) without leaking tokens into visible text.
 - **Continuous Background Execution & Foreground Service**:
   - Powered by `WyrdBackgroundService`: an Android Foreground Service (`dataSync` type on Android 14+) with CPU partial `WakeLock` and an application-scoped coroutine supervisor (`applicationScope`).

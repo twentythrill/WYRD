@@ -389,13 +389,13 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // STT API SECTION
-            SettingsSectionHeader(title = "STT API")
+            // OPENAI API (INFERENCE & STT) SECTION
+            SettingsSectionHeader(title = "OPENAI API (INFERENCE & STT)")
             Spacer(modifier = Modifier.height(8.dp))
             val hasOpenAiKey = viewModel.getOpenAiApiKey().isNotBlank()
             ProviderConfigRow(
-                title = "OpenAI STT",
-                subtitle = if (hasOpenAiKey) "gpt-4o-mini-transcribe (Key configured)" else "Tap to paste OpenAI API key",
+                title = "OpenAI (Inference & STT)",
+                subtitle = if (hasOpenAiKey) "GPT 6.1 Sol & STT (Key configured)" else "Tap to paste OpenAI API key for Sol & STT",
                 isEnabled = isOpenAiSttEnabled,
                 hasKey = hasOpenAiKey,
                 onTitleClick = {
@@ -844,8 +844,10 @@ fun SettingsScreen(
         // OpenAI API Key Dialog
         if (showOpenAiDialog) {
             ApiKeyEntryDialog(
-                title = "OpenAI API Key",
+                title = "OpenAI API Key (Inference & STT)",
                 initialKey = editingOpenAiKey,
+                description = "Powers GPT 6.1 Sol inference and gpt-4o-mini-transcribe voice transcription. Encrypted securely in Android Keystore.",
+                placeholder = "sk-...",
                 onDismiss = { showOpenAiDialog = false },
                 onSave = { key, _ ->
                     viewModel.hapticManager.success()

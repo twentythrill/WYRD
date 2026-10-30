@@ -1627,6 +1627,7 @@ const MessageItem = React.memo(function MessageItem({
 const MODEL_LABELS: Record<string, string> = {
   'mimo-v2.6-flash': 'MiMo 2.6 Flash',
   'mimo-v2.6-pro': 'MiMo 2.6 Pro',
+  'gpt-6.1-sol': 'GPT 6.1 Sol',
 }
 
 function formatModelLabel(modelId: string): string {

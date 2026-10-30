@@ -259,8 +259,10 @@ class XiaomiMimoService(
         tavilyApiKey: String? = null,
         customBaseUrl: String? = null
     ): Flow<StreamEvent> = flow {
+        val isSol = model == SupportedModel.GPT_6_1_SOL
         val cleanKey = apiKey.trim()
-        require(cleanKey.isNotBlank()) { "Xiaomi MiMo API key is missing. Please set it in Settings." }
+        val providerName = if (isSol) "OpenAI" else "Xiaomi MiMo"
+        require(cleanKey.isNotBlank()) { "$providerName API key is missing. Please set it in Settings." }
 
         emit(StreamEvent.Status("Sending..."))
 
@@ -344,7 +346,7 @@ class XiaomiMimoService(
             }
         }
 
-        val candidateEndpoints = getCandidateEndpoints(cleanKey, customBaseUrl)
+        val candidateEndpoints = getCandidateEndpoints(cleanKey, customBaseUrl, model)
         val candidateModels = getCandidateModelIds(model)
         val webTools = if (hasAnySearch) getWebSearchTools() else null
 
@@ -353,7 +355,7 @@ class XiaomiMimoService(
         val maxToolExecutionRounds = 3
 
         while (toolExecutionRounds <= maxToolExecutionRounds) {
-            var lastErrorMsg = "Unable to connect to Xiaomi MiMo API"
+            var lastErrorMsg = "Unable to connect to $providerName API"
             var tokenEmittedCount = 0
             var toolCallId = ""
             var toolCallName = ""
@@ -374,18 +376,25 @@ class XiaomiMimoService(
                         messagesJsonArray = currentMessages,
                         isThinkingEnabled = isThinkingEnabled,
                         stream = true,
-                        tools = currentWebTools
+                        tools = currentWebTools,
+                        isSol = isSol
                     )
                     for (payload in payloads) {
-                        val thinkingInfo = payload.optJSONObject("thinking")?.optString("type") ?: "none"
+                        val thinkingInfo = payload.optJSONObject("thinking")?.optString("type")
+                            ?: payload.optString("reasoning_effort", payload.optJSONObject("reasoning")?.optString("effort") ?: "none")
                         Log.d(TAG, "Attempting stream endpoint: $endpoint with model: $candidateId, isThinkingEnabled=$isThinkingEnabled, thinking=$thinkingInfo")
 
-                        val request = Request.Builder()
+                        val requestBuilder = Request.Builder()
                             .url(endpoint)
                             .addHeader("Authorization", "Bearer $cleanKey")
-                            .addHeader("api-key", cleanKey)
                             .addHeader("Content-Type", "application/json")
                             .addHeader("Accept", "text/event-stream")
+
+                        if (!isSol) {
+                            requestBuilder.addHeader("api-key", cleanKey)
+                        }
+
+                        val request = requestBuilder
                             .post(payload.toString().toRequestBody(jsonMediaType))
                             .build()
 
@@ -727,7 +736,8 @@ class XiaomiMimoService(
             })
         }
 
-        val candidateEndpoints = getCandidateEndpoints(cleanKey, customBaseUrl)
+        val isSol = model == SupportedModel.GPT_6_1_SOL
+        val candidateEndpoints = getCandidateEndpoints(cleanKey, customBaseUrl, model)
         val candidateModelIds = getCandidateModelIds(model)
         val streamModes = listOf(false, true)
 
@@ -739,29 +749,34 @@ class XiaomiMimoService(
                             put("model", candidateId)
                             put("messages", messagesJsonArray)
                             put("stream", useStream)
-                            put("temperature", 0.7)
                             put("max_completion_tokens", 256)
-                            put("thinking", JSONObject().apply {
-                                put("type", "disabled")
-                            })
-                            put("extra_body", JSONObject().apply {
+                            if (isSol) {
+                                put("reasoning_effort", "none")
+                            } else {
+                                put("temperature", 0.7)
                                 put("thinking", JSONObject().apply {
                                     put("type", "disabled")
                                 })
-                            })
-                            put("enable_thinking", false)
+                                put("extra_body", JSONObject().apply {
+                                    put("thinking", JSONObject().apply {
+                                        put("type", "disabled")
+                                    })
+                                })
+                                put("enable_thinking", false)
+                            }
                         }
 
-                        val request = Request.Builder()
+                        val requestBuilder = Request.Builder()
                             .url(endpoint)
                             .addHeader("Authorization", "Bearer $cleanKey")
-                            .addHeader("api-key", cleanKey)
                             .addHeader("Content-Type", "application/json")
                             .apply {
                                 if (useStream) addHeader("Accept", "text/event-stream")
+                                if (!isSol) addHeader("api-key", cleanKey)
                             }
                             .post(requestBodyJson.toString().toRequestBody(jsonMediaType))
-                            .build()
+
+                        val request = requestBuilder.build()
 
                         client.newCall(request).execute().use { response ->
                             if (!response.isSuccessful) {
@@ -873,7 +888,20 @@ class XiaomiMimoService(
         return words.take(4).joinToString(" ")
     }
 
-    fun getCandidateEndpoints(cleanKey: String, customBaseUrl: String? = null): List<String> {
+    fun getCandidateEndpoints(
+        cleanKey: String,
+        customBaseUrl: String? = null,
+        model: SupportedModel = SupportedModel.MIMO_2_6_PRO
+    ): List<String> {
+        if (model.isOpenAi) {
+            if (!customBaseUrl.isNullOrBlank()) {
+                val trimmed = customBaseUrl.trim().removeSuffix("/")
+                val endpoint = if (trimmed.endsWith("/chat/completions")) trimmed else "$trimmed/chat/completions"
+                return listOf(endpoint)
+            }
+            return listOf(OPENAI_CHAT_COMPLETIONS_ENDPOINT)
+        }
+
         if (!customBaseUrl.isNullOrBlank()) {
             val trimmed = customBaseUrl.trim().removeSuffix("/")
             val endpoint = if (trimmed.endsWith("/chat/completions")) trimmed else "$trimmed/chat/completions"
@@ -909,11 +937,71 @@ class XiaomiMimoService(
         messagesJsonArray: JSONArray,
         isThinkingEnabled: Boolean,
         stream: Boolean,
-        tools: JSONArray? = null
+        tools: JSONArray? = null,
+        isSol: Boolean = false
     ): List<JSONObject> {
         val list = mutableListOf<JSONObject>()
         val seenSignatures = mutableSetOf<String>()
         val hasTools = tools != null && tools.length() > 0
+
+        if (isSol) {
+            fun addOpenAiPayload(
+                reasoningEffort: String?,
+                withTools: Boolean,
+                useNestedReasoning: Boolean = false
+            ) {
+                val maxTokens = if (isThinkingEnabled) 32768 else 8192
+                val payload = JSONObject().apply {
+                    put("model", candidateId)
+                    put("messages", messagesJsonArray)
+                    put("stream", stream)
+                    put("max_completion_tokens", maxTokens)
+
+                    if (reasoningEffort != null) {
+                        if (useNestedReasoning) {
+                            put("reasoning", JSONObject().apply {
+                                put("effort", reasoningEffort)
+                            })
+                        } else {
+                            put("reasoning_effort", reasoningEffort)
+                        }
+                    }
+
+                    if (withTools && tools != null && tools.length() > 0) {
+                        put("tools", tools)
+                        put("tool_choice", "auto")
+                    }
+                }
+                if (seenSignatures.add(payload.toString())) {
+                    list.add(payload)
+                }
+            }
+
+            // GPT 6.1 Sol: reasoning effort is hardcoded medium when thinking is on, off when toggle is off
+            val targetEffort = if (isThinkingEnabled) "medium" else "none"
+
+            // Primary: Standard Chat Completions reasoning_effort
+            if (hasTools) {
+                addOpenAiPayload(reasoningEffort = targetEffort, withTools = true)
+            }
+            addOpenAiPayload(reasoningEffort = targetEffort, withTools = false)
+
+            // Fallback 1: Nested reasoning object
+            if (hasTools) {
+                addOpenAiPayload(reasoningEffort = targetEffort, withTools = true, useNestedReasoning = true)
+            }
+            addOpenAiPayload(reasoningEffort = targetEffort, withTools = false, useNestedReasoning = true)
+
+            // If thinking is off, fallback without reasoning_effort if provider rejects "none"
+            if (!isThinkingEnabled) {
+                if (hasTools) {
+                    addOpenAiPayload(reasoningEffort = null, withTools = true)
+                }
+                addOpenAiPayload(reasoningEffort = null, withTools = false)
+            }
+
+            return list
+        }
 
         fun addPayload(
             thinkingType: String?,
@@ -1031,6 +1119,7 @@ class XiaomiMimoService(
         private const val TAG = "WyrdLLM"
         const val PAY_AS_YOU_GO_ENDPOINT = "https://api.xiaomimimo.com/v1/chat/completions"
         const val TOKEN_PLAN_ENDPOINT = "https://token-plan-cn.xiaomimimo.com/v1/chat/completions"
+        const val OPENAI_CHAT_COMPLETIONS_ENDPOINT = "https://api.openai.com/v1/chat/completions"
 
         private val WHITESPACE_REGEX = Regex("\\s+")
         private val THINK_TAG_REGEX = Regex("<think>[\\s\\S]*?</think>", RegexOption.IGNORE_CASE)

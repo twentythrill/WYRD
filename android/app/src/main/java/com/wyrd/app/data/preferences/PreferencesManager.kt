@@ -19,13 +19,18 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 enum class SupportedModel(val id: String, val displayName: String, val shortName: String) {
     MIMO_2_6_FLASH("mimo-v2.6-flash", "Xiaomi MiMo 2.6 Flash", "MiMo 2.6 Flash"),
-    MIMO_2_6_PRO("mimo-v2.6-pro", "Xiaomi MiMo 2.6 Pro", "MiMo 2.6 Pro");
+    MIMO_2_6_PRO("mimo-v2.6-pro", "Xiaomi MiMo 2.6 Pro", "MiMo 2.6 Pro"),
+    GPT_6_1_SOL("gpt-6.1-sol", "OpenAI GPT 6.1 Sol", "GPT 6.1 Sol");
+
+    val isOpenAi: Boolean
+        get() = this == GPT_6_1_SOL
 
     companion object {
         fun fromId(id: String): SupportedModel {
             return when (id) {
                 "mimo-v2.6-pro", "mimo-2.6-pro" -> MIMO_2_6_PRO
                 "mimo-v2.6-flash", "mimo-v2.6", "mimo-2.6", "mimo-2.6-flash" -> MIMO_2_6_FLASH
+                "gpt-6.1-sol", "gpt-6.1", "gpt-6-sol", "sol" -> GPT_6_1_SOL
                 else -> entries.find { it.id == id } ?: MIMO_2_6_PRO
             }
         }

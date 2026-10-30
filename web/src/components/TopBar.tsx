@@ -9,6 +9,7 @@ interface ModelOption {
 const SUPPORTED_MODELS: ModelOption[] = [
   { id: 'mimo-v2.6-flash', shortName: 'MiMo 2.6 Flash' },
   { id: 'mimo-v2.6-pro', shortName: 'MiMo 2.6 Pro' },
+  { id: 'gpt-6.1-sol', shortName: 'GPT 6.1 Sol' },
 ]
 
 interface TopBarProps {
@@ -54,8 +55,9 @@ export function TopBar({
     onToggleThinking?.(newVal)
   }
 
-  const modelBase = 'MiMo 2.6'
-  const modelSuffix = activeModel.id.includes('flash') ? ' Flash' : ' Pro'
+  const isSol = activeModel.id === 'gpt-6.1-sol'
+  const modelBase = isSol ? 'GPT 6.1' : 'MiMo 2.6'
+  const modelSuffix = isSol ? ' Sol' : (activeModel.id.includes('flash') ? ' Flash' : ' Pro')
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

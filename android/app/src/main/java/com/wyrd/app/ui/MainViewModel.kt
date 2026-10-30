@@ -635,9 +635,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        val apiKey = secureKeyStorage.getXiaomiApiKey()
+        val activeM = activeModel.value
+        val apiKey = if (activeM.isOpenAi) {
+            secureKeyStorage.getOpenAiApiKey()
+        } else {
+            secureKeyStorage.getXiaomiApiKey()
+        }
         if (apiKey.isBlank()) {
-            _errorMessage.value = "Xiaomi MiMo API key is required. Please add it in Settings."
+            _errorMessage.value = if (activeM.isOpenAi) {
+                "OpenAI API key is required for GPT 6.1 Sol. Please configure it in Settings."
+            } else {
+                "Xiaomi MiMo API key is required. Please add it in Settings."
+            }
             autoReadNextAssistantMessage = false
             return
         }
@@ -734,9 +743,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun redoMessage(fromUserMessage: MessageEntity) {
         if (_isGenerating.value) return
 
-        val apiKey = secureKeyStorage.getXiaomiApiKey()
+        val activeM = activeModel.value
+        val apiKey = if (activeM.isOpenAi) {
+            secureKeyStorage.getOpenAiApiKey()
+        } else {
+            secureKeyStorage.getXiaomiApiKey()
+        }
         if (apiKey.isBlank()) {
-            _errorMessage.value = "Xiaomi MiMo API key is required. Please add it in Settings."
+            _errorMessage.value = if (activeM.isOpenAi) {
+                "OpenAI API key is required for GPT 6.1 Sol. Please configure it in Settings."
+            } else {
+                "Xiaomi MiMo API key is required. Please add it in Settings."
+            }
             return
         }
 
@@ -1163,7 +1181,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             } else {
-                throw IllegalStateException("Empty response received from Xiaomi MiMo server")
+                val providerName = if (activeModel.value.isOpenAi) "OpenAI" else "Xiaomi MiMo"
+                throw IllegalStateException("Empty response received from $providerName server")
             }
         } catch (e: CancellationException) {
             Log.d("MainViewModel", "LLM generation cancelled by user")
@@ -1206,7 +1225,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (isTtsStreamingActive) {
                 nativeTtsManager.stop()
             }
-            val errorMsg = e.message ?: "Failed to receive response from Xiaomi MiMo"
+            val providerName = if (activeModel.value.isOpenAi) "OpenAI" else "Xiaomi MiMo"
+            val errorMsg = e.message ?: "Failed to receive response from $providerName"
             Log.e("MainViewModel", "LLM completion failure: $errorMsg", e)
             _errorMessage.value = errorMsg
 

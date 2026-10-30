@@ -260,13 +260,18 @@ class ThinkAndToolParser {
 
 const TOKEN_PLAN_ENDPOINT = 'https://token-plan-cn.xiaomimimo.com/v1/chat/completions'
 const PAY_AS_YOU_GO_ENDPOINT = 'https://api.xiaomimimo.com/v1/chat/completions'
+const OPENAI_CHAT_COMPLETIONS_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
 
-function getCandidateEndpoints(apiKey: string, customBaseUrl?: string): string[] {
+function getCandidateEndpoints(apiKey: string, customBaseUrl?: string, model?: string): string[] {
   const trimmed = customBaseUrl?.trim()
   if (trimmed && trimmed !== 'https://api.siliconflow.cn/v1') {
     const clean = trimmed.replace(/\/+$/, '')
     const ep = clean.endsWith('/chat/completions') ? clean : `${clean}/chat/completions`
     return [ep]
+  }
+
+  if (model === 'gpt-6.1-sol') {
+    return [OPENAI_CHAT_COMPLETIONS_ENDPOINT]
   }
 
   const cleanKey = apiKey.trim()
@@ -299,11 +304,15 @@ export async function* streamLlmCompletion({
   }>
   signal?: AbortSignal
 }): AsyncGenerator<StreamChunk, void, unknown> {
-  const cleanKey = apiKey?.trim() || ''
-  if (!cleanKey) {
+  const isSol = model === 'gpt-6.1-sol'
+  const effectiveKey = (isSol ? (localStorage.getItem('wyrd_openai_api_key') || apiKey) : apiKey)?.trim() || ''
+  if (!effectiveKey) {
+    const providerMsg = isSol
+      ? 'Please add your OpenAI API key in **Settings** to generate replies with GPT 6.1 Sol in the browser.'
+      : 'Please add your Xiaomi MiMo API key in **Settings** to generate replies directly in the browser.'
     yield {
       content:
-        '**API Key Required for Web Generation**\n\nPlease add your Xiaomi MiMo API key in **Settings** to generate replies directly in the browser.\n\n*Note: Any conversations created or replied to on your WYRD Android app will sync here in real-time automatically.*',
+        `**API Key Required for Web Generation**\n\n${providerMsg}\n\n*Note: Any conversations created or replied to on your WYRD Android app will sync here in real-time automatically.*`,
       done: true,
     }
     return
@@ -376,7 +385,6 @@ If the request does not require external search, answer directly without invokin
       model,
       messages: currentMessages,
       stream: true,
-      temperature: isThinking ? 1.0 : 0.7,
       max_completion_tokens: isThinking ? 32768 : 8192,
     }
 
@@ -385,17 +393,22 @@ If the request does not require external search, answer directly without invokin
       bodyPayload.tool_choice = 'auto'
     }
 
-    if (isThinking) {
-      bodyPayload.thinking = { type: 'enabled' }
-      bodyPayload.extra_body = { thinking: { type: 'enabled' } }
-      bodyPayload.enable_thinking = true
+    if (isSol) {
+      bodyPayload.reasoning_effort = isThinking ? 'medium' : 'none'
     } else {
-      bodyPayload.thinking = { type: 'disabled' }
-      bodyPayload.extra_body = { thinking: { type: 'disabled' } }
-      bodyPayload.enable_thinking = false
+      bodyPayload.temperature = isThinking ? 1.0 : 0.7
+      if (isThinking) {
+        bodyPayload.thinking = { type: 'enabled' }
+        bodyPayload.extra_body = { thinking: { type: 'enabled' } }
+        bodyPayload.enable_thinking = true
+      } else {
+        bodyPayload.thinking = { type: 'disabled' }
+        bodyPayload.extra_body = { thinking: { type: 'disabled' } }
+        bodyPayload.enable_thinking = false
+      }
     }
 
-    const endpoints = getCandidateEndpoints(cleanKey, baseUrl)
+    const endpoints = getCandidateEndpoints(effectiveKey, baseUrl, model)
     let lastError = ''
     let roundContentAccumulator = ''
     let toolCallName = ''
@@ -412,8 +425,8 @@ If the request does not require external search, answer directly without invokin
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${cleanKey}`,
-            'api-key': cleanKey,
+            Authorization: `Bearer ${effectiveKey}`,
+            ...(isSol ? {} : { 'api-key': effectiveKey }),
             Accept: 'text/event-stream',
           },
           body: JSON.stringify(bodyPayload),

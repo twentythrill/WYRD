@@ -288,7 +288,7 @@ export function SettingsModal({
 
             <div>
               <label className={`block text-xs mb-1.5 font-sans ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
-                OpenAI API Key (Voice Dictation / STT)
+                OpenAI API Key (Inference & STT)
               </label>
               <input
                 type="password"
@@ -298,7 +298,7 @@ export function SettingsModal({
                 className={`${inputClass} font-mono`}
               />
               <p className={`text-[11px] mt-1 font-sans ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>
-                Used for microphone voice transcription via OpenAI gpt-4o-mini-transcribe.
+                Powers GPT 6.1 Sol inference and microphone voice transcription (gpt-4o-mini-transcribe).
               </p>
             </div>
 

@@ -149,8 +149,13 @@ fun ModelAndEffortSelector(
                 .padding(contentPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val (baseName, variantName) = when (activeModel) {
+                SupportedModel.MIMO_2_6_PRO -> "MiMo 2.6" to " Pro"
+                SupportedModel.MIMO_2_6_FLASH -> "MiMo 2.6" to " Flash"
+                SupportedModel.GPT_6_1_SOL -> "GPT 6.1" to " Sol"
+            }
             Text(
-                text = "MiMo 2.6",
+                text = baseName,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = TextWhite,
@@ -158,10 +163,7 @@ fun ModelAndEffortSelector(
                 )
             )
             Text(
-                text = when (activeModel) {
-                    SupportedModel.MIMO_2_6_PRO -> " Pro"
-                    SupportedModel.MIMO_2_6_FLASH -> " Flash"
-                },
+                text = variantName,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Normal,
                     color = TextWhite,
