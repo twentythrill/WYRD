@@ -1,4 +1,4 @@
-# WYRD Web (Desktop & Browser Companion) (v1.6.6)
+# WYRD Web (Desktop & Browser Companion) (v1.6.7)
 
 A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversations, settings, and cognitive states in real-time with the Android application via Supabase.
 
@@ -32,7 +32,7 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
    * Visibility-gated periodic fallback sync (25s interval, paused when the browser tab is hidden) plus instant Realtime subscriptions.
 5. **User Profiles, Smart Titles & System Prompt**:
    * Global `username` and customizable `system_prompt` stored in the `profiles` table.
-   * Model preference selection (`mimo-v2.6-pro`, `mimo-v2.6-flash`, `gpt-6.1-sol`) and **Thinking** toggle (`medium` / `off`). For GPT 6.1 Sol, reasoning is hardcoded to `medium` when Thinking is ON and completely shut off when OFF.
+   * Model preference selection (`mimo-v2.6-pro`, `mimo-v2.6-flash`, `gpt-6.1-sol`) and **Thinking** toggle (`medium` / `off`). For GPT 6.1 Sol, requests route natively via OpenAI Responses API (`/v1/responses`) with typed SSE reasoning summary streams and token-usage fallbacks: reasoning is hardcoded to `medium` in `"mode": "pro"` when Thinking is ON, and completely shut off in `"mode": "standard"` when OFF.
    * **Answer Provenance Caption**: Each assistant reply shows a small muted caption with the answering model and whether reasoning was on or off at answer time (`reasoning_enabled` persisted per message).
    * **Smart 4-Word Auto-Generated Titles**: Automatically summarizes the first turn into a concise 3–4 word conversation title via background LLM completion (`generateChatTitle`).
 6. **Brutalist Chat Experience & Android Parity**:

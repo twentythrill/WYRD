@@ -357,6 +357,7 @@ class XiaomiMimoService(
         while (toolExecutionRounds <= maxToolExecutionRounds) {
             var lastErrorMsg = "Unable to connect to $providerName API"
             var tokenEmittedCount = 0
+            var hasEmittedReasoning = false
             var toolCallId = ""
             var toolCallName = ""
             val toolCallArgs = StringBuilder()
@@ -370,14 +371,21 @@ class XiaomiMimoService(
 
             // Try streaming first across endpoints and models
             outerStream@ for (endpoint in candidateEndpoints) {
+                val isResponsesApi = endpoint.contains("/responses")
+                val toolsForEndpoint = if (currentWebTools != null) {
+                    if (isResponsesApi) getResponsesApiWebSearchTools() else currentWebTools
+                } else null
+
                 for (candidateId in candidateModels) {
                     val payloads = buildCandidatePayloads(
                         candidateId = candidateId,
                         messagesJsonArray = currentMessages,
                         isThinkingEnabled = isThinkingEnabled,
                         stream = true,
-                        tools = currentWebTools,
-                        isSol = isSol
+                        tools = toolsForEndpoint,
+                        isSol = isSol,
+                        isResponsesApi = isResponsesApi,
+                        effectiveSystemPrompt = effectiveSystemPrompt
                     )
                     for (payload in payloads) {
                         val thinkingInfo = payload.optJSONObject("thinking")?.optString("type")
@@ -428,6 +436,7 @@ class XiaomiMimoService(
                                 },
                                 onReasoning = {
                                     if (isThinkingEnabled) {
+                                        hasEmittedReasoning = true
                                         tokenEmittedCount++
                                         emit(StreamEvent.Reasoning(it))
                                     }
@@ -459,56 +468,171 @@ class XiaomiMimoService(
                                             throw IllegalStateException("API error: $msg")
                                         }
 
-                                        val choices = json.optJSONArray("choices")
-                                        if (choices != null && choices.length() > 0) {
-                                            val choice = choices.getJSONObject(0)
-                                            val delta = choice.optJSONObject("delta")
-                                            if (delta != null) {
-                                                val reasoningToken = when {
-                                                    !delta.isNull("reasoning_content") -> delta.optString("reasoning_content", "")
-                                                    !delta.isNull("reasoning") -> delta.optString("reasoning", "")
-                                                    else -> ""
-                                                }
-                                                if (isThinkingEnabled && reasoningToken.isNotEmpty() && reasoningToken != "null") {
-                                                    tokenEmittedCount++
-                                                    emit(StreamEvent.Reasoning(reasoningToken))
-                                                }
+                                        val eventType = json.optString("type", "")
 
-                                                val deltaToolCalls = delta.optJSONArray("tool_calls")
-                                                if (deltaToolCalls != null && deltaToolCalls.length() > 0) {
-                                                    for (tIdx in 0 until deltaToolCalls.length()) {
-                                                        val tc = deltaToolCalls.getJSONObject(tIdx)
-                                                        val id = tc.optString("id", "")
-                                                        if (id.isNotBlank()) toolCallId = id
-                                                        val fn = tc.optJSONObject("function")
-                                                        if (fn != null) {
-                                                            val fnName = fn.optString("name", "")
-                                                            if (fnName.isNotBlank()) toolCallName = fnName
-                                                            val argsChunk = fn.optString("arguments", "")
-                                                            toolCallArgs.append(argsChunk)
+                                        // 1. Responses API: reasoning summary or reasoning text deltas
+                                        if (eventType == "response.reasoning_summary_text.delta" || eventType == "response.reasoning_text.delta") {
+                                            val reasoningChunk = json.optString("delta", "").ifEmpty {
+                                                json.optJSONObject("delta")?.optString("text", "") ?: ""
+                                            }
+                                            if (isThinkingEnabled && reasoningChunk.isNotEmpty() && reasoningChunk != "null") {
+                                                hasEmittedReasoning = true
+                                                tokenEmittedCount++
+                                                emit(StreamEvent.Reasoning(reasoningChunk))
+                                            }
+                                        }
+                                        // 2. Responses API: output text deltas
+                                        else if (eventType == "response.output_text.delta" || eventType == "response.text.delta") {
+                                            val contentChunk = json.optString("delta", "")
+                                            if (contentChunk.isNotEmpty() && contentChunk != "null") {
+                                                tokenEmittedCount++
+                                                parser.feed(contentChunk)
+                                            }
+                                        }
+                                        // 3. Responses API: function call output item added
+                                        else if (eventType == "response.output_item.added") {
+                                            val item = json.optJSONObject("item")
+                                            if (item != null && item.optString("type", "") == "function_call") {
+                                                val callId = item.optString("call_id", item.optString("id", ""))
+                                                if (callId.isNotBlank()) toolCallId = callId
+                                                val name = item.optString("name", "")
+                                                if (name.isNotBlank()) toolCallName = name
+                                                val args = item.optString("arguments", "")
+                                                if (args.isNotBlank()) toolCallArgs.append(args)
+                                            }
+                                        }
+                                        // 4. Responses API: function call arguments delta
+                                        else if (eventType == "response.function_call_arguments.delta") {
+                                            val argsChunk = json.optString("delta", "")
+                                            if (argsChunk.isNotEmpty()) {
+                                                toolCallArgs.append(argsChunk)
+                                            }
+                                        }
+                                        // 5. Responses API: output item done (extracts completed function calls or reasoning summary fallback)
+                                        else if (eventType == "response.output_item.done") {
+                                            val item = json.optJSONObject("item")
+                                            if (item != null) {
+                                                val itemType = item.optString("type", "")
+                                                if (itemType == "function_call") {
+                                                    if (toolCallName.isBlank()) toolCallName = item.optString("name", "")
+                                                    if (toolCallArgs.isEmpty()) toolCallArgs.append(item.optString("arguments", ""))
+                                                } else if (itemType == "reasoning" && !hasEmittedReasoning) {
+                                                    val summaryArr = item.optJSONArray("summary")
+                                                    if (summaryArr != null && summaryArr.length() > 0) {
+                                                        val fullSummary = StringBuilder()
+                                                        for (sIdx in 0 until summaryArr.length()) {
+                                                            val sObj = summaryArr.optJSONObject(sIdx)
+                                                            val sText = sObj?.optString("text", "") ?: summaryArr.optString(sIdx, "")
+                                                            if (sText.isNotBlank()) fullSummary.append(sText)
+                                                        }
+                                                        if (isThinkingEnabled && fullSummary.isNotEmpty()) {
+                                                            hasEmittedReasoning = true
+                                                            tokenEmittedCount++
+                                                            emit(StreamEvent.Reasoning(fullSummary.toString()))
                                                         }
                                                     }
                                                 }
-
-                                                if (!delta.isNull("content")) {
-                                                    val contentToken = delta.optString("content", "")
-                                                    if (contentToken.isNotEmpty() && contentToken != "null") {
-                                                        parser.feed(contentToken)
+                                            }
+                                        }
+                                        // 6. Responses API: completed / done fallback
+                                        else if (eventType == "response.completed" || eventType == "response.done") {
+                                            val respObj = json.optJSONObject("response")
+                                            val outputArr = respObj?.optJSONArray("output")
+                                            val usageObj = respObj?.optJSONObject("usage")
+                                            if (outputArr != null && !hasEmittedReasoning) {
+                                                for (oIdx in 0 until outputArr.length()) {
+                                                    val item = outputArr.optJSONObject(oIdx)
+                                                    if (item?.optString("type") == "reasoning") {
+                                                        val summaryArr = item.optJSONArray("summary")
+                                                        if (summaryArr != null && summaryArr.length() > 0) {
+                                                            val fullSummary = StringBuilder()
+                                                            for (sIdx in 0 until summaryArr.length()) {
+                                                                val sObj = summaryArr.optJSONObject(sIdx)
+                                                                val sText = sObj?.optString("text", "") ?: summaryArr.optString(sIdx, "")
+                                                                if (sText.isNotBlank()) fullSummary.append(sText)
+                                                            }
+                                                            if (isThinkingEnabled && fullSummary.isNotEmpty()) {
+                                                                hasEmittedReasoning = true
+                                                                tokenEmittedCount++
+                                                                emit(StreamEvent.Reasoning(fullSummary.toString()))
+                                                            }
+                                                        }
                                                     }
                                                 }
-                                            } else {
-                                                val msg = choice.optJSONObject("message")
-                                                val content = msg?.optString("content", "") ?: choice.optString("text", "")
-                                                if (content.isNotEmpty() && content != "null") {
-                                                    parser.feed(content)
+                                            }
+                                            if (isThinkingEnabled && !hasEmittedReasoning) {
+                                                val reasoningTokens = usageObj?.optJSONObject("output_tokens_details")?.optInt("reasoning_tokens", 0) ?: 0
+                                                if (reasoningTokens > 0) {
+                                                    hasEmittedReasoning = true
+                                                    tokenEmittedCount++
+                                                    emit(StreamEvent.Reasoning("Thought process completed ($reasoningTokens reasoning tokens used)."))
                                                 }
-                                                val msgToolCalls = msg?.optJSONArray("tool_calls")
-                                                if (msgToolCalls != null && msgToolCalls.length() > 0) {
-                                                    val firstTc = msgToolCalls.getJSONObject(0)
-                                                    toolCallId = firstTc.optString("id", "call_1")
-                                                    val fn = firstTc.optJSONObject("function")
-                                                    toolCallName = fn?.optString("name", "") ?: ""
-                                                    toolCallArgs.append(fn?.optString("arguments", "") ?: "")
+                                            }
+                                        }
+                                        // 7. Chat Completions API fallback: choices array
+                                        else {
+                                            val choices = json.optJSONArray("choices")
+                                            if (choices != null && choices.length() > 0) {
+                                                val choice = choices.getJSONObject(0)
+                                                val delta = choice.optJSONObject("delta")
+                                                if (delta != null) {
+                                                    val reasoningToken = when {
+                                                        !delta.isNull("reasoning_content") -> delta.optString("reasoning_content", "")
+                                                        !delta.isNull("reasoning") -> delta.optString("reasoning", "")
+                                                        else -> ""
+                                                    }
+                                                    if (isThinkingEnabled && reasoningToken.isNotEmpty() && reasoningToken != "null") {
+                                                        hasEmittedReasoning = true
+                                                        tokenEmittedCount++
+                                                        emit(StreamEvent.Reasoning(reasoningToken))
+                                                    }
+
+                                                    val deltaToolCalls = delta.optJSONArray("tool_calls")
+                                                    if (deltaToolCalls != null && deltaToolCalls.length() > 0) {
+                                                        for (tIdx in 0 until deltaToolCalls.length()) {
+                                                            val tc = deltaToolCalls.getJSONObject(tIdx)
+                                                            val id = tc.optString("id", "")
+                                                            if (id.isNotBlank()) toolCallId = id
+                                                            val fn = tc.optJSONObject("function")
+                                                            if (fn != null) {
+                                                                val fnName = fn.optString("name", "")
+                                                                if (fnName.isNotBlank()) toolCallName = fnName
+                                                                val argsChunk = fn.optString("arguments", "")
+                                                                toolCallArgs.append(argsChunk)
+                                                            }
+                                                        }
+                                                    }
+
+                                                    if (!delta.isNull("content")) {
+                                                        val contentToken = delta.optString("content", "")
+                                                        if (contentToken.isNotEmpty() && contentToken != "null") {
+                                                            parser.feed(contentToken)
+                                                        }
+                                                    }
+                                                } else {
+                                                    val msg = choice.optJSONObject("message")
+                                                    val content = msg?.optString("content", "") ?: choice.optString("text", "")
+                                                    if (content.isNotEmpty() && content != "null") {
+                                                        parser.feed(content)
+                                                    }
+                                                    val msgToolCalls = msg?.optJSONArray("tool_calls")
+                                                    if (msgToolCalls != null && msgToolCalls.length() > 0) {
+                                                        val firstTc = msgToolCalls.getJSONObject(0)
+                                                        toolCallId = firstTc.optString("id", "call_1")
+                                                        val fn = firstTc.optJSONObject("function")
+                                                        toolCallName = fn?.optString("name", "") ?: ""
+                                                        toolCallArgs.append(fn?.optString("arguments", "") ?: "")
+                                                    }
+                                                }
+                                            }
+
+                                            val usage = json.optJSONObject("usage")
+                                            if (usage != null && isThinkingEnabled && !hasEmittedReasoning) {
+                                                val reasoningTokens = usage.optJSONObject("completion_tokens_details")?.optInt("reasoning_tokens", 0) ?: 0
+                                                if (reasoningTokens > 0) {
+                                                    hasEmittedReasoning = true
+                                                    tokenEmittedCount++
+                                                    emit(StreamEvent.Reasoning("Thought process completed ($reasoningTokens reasoning tokens used)."))
                                                 }
                                             }
                                         }
@@ -742,27 +866,48 @@ class XiaomiMimoService(
         val streamModes = listOf(false, true)
 
         for (endpoint in candidateEndpoints) {
+            val isResponsesApi = endpoint.contains("/responses")
             for (candidateId in candidateModelIds) {
                 for (useStream in streamModes) {
                     try {
-                        val requestBodyJson = JSONObject().apply {
-                            put("model", candidateId)
-                            put("messages", messagesJsonArray)
-                            put("stream", useStream)
-                            put("max_completion_tokens", 256)
-                            if (isSol) {
-                                put("reasoning_effort", "none")
-                            } else {
-                                put("temperature", 0.7)
-                                put("thinking", JSONObject().apply {
-                                    put("type", "disabled")
+                        val requestBodyJson = if (isResponsesApi) {
+                            JSONObject().apply {
+                                put("model", candidateId)
+                                put(
+                                    "instructions",
+                                    "You are a conversation title generator. Summarize the core topic of this exchange into a concise 2 to 4 word title. Output ONLY the raw title words without quotes, punctuation, preamble, or markdown."
+                                )
+                                put("input", JSONArray().apply {
+                                    put(JSONObject().apply {
+                                        put("role", "user")
+                                        put("content", userTurnSnippet)
+                                    })
                                 })
-                                put("extra_body", JSONObject().apply {
+                                put("reasoning", JSONObject().apply {
+                                    put("effort", "low")
+                                })
+                                put("stream", useStream)
+                            }
+                        } else {
+                            JSONObject().apply {
+                                put("model", candidateId)
+                                put("messages", messagesJsonArray)
+                                put("stream", useStream)
+                                put("max_completion_tokens", 256)
+                                if (isSol) {
+                                    put("reasoning_effort", "low")
+                                } else {
+                                    put("temperature", 0.7)
                                     put("thinking", JSONObject().apply {
                                         put("type", "disabled")
                                     })
-                                })
-                                put("enable_thinking", false)
+                                    put("extra_body", JSONObject().apply {
+                                        put("thinking", JSONObject().apply {
+                                            put("type", "disabled")
+                                        })
+                                    })
+                                    put("enable_thinking", false)
+                                }
                             }
                         }
 
@@ -795,13 +940,21 @@ class XiaomiMimoService(
                                     if (dataPayload == "[DONE]" || dataPayload.isEmpty()) continue
                                     try {
                                         val chunkJson = JSONObject(dataPayload)
-                                        val delta = chunkJson.optJSONArray("choices")
-                                            ?.optJSONObject(0)
-                                            ?.optJSONObject("delta")
-                                        if (delta != null && !delta.isNull("content")) {
-                                            val piece = delta.optString("content", "")
+                                        val eventType = chunkJson.optString("type", "")
+                                        if (eventType == "response.output_text.delta" || eventType == "response.text.delta") {
+                                            val piece = chunkJson.optString("delta", "")
                                             if (piece.isNotEmpty() && piece != "null") {
                                                 sb.append(piece)
+                                            }
+                                        } else {
+                                            val delta = chunkJson.optJSONArray("choices")
+                                                ?.optJSONObject(0)
+                                                ?.optJSONObject("delta")
+                                            if (delta != null && !delta.isNull("content")) {
+                                                val piece = delta.optString("content", "")
+                                                if (piece.isNotEmpty() && piece != "null") {
+                                                    sb.append(piece)
+                                                }
                                             }
                                         }
                                     } catch (_: Exception) {}
@@ -809,20 +962,25 @@ class XiaomiMimoService(
                                 sb.toString()
                             } else {
                                 val json = JSONObject(bodyStr)
-                                val choices = json.optJSONArray("choices")
-                                if (choices != null && choices.length() > 0) {
-                                    val firstChoice = choices.getJSONObject(0)
-                                    val messageObj = firstChoice.optJSONObject("message")
-                                    val deltaObj = firstChoice.optJSONObject("delta")
-                                    when {
-                                        messageObj != null && !messageObj.isNull("content") ->
-                                            messageObj.optString("content", "")
-                                        deltaObj != null && !deltaObj.isNull("content") ->
-                                            deltaObj.optString("content", "")
-                                        else -> firstChoice.optString("text", "")
-                                    }
+                                val directOutput = json.optString("output_text", "")
+                                if (directOutput.isNotEmpty() && directOutput != "null") {
+                                    directOutput
                                 } else {
-                                    ""
+                                    val choices = json.optJSONArray("choices")
+                                    if (choices != null && choices.length() > 0) {
+                                        val firstChoice = choices.getJSONObject(0)
+                                        val messageObj = firstChoice.optJSONObject("message")
+                                        val deltaObj = firstChoice.optJSONObject("delta")
+                                        when {
+                                            messageObj != null && !messageObj.isNull("content") ->
+                                                messageObj.optString("content", "")
+                                            deltaObj != null && !deltaObj.isNull("content") ->
+                                                deltaObj.optString("content", "")
+                                            else -> firstChoice.optString("text", "")
+                                        }
+                                    } else {
+                                        ""
+                                    }
                                 }
                             }
 
@@ -896,10 +1054,18 @@ class XiaomiMimoService(
         if (model.isOpenAi) {
             if (!customBaseUrl.isNullOrBlank()) {
                 val trimmed = customBaseUrl.trim().removeSuffix("/")
-                val endpoint = if (trimmed.endsWith("/chat/completions")) trimmed else "$trimmed/chat/completions"
-                return listOf(endpoint)
+                if (trimmed.endsWith("/responses") || trimmed.endsWith("/chat/completions")) {
+                    return listOf(trimmed)
+                }
+                return listOf("$trimmed/responses", "$trimmed/chat/completions")
             }
-            return listOf(OPENAI_CHAT_COMPLETIONS_ENDPOINT)
+            val cached = lastWorkingEndpoint
+            val baseList = listOf(OPENAI_RESPONSES_ENDPOINT, OPENAI_CHAT_COMPLETIONS_ENDPOINT)
+            return if (cached != null && baseList.contains(cached)) {
+                listOf(cached) + baseList.filter { it != cached }
+            } else {
+                baseList
+            }
         }
 
         if (!customBaseUrl.isNullOrBlank()) {
@@ -938,11 +1104,105 @@ class XiaomiMimoService(
         isThinkingEnabled: Boolean,
         stream: Boolean,
         tools: JSONArray? = null,
-        isSol: Boolean = false
+        isSol: Boolean = false,
+        isResponsesApi: Boolean = false,
+        effectiveSystemPrompt: String = ""
     ): List<JSONObject> {
         val list = mutableListOf<JSONObject>()
         val seenSignatures = mutableSetOf<String>()
         val hasTools = tools != null && tools.length() > 0
+
+        if (isResponsesApi) {
+            val inputJsonArray = JSONArray()
+            for (i in 0 until messagesJsonArray.length()) {
+                val msg = messagesJsonArray.getJSONObject(i)
+                val role = msg.optString("role")
+                if (role == "system") continue // System prompt passed via 'instructions' parameter
+                inputJsonArray.put(JSONObject().apply {
+                    put("role", role)
+                    val content = msg.get("content")
+                    if (content is JSONArray) {
+                        val convertedParts = JSONArray()
+                        for (pIdx in 0 until content.length()) {
+                            val part = content.getJSONObject(pIdx)
+                            val partType = part.optString("type")
+                            if (partType == "text") {
+                                convertedParts.put(JSONObject().apply {
+                                    put("type", "input_text")
+                                    put("text", part.optString("text"))
+                                })
+                            } else if (partType == "image_url") {
+                                val imgObj = part.optJSONObject("image_url")
+                                val url = imgObj?.optString("url") ?: ""
+                                convertedParts.put(JSONObject().apply {
+                                    put("type", "input_image")
+                                    put("image_url", url)
+                                })
+                            } else {
+                                convertedParts.put(part)
+                            }
+                        }
+                        put("content", convertedParts)
+                    } else {
+                        put("content", content.toString())
+                    }
+                })
+            }
+
+            fun addResponsesPayload(
+                reasoningMode: String?,
+                reasoningEffort: String?,
+                reasoningSummary: String?,
+                withTools: Boolean
+            ) {
+                val payload = JSONObject().apply {
+                    put("model", candidateId)
+                    if (effectiveSystemPrompt.isNotBlank()) {
+                        put("instructions", effectiveSystemPrompt)
+                    }
+                    put("input", inputJsonArray)
+                    put("stream", stream)
+                    put("max_output_tokens", if (isThinkingEnabled) 32768 else 8192)
+
+                    if (reasoningMode != null || reasoningEffort != null || reasoningSummary != null) {
+                        put("reasoning", JSONObject().apply {
+                            if (reasoningMode != null) put("mode", reasoningMode)
+                            if (reasoningEffort != null) put("effort", reasoningEffort)
+                            if (reasoningSummary != null) put("summary", reasoningSummary)
+                        })
+                    }
+
+                    if (withTools && tools != null && tools.length() > 0) {
+                        put("tools", tools)
+                        put("tool_choice", "auto")
+                    }
+                }
+                if (seenSignatures.add(payload.toString())) {
+                    list.add(payload)
+                }
+            }
+
+            if (isThinkingEnabled) {
+                // When Thinking toggle is ON: reasoning defaults to hardcoded medium effort in pro mode with summary stream
+                if (hasTools) {
+                    addResponsesPayload(reasoningMode = "pro", reasoningEffort = "medium", reasoningSummary = "detailed", withTools = true)
+                    addResponsesPayload(reasoningMode = "pro", reasoningEffort = "medium", reasoningSummary = "auto", withTools = true)
+                    addResponsesPayload(reasoningMode = null, reasoningEffort = "medium", reasoningSummary = "detailed", withTools = true)
+                }
+                addResponsesPayload(reasoningMode = "pro", reasoningEffort = "medium", reasoningSummary = "detailed", withTools = false)
+                addResponsesPayload(reasoningMode = "pro", reasoningEffort = "medium", reasoningSummary = "auto", withTools = false)
+                addResponsesPayload(reasoningMode = null, reasoningEffort = "medium", reasoningSummary = "detailed", withTools = false)
+            } else {
+                // When Thinking toggle is OFF: Sol reasoning is completely off in UI, standard mode / low effort in API
+                if (hasTools) {
+                    addResponsesPayload(reasoningMode = "standard", reasoningEffort = "low", reasoningSummary = null, withTools = true)
+                }
+                addResponsesPayload(reasoningMode = "standard", reasoningEffort = "low", reasoningSummary = null, withTools = false)
+                addResponsesPayload(reasoningMode = null, reasoningEffort = null, reasoningSummary = null, withTools = false)
+            }
+
+            return list
+        }
 
         if (isSol) {
             fun addOpenAiPayload(
@@ -977,26 +1237,17 @@ class XiaomiMimoService(
                 }
             }
 
-            // GPT 6.1 Sol: reasoning effort is hardcoded medium when thinking is on, off when toggle is off
-            val targetEffort = if (isThinkingEnabled) "medium" else "none"
+            // Chat completions fallback for GPT 6.1 Sol
+            val targetEffort = if (isThinkingEnabled) "medium" else "low"
 
-            // Primary: Standard Chat Completions reasoning_effort
-            if (hasTools) {
+            // Note: /v1/chat/completions rejects tools when reasoning_effort is provided.
+            if (!isThinkingEnabled && hasTools) {
                 addOpenAiPayload(reasoningEffort = targetEffort, withTools = true)
             }
             addOpenAiPayload(reasoningEffort = targetEffort, withTools = false)
 
-            // Fallback 1: Nested reasoning object
-            if (hasTools) {
-                addOpenAiPayload(reasoningEffort = targetEffort, withTools = true, useNestedReasoning = true)
-            }
-            addOpenAiPayload(reasoningEffort = targetEffort, withTools = false, useNestedReasoning = true)
-
-            // If thinking is off, fallback without reasoning_effort if provider rejects "none"
             if (!isThinkingEnabled) {
-                if (hasTools) {
-                    addOpenAiPayload(reasoningEffort = null, withTools = true)
-                }
+                addOpenAiPayload(reasoningEffort = null, withTools = hasTools)
                 addOpenAiPayload(reasoningEffort = null, withTools = false)
             }
 
@@ -1052,6 +1303,26 @@ class XiaomiMimoService(
         val tool: String,
         val query: String
     )
+
+    private fun getResponsesApiWebSearchTools(): JSONArray {
+        return JSONArray().apply {
+            put(JSONObject().apply {
+                put("type", "function")
+                put("name", "web_search")
+                put("description", "Searches the web for up-to-date facts, breaking news, company information, community discussions, forum opinions, and user reviews.")
+                put("parameters", JSONObject().apply {
+                    put("type", "object")
+                    put("properties", JSONObject().apply {
+                        put("query", JSONObject().apply {
+                            put("type", "string")
+                            put("description", "The search query to look up on the web")
+                        })
+                    })
+                    put("required", JSONArray().apply { put("query") })
+                })
+            })
+        }
+    }
 
     private fun getWebSearchTools(): JSONArray {
         return JSONArray().apply {
@@ -1119,6 +1390,7 @@ class XiaomiMimoService(
         private const val TAG = "WyrdLLM"
         const val PAY_AS_YOU_GO_ENDPOINT = "https://api.xiaomimimo.com/v1/chat/completions"
         const val TOKEN_PLAN_ENDPOINT = "https://token-plan-cn.xiaomimimo.com/v1/chat/completions"
+        const val OPENAI_RESPONSES_ENDPOINT = "https://api.openai.com/v1/responses"
         const val OPENAI_CHAT_COMPLETIONS_ENDPOINT = "https://api.openai.com/v1/chat/completions"
 
         private val WHITESPACE_REGEX = Regex("\\s+")

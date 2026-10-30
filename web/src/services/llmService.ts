@@ -260,18 +260,23 @@ class ThinkAndToolParser {
 
 const TOKEN_PLAN_ENDPOINT = 'https://token-plan-cn.xiaomimimo.com/v1/chat/completions'
 const PAY_AS_YOU_GO_ENDPOINT = 'https://api.xiaomimimo.com/v1/chat/completions'
+const OPENAI_RESPONSES_ENDPOINT = 'https://api.openai.com/v1/responses'
 const OPENAI_CHAT_COMPLETIONS_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
 
 function getCandidateEndpoints(apiKey: string, customBaseUrl?: string, model?: string): string[] {
   const trimmed = customBaseUrl?.trim()
   if (trimmed && trimmed !== 'https://api.siliconflow.cn/v1') {
     const clean = trimmed.replace(/\/+$/, '')
-    const ep = clean.endsWith('/chat/completions') ? clean : `${clean}/chat/completions`
-    return [ep]
+    if (clean.endsWith('/responses') || clean.endsWith('/chat/completions')) {
+      return [clean]
+    }
+    return model === 'gpt-6.1-sol'
+      ? [`${clean}/responses`, `${clean}/chat/completions`]
+      : [`${clean}/chat/completions`]
   }
 
   if (model === 'gpt-6.1-sol') {
-    return [OPENAI_CHAT_COMPLETIONS_ENDPOINT]
+    return [OPENAI_RESPONSES_ENDPOINT, OPENAI_CHAT_COMPLETIONS_ENDPOINT]
   }
 
   const cleanKey = apiKey.trim()
@@ -381,36 +386,10 @@ If the request does not require external search, answer directly without invokin
   while (toolExecutionRounds <= maxToolExecutionRounds) {
     if (signal?.aborted) return
 
-    const bodyPayload: Record<string, unknown> = {
-      model,
-      messages: currentMessages,
-      stream: true,
-      max_completion_tokens: isThinking ? 32768 : 8192,
-    }
-
-    if (isSearchEnabled && toolExecutionRounds < maxToolExecutionRounds && !hasImagesInConversation) {
-      bodyPayload.tools = [WEB_SEARCH_TOOL]
-      bodyPayload.tool_choice = 'auto'
-    }
-
-    if (isSol) {
-      bodyPayload.reasoning_effort = isThinking ? 'medium' : 'none'
-    } else {
-      bodyPayload.temperature = isThinking ? 1.0 : 0.7
-      if (isThinking) {
-        bodyPayload.thinking = { type: 'enabled' }
-        bodyPayload.extra_body = { thinking: { type: 'enabled' } }
-        bodyPayload.enable_thinking = true
-      } else {
-        bodyPayload.thinking = { type: 'disabled' }
-        bodyPayload.extra_body = { thinking: { type: 'disabled' } }
-        bodyPayload.enable_thinking = false
-      }
-    }
-
     const endpoints = getCandidateEndpoints(effectiveKey, baseUrl, model)
     let lastError = ''
     let roundContentAccumulator = ''
+    let hasEmittedReasoning = false
     let toolCallName = ''
     let toolCallArgs = ''
     let isStreamSuccess = false
@@ -419,6 +398,91 @@ If the request does not require external search, answer directly without invokin
 
     for (const endpoint of endpoints) {
       if (signal?.aborted) return
+
+      const isResponsesApi = endpoint.includes('/responses')
+      let bodyPayload: Record<string, unknown>
+
+      if (isResponsesApi) {
+        const inputItems = currentMessages
+          .filter((m) => m.role !== 'system')
+          .map((m) => {
+            if (Array.isArray(m.content)) {
+              const parts = m.content.map((p) => {
+                if (p.type === 'text') {
+                  return { type: 'input_text', text: p.text }
+                }
+                if (p.type === 'image_url') {
+                  return { type: 'input_image', image_url: p.image_url?.url || '' }
+                }
+                return p
+              })
+              return { role: m.role, content: parts }
+            }
+            return { role: m.role, content: m.content }
+          })
+
+        bodyPayload = {
+          model,
+          stream: true,
+          max_output_tokens: isThinking ? 32768 : 8192,
+          ...(effectiveSystemPrompt ? { instructions: effectiveSystemPrompt } : {}),
+          input: inputItems,
+          reasoning: isThinking
+            ? { mode: 'pro', effort: 'medium', summary: 'detailed' }
+            : { mode: 'standard', effort: 'low' },
+        }
+
+        if (isSearchEnabled && toolExecutionRounds < maxToolExecutionRounds && !hasImagesInConversation) {
+          bodyPayload.tools = [
+            {
+              type: 'function',
+              name: 'web_search',
+              description:
+                'Searches the web for up-to-date facts, breaking news, company information, community discussions, forum opinions, and user reviews.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  query: {
+                    type: 'string',
+                    description: 'The search query to look up on the web',
+                  },
+                },
+                required: ['query'],
+              },
+            },
+          ]
+          bodyPayload.tool_choice = 'auto'
+        }
+      } else {
+        bodyPayload = {
+          model,
+          messages: currentMessages,
+          stream: true,
+          max_completion_tokens: isThinking ? 32768 : 8192,
+        }
+
+        if (isSearchEnabled && toolExecutionRounds < maxToolExecutionRounds && !hasImagesInConversation) {
+          if (!isSol || !isThinking) {
+            bodyPayload.tools = [WEB_SEARCH_TOOL]
+            bodyPayload.tool_choice = 'auto'
+          }
+        }
+
+        if (isSol) {
+          bodyPayload.reasoning_effort = isThinking ? 'medium' : 'low'
+        } else {
+          bodyPayload.temperature = isThinking ? 1.0 : 0.7
+          if (isThinking) {
+            bodyPayload.thinking = { type: 'enabled' }
+            bodyPayload.extra_body = { thinking: { type: 'enabled' } }
+            bodyPayload.enable_thinking = true
+          } else {
+            bodyPayload.thinking = { type: 'disabled' }
+            bodyPayload.extra_body = { thinking: { type: 'disabled' } }
+            bodyPayload.enable_thinking = false
+          }
+        }
+      }
 
       try {
         const response = await fetch(endpoint, {
@@ -478,41 +542,38 @@ If the request does not require external search, answer directly without invokin
               const parsed = JSON.parse(dataStr)
               if (parsed.error) {
                 const msg = parsed.error.message || JSON.stringify(parsed.error)
-                yield { error: `MiMo Error: ${msg}` }
+                yield { error: `API Error: ${msg}` }
                 return
               }
 
-              const delta = parsed.choices?.[0]?.delta
-              if (delta) {
+              const eventType = parsed.type || ''
+
+              // 1. Responses API: reasoning summary or reasoning text deltas
+              if (eventType === 'response.reasoning_summary_text.delta' || eventType === 'response.reasoning_text.delta') {
                 isStreamSuccess = true
-
-                // 1. Native OpenAI tool call streaming
-                if (delta.tool_calls) {
-                  for (const tc of delta.tool_calls) {
-                    if (tc.function?.name) {
-                      toolCallName = tc.function.name
-                    }
-                    if (tc.function?.arguments) {
-                      toolCallArgs += tc.function.arguments
-                    }
-                  }
-                }
-
-                // 2. Native reasoning delta
-                const reasoningText = delta.reasoning_content || delta.reasoning
+                const reasoningText = typeof parsed.delta === 'string'
+                  ? parsed.delta
+                  : (parsed.delta?.text || '')
                 if (isThinking && reasoningText && reasoningText !== 'null') {
+                  hasEmittedReasoning = true
                   yield { reasoning: reasoningText }
                 }
-
-                // 3. Content streaming through ThinkAndToolParser
-                if (delta.content && delta.content !== 'null') {
+              }
+              // 2. Responses API: output text deltas
+              else if (eventType === 'response.output_text.delta' || eventType === 'response.text.delta') {
+                isStreamSuccess = true
+                const deltaText = typeof parsed.delta === 'string' ? parsed.delta : (parsed.text || '')
+                if (deltaText && deltaText !== 'null') {
                   const contentChunks: string[] = []
                   const reasoningChunks: string[] = []
 
                   parser.feed(
-                    delta.content,
+                    deltaText,
                     (c) => contentChunks.push(c),
-                    (r) => reasoningChunks.push(r)
+                    (r) => {
+                      hasEmittedReasoning = true
+                      reasoningChunks.push(r)
+                    }
                   )
 
                   if (isThinking) {
@@ -523,6 +584,116 @@ If the request does not require external search, answer directly without invokin
                   for (const c of contentChunks) {
                     roundContentAccumulator += c
                     yield { content: c }
+                  }
+                }
+              }
+              // 3. Responses API: function call output item added
+              else if (eventType === 'response.output_item.added') {
+                if (parsed.item?.type === 'function_call') {
+                  if (parsed.item.name) toolCallName = parsed.item.name
+                  if (parsed.item.arguments) toolCallArgs += parsed.item.arguments
+                }
+              }
+              // 4. Responses API: function call arguments delta
+              else if (eventType === 'response.function_call_arguments.delta') {
+                if (parsed.delta) toolCallArgs += parsed.delta
+              }
+              // 5. Responses API: function call or reasoning output item done fallback
+              else if (eventType === 'response.output_item.done') {
+                if (parsed.item?.type === 'function_call') {
+                  if (!toolCallName && parsed.item.name) toolCallName = parsed.item.name
+                  if (!toolCallArgs && parsed.item.arguments) toolCallArgs += parsed.item.arguments
+                } else if (parsed.item?.type === 'reasoning' && !hasEmittedReasoning) {
+                  const summaryArr = parsed.item.summary
+                  if (Array.isArray(summaryArr) && summaryArr.length > 0) {
+                    const fullSummary = summaryArr
+                      .map((s: { text?: string } | string) => (typeof s === 'string' ? s : s?.text || ''))
+                      .join('')
+                    if (isThinking && fullSummary) {
+                      hasEmittedReasoning = true
+                      yield { reasoning: fullSummary }
+                    }
+                  }
+                }
+              }
+              // 6. Responses API: completed / done fallback
+              else if (eventType === 'response.completed' || eventType === 'response.done') {
+                isStreamSuccess = true
+                const outputArr = parsed.response?.output
+                if (Array.isArray(outputArr) && !hasEmittedReasoning) {
+                  for (const item of outputArr) {
+                    if (item?.type === 'reasoning' && Array.isArray(item.summary) && item.summary.length > 0) {
+                      const fullSummary = item.summary
+                        .map((s: { text?: string } | string) => (typeof s === 'string' ? s : s?.text || ''))
+                        .join('')
+                      if (isThinking && fullSummary) {
+                        hasEmittedReasoning = true
+                        yield { reasoning: fullSummary }
+                      }
+                    }
+                  }
+                }
+                if (isThinking && !hasEmittedReasoning) {
+                  const reasoningTokens = parsed.response?.usage?.output_tokens_details?.reasoning_tokens || 0
+                  if (reasoningTokens > 0) {
+                    hasEmittedReasoning = true
+                    yield { reasoning: `Thought process completed (${reasoningTokens} reasoning tokens used).` }
+                  }
+                }
+              }
+              // 7. Chat Completions API fallback: choices array
+              else {
+                const delta = parsed.choices?.[0]?.delta
+                if (delta) {
+                  isStreamSuccess = true
+
+                  // Native OpenAI tool call streaming
+                  if (delta.tool_calls) {
+                    for (const tc of delta.tool_calls) {
+                      if (tc.function?.name) {
+                        toolCallName = tc.function.name
+                      }
+                      if (tc.function?.arguments) {
+                        toolCallArgs += tc.function.arguments
+                      }
+                    }
+                  }
+
+                  // Native reasoning delta
+                  const reasoningText = delta.reasoning_content || delta.reasoning
+                  if (isThinking && reasoningText && reasoningText !== 'null') {
+                    hasEmittedReasoning = true
+                    yield { reasoning: reasoningText }
+                  }
+
+                  // Content streaming through ThinkAndToolParser
+                  if (delta.content && delta.content !== 'null') {
+                    const contentChunks: string[] = []
+                    const reasoningChunks: string[] = []
+
+                    parser.feed(
+                      delta.content,
+                      (c) => contentChunks.push(c),
+                      (r) => reasoningChunks.push(r)
+                    )
+
+                    if (isThinking) {
+                      for (const r of reasoningChunks) {
+                        yield { reasoning: r }
+                      }
+                    }
+                    for (const c of contentChunks) {
+                      roundContentAccumulator += c
+                      yield { content: c }
+                    }
+                  }
+                }
+
+                if (parsed.usage && isThinking && !hasEmittedReasoning) {
+                  const reasoningTokens = parsed.usage.completion_tokens_details?.reasoning_tokens || 0
+                  if (reasoningTokens > 0) {
+                    hasEmittedReasoning = true
+                    yield { reasoning: `Thought process completed (${reasoningTokens} reasoning tokens used).` }
                   }
                 }
               }
@@ -760,37 +931,61 @@ export async function generateChatTitle({
       ? `User: ${firstUserPrompt.trim().slice(0, 300)}\nAssistant: ${assistantReply.trim().slice(0, 300)}`
       : `User: ${firstUserPrompt.trim().slice(0, 300)}`
 
-  const endpoints = getCandidateEndpoints(cleanKey, baseUrl)
+  const endpoints = getCandidateEndpoints(cleanKey, baseUrl, model)
+  const isSol = model === 'gpt-6.1-sol'
   const streamModes = [false, true]
 
   for (const endpoint of endpoints) {
+    const isResponsesApi = endpoint.includes('/responses')
     for (const useStream of streamModes) {
       try {
-        const bodyPayload = {
-          model,
-          stream: useStream,
-          temperature: 0.7,
-          max_completion_tokens: 256,
-          thinking: { type: 'disabled' },
-          extra_body: { thinking: { type: 'disabled' } },
-          enable_thinking: false,
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are a conversation title generator. Summarize the core topic of this exchange into a concise 2 to 4 word title. Output ONLY the raw title words without quotes, punctuation, preamble, or markdown.',
-            },
-            {
-              role: 'user',
-              content: userTurnSnippet,
-            },
-          ],
+        let bodyPayload: Record<string, unknown>
+
+        if (isResponsesApi) {
+          bodyPayload = {
+            model,
+            instructions:
+              'You are a conversation title generator. Summarize the core topic of this exchange into a concise 2 to 4 word title. Output ONLY the raw title words without quotes, punctuation, preamble, or markdown.',
+            input: [
+              {
+                role: 'user',
+                content: userTurnSnippet,
+              },
+            ],
+            reasoning: { effort: 'low' },
+            stream: useStream,
+          }
+        } else {
+          bodyPayload = {
+            model,
+            stream: useStream,
+            max_completion_tokens: 256,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You are a conversation title generator. Summarize the core topic of this exchange into a concise 2 to 4 word title. Output ONLY the raw title words without quotes, punctuation, preamble, or markdown.',
+              },
+              {
+                role: 'user',
+                content: userTurnSnippet,
+              },
+            ],
+          }
+          if (isSol) {
+            bodyPayload.reasoning_effort = 'low'
+          } else {
+            bodyPayload.temperature = 0.7
+            bodyPayload.thinking = { type: 'disabled' }
+            bodyPayload.extra_body = { thinking: { type: 'disabled' } }
+            bodyPayload.enable_thinking = false
+          }
         }
 
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${cleanKey}`,
-          'api-key': cleanKey,
+          ...(isSol ? {} : { 'api-key': cleanKey }),
         }
         if (useStream) {
           headers.Accept = 'text/event-stream'
@@ -819,9 +1014,17 @@ export async function generateChatTitle({
             if (!dataStr || dataStr === '[DONE]') continue
             try {
               const parsed = JSON.parse(dataStr)
-              const piece = parsed?.choices?.[0]?.delta?.content
-              if (typeof piece === 'string' && piece !== 'null') {
-                rawContent += piece
+              const deltaType = parsed?.type || ''
+              if (deltaType === 'response.output_text.delta' || deltaType === 'response.text.delta') {
+                const piece = parsed.delta
+                if (typeof piece === 'string' && piece !== 'null') {
+                  rawContent += piece
+                }
+              } else {
+                const piece = parsed?.choices?.[0]?.delta?.content
+                if (typeof piece === 'string' && piece !== 'null') {
+                  rawContent += piece
+                }
               }
             } catch {
               // ignore malformed SSE chunk
@@ -829,8 +1032,13 @@ export async function generateChatTitle({
           }
         } else {
           const data = JSON.parse(bodyText)
-          const choice = data?.choices?.[0]
-          rawContent = choice?.message?.content || choice?.delta?.content || choice?.text || ''
+          const directOutput = data?.output_text
+          if (typeof directOutput === 'string' && directOutput.trim()) {
+            rawContent = directOutput
+          } else {
+            const choice = data?.choices?.[0]
+            rawContent = choice?.message?.content || choice?.delta?.content || choice?.text || ''
+          }
         }
 
         if (typeof rawContent === 'string' && rawContent.trim() && rawContent.trim() !== 'null') {

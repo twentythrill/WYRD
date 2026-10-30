@@ -1,4 +1,4 @@
-# WYRD (v1.6.6)
+# WYRD (v1.6.7)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -13,15 +13,15 @@ WYRD/
 ├── android/          # Native Android AI Client (Kotlin + Jetpack Compose)
 │   ├── app/          # App source, UI components, Room database, network services
 │   ├── build.gradle.kts
-│   └── README.md     # Android client architecture & documentation (v1.6.6)
+│   └── README.md     # Android client architecture & documentation (v1.6.7)
 │
 ├── web/              # Desktop & Browser Companion (React 19 + TypeScript + Vite)
 │   ├── src/          # React components, services, Supabase integration
 │   ├── package.json
-│   └── README.md     # Web client architecture & documentation (v1.6.6)
+│   └── README.md     # Web client architecture & documentation (v1.6.7)
 │
 ├── .gitignore        # Unified repository ignore rules
-└── README.md         # Master repository overview (v1.6.6)
+└── README.md         # Master repository overview (v1.6.7)
 ```
 
 ---
@@ -38,7 +38,7 @@ WYRD/
 
 ### 2. Multi-Model LLM Intelligence (Xiaomi MiMo & OpenAI GPT 6.1 Sol) & Parallel Web Grounding (Tavily + Exa)
 * **Model Selection**: Switch seamlessly between **Xiaomi MiMo 2.6 Pro** (`mimo-v2.6-pro`), **Xiaomi MiMo 2.6 Flash** (`mimo-v2.6-flash`), and OpenAI's **GPT 6.1 Sol** (`gpt-6.1-sol`) directly from the top bar or STT recording capsule dropdown.
-* **OpenAI GPT 6.1 Sol Architecture**: Native integration with OpenAI's Chat Completions API (`https://api.openai.com/v1/chat/completions`) using standard Bearer authentication. When the Thinking toggle is enabled, Sol runs with hardcoded `medium` reasoning effort (`reasoning_effort: "medium"`); when Thinking is toggled off, reasoning is completely shut off (`reasoning_effort: "none"` / suppressed).
+* **OpenAI GPT 6.1 Sol Architecture**: Native integration with OpenAI's Responses API (`https://api.openai.com/v1/responses`) with Chat Completions fallback. To support function tools and reasoning stream tokens without HTTP 400 errors, Sol routes to `/v1/responses` with flat tools schemas and typed SSE deltas (`response.reasoning_summary_text.delta`). When Thinking is enabled, Sol runs with `"mode": "pro"`, hardcoded `"effort": "medium"`, and `"summary": "detailed"`, streaming collapsible thought summaries in real time with token-usage fallback; when Thinking is toggled off, reasoning is completely shut off (`"mode": "standard"`, `"effort": "low"`, no reasoning summary or UI block).
 * **Xiaomi MiMo Streaming**: Direct SSE token streaming with automatic cluster routing based on API key tier (`Token Plan` vs `Pay-As-You-Go`).
 * **Official Xiaomi MiMo Thinking Toggle**: Native request parameterization matching the official Xiaomi MiMo specification (`thinking: { type: "enabled" | "disabled" }`, `temperature: 1.0` when enabled / `0.7` when disabled, and dynamic token allocations of 32k/8k). Artificial prompt injection budget overrides are completely eliminated in favor of a sleek on/off Thinking switch inside the model selector across all supported models.
 * **Unified OpenAI API Configuration (Inference & STT)**: Settings provides a clean, unified OpenAI configuration section powering both GPT 6.1 Sol model inference and `gpt-4o-mini-transcribe` voice dictation.
@@ -84,6 +84,7 @@ WYRD/
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.6.7** | 2026-10-30 | OpenAI GPT 6.1 Sol Responses API Architecture & Thinking Stream Parity: Routed GPT 6.1 Sol to OpenAI's Responses API (`/v1/responses`) to resolve HTTP 400 tool-reasoning incompatibility and enable full real-time reasoning stream summaries (`response.reasoning_summary_text.delta`); added `"mode": "pro"` with hardcoded medium effort and detailed summaries when Thinking is on, and `"mode": "standard"` with low effort when off; implemented deduplication guards and token-count fallbacks for backend heuristics; and bumped versions to v1.6.7 across Android and Web. |
 | **v1.6.6** | 2026-10-30 | OpenAI GPT 6.1 Sol Integration & Unified Inference/STT Architecture: Added OpenAI GPT 6.1 Sol (`gpt-6.1-sol`) to model selector dropdowns across Android and Web; wired native OpenAI API request formatting with hardcoded medium reasoning effort when Thinking toggle is on and complete reasoning shutoff when off; renamed Settings OpenAI section to accurately reflect unified inference and gpt-4o-mini-transcribe voice STT usage; and bumped versions to v1.6.6 across Android and Web. |
 | **v1.6.5** | 2026-10-22 | Bold Headings, Dynamic Table Columns & Multi-Stop Scrim Opacity: Parsed standalone bold lines (`**Heading**` and `__Heading__`) into Level 2 Header blocks (19sp bold Space Grotesk, 20dp top margin, 8dp bottom margin) across both Android and Web, restoring typographic hierarchy for models like Xiaomi MiMo that emit bold lines instead of `#` headers; dynamic column width calculation (`minWordWidth = (longestWordChars * 11f + 32f).coerceAtLeast(125f)`) preventing multi-character word hyphenation and character wrapping in markdown tables; multi-stop bottom scrim gradient with 100% solid opacity extending through the floating input capsule and Android 3-button system navigation bar with zero text bleed-through or button collision; and elevated top bar scrim fade geometry. |
 | **v1.6.4** | 2026-10-22 | Hanging Indents, Heading Proximity & TopBar Scrim Ghosting: Modular AST block architecture on Android and Web rendering bullet (`•`) and numbered list items in two-column layouts with fixed-width leading badge containers (`20dp` / `28dp`), ensuring multi-line list text wraps strictly indented to the right; elevated heading hierarchy (`#`, `##`, `###`) with asymmetric Gestalt proximity margins (20–24dp top margin, 8dp bottom margin); and multi-stop vertical fade gradients ensuring 100% solid opacity across the entire top bar region. |

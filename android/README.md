@@ -1,4 +1,4 @@
-# WYRD — Native Android AI Client (v1.6.6)
+# WYRD — Native Android AI Client (v1.6.7)
 
 WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo & OpenAI GPT 6.1 Sol) with parallel dual web search engines (Tavily AI for live web and Exa AI for semantic exploration), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (`gpt-4o-mini-transcribe`), and complete local session persistence.
 
@@ -103,8 +103,10 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 - **Multi-Model LLM Intelligence**:
   - Model selection: **Xiaomi MiMo 2.6 Pro** (`mimo-v2.6-pro`, deep complex reasoning), **Xiaomi MiMo 2.6 Flash** (`mimo-v2.6-flash`, high-speed multimodal reasoning), and **OpenAI GPT 6.1 Sol** (`gpt-6.1-sol`, high-performance frontier reasoning).
   - **OpenAI GPT 6.1 Sol Integration**:
-    - Direct SSE chat completions via `https://api.openai.com/v1/chat/completions` using the user's OpenAI API key.
-    - **Reasoning Effort Control**: When the Thinking toggle is ON, GPT 6.1 Sol defaults to hardcoded `medium` reasoning effort (`reasoning_effort: "medium"`). When the Thinking toggle is OFF, reasoning is completely shut off (`reasoning_effort: "none"` / suppressed).
+    - Direct SSE streaming via OpenAI's Responses API (`https://api.openai.com/v1/responses`) with Chat Completions fallback, using standard Bearer authorization and flat tool definitions.
+    - **Reasoning Architecture & Collapsible Stream**:
+      - When Thinking is ON: runs with `"mode": "pro"`, hardcoded `"effort": "medium"`, and `"summary": "detailed"`, streaming typed SSE reasoning deltas (`response.reasoning_summary_text.delta`) into real-time collapsible thinking blocks in the UI with token-usage fallback heuristics.
+      - When Thinking is OFF: reasoning is completely shut off (`"mode": "standard"`, `"effort": "low"`, no reasoning summary or collapsible block rendered).
   - **Xiaomi MiMo Streaming**:
     - Dual-cluster auto-routing (Token Plan vs. Pay-As-You-Go) with optional custom base URL and dual-header (`Authorization` + `api-key`) authentication; fails fast on HTTP 401/403 authentication errors.
     - **Official Thinking Parameter & On/Off Toggle**:
