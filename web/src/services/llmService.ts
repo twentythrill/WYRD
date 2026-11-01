@@ -260,6 +260,8 @@ class ThinkAndToolParser {
 
 const TOKEN_PLAN_ENDPOINT = 'https://token-plan-cn.xiaomimimo.com/v1/chat/completions'
 const PAY_AS_YOU_GO_ENDPOINT = 'https://api.xiaomimimo.com/v1/chat/completions'
+const PROXY_OPENAI_RESPONSES_ENDPOINT = '/api/openai/v1/responses'
+const PROXY_OPENAI_CHAT_COMPLETIONS_ENDPOINT = '/api/openai/v1/chat/completions'
 const OPENAI_RESPONSES_ENDPOINT = 'https://api.openai.com/v1/responses'
 const OPENAI_CHAT_COMPLETIONS_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
 
@@ -276,7 +278,12 @@ function getCandidateEndpoints(apiKey: string, customBaseUrl?: string, model?: s
   }
 
   if (model === 'gpt-6.1-sol') {
-    return [OPENAI_RESPONSES_ENDPOINT, OPENAI_CHAT_COMPLETIONS_ENDPOINT]
+    return [
+      PROXY_OPENAI_RESPONSES_ENDPOINT,
+      PROXY_OPENAI_CHAT_COMPLETIONS_ENDPOINT,
+      OPENAI_RESPONSES_ENDPOINT,
+      OPENAI_CHAT_COMPLETIONS_ENDPOINT,
+    ]
   }
 
   const cleanKey = apiKey.trim()
@@ -727,7 +734,12 @@ If the request does not require external search, answer directly without invokin
         if ((err instanceof Error && err.name === 'AbortError') || signal?.aborted) {
           return
         }
-        lastError = err instanceof Error ? err.message : 'Network request failed'
+        const errMsg = err instanceof Error ? err.message : 'Network request failed'
+        if (isSol && (errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError') || errMsg.includes('CORS'))) {
+          lastError = 'Browser CORS restriction: OpenAI blocks direct browser requests to api.openai.com. Please run with the dev proxy (npm run dev) or configure a CORS-friendly OpenAI Base URL in Settings.'
+        } else {
+          lastError = errMsg
+        }
         console.warn(`Attempt with ${endpoint} failed:`, err)
       }
     }
@@ -736,7 +748,10 @@ If the request does not require external search, answer directly without invokin
 
     const parserToolContent = parser.getToolCallContent()
     if (!isStreamSuccess && !roundContentAccumulator && !toolCallArgs && !parserToolContent) {
-      yield { error: lastError || 'Unable to connect to Xiaomi MiMo API. Check your API key.' }
+      const defaultMsg = isSol
+        ? 'Unable to connect to OpenAI API. Check your API key or proxy settings.'
+        : 'Unable to connect to Xiaomi MiMo API. Check your API key.'
+      yield { error: lastError || defaultMsg }
       return
     }
 

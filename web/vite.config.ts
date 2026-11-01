@@ -14,6 +14,26 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src')
     }
   },
+  server: {
+    proxy: {
+      '/api/openai': {
+        target: 'https://api.openai.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/openai/, ''),
+        secure: true,
+      },
+    },
+  },
+  preview: {
+    proxy: {
+      '/api/openai': {
+        target: 'https://api.openai.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/openai/, ''),
+        secure: true,
+      },
+    },
+  },
   define: {
     // Provide fallback support for NEXT_PUBLIC_ variables
     'process.env.NEXT_PUBLIC_SUPABASE_URL': JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ncxbhueublthjfawkkvy.supabase.co'),

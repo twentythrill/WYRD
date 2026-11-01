@@ -50,6 +50,7 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
    * **PDF, Text & Code Extraction**: `.pdf` files are parsed client-side via `pdfExtractor.ts` (`extractTextFromPdf`), prompt input text/code files are read up to 80KB into structured prompt fences (`[Attached File: <name>]`), and Project Knowledge Base documents support up to 150KB per file.
 8. **Browser Inference & Parallel Dual-Engine Web Search (`web_search`)**:
    * Direct SSE streaming via Xiaomi MiMo with automatic cluster routing (`tp-*` -> Token Plan, standard -> Pay-As-You-Go) and fast-fail on HTTP 401/403 errors.
+   * **OpenAI GPT 6.1 Sol & STT Streaming Proxy**: Configured same-origin CORS reverse proxying in Vite dev server (`/api/openai/*`) and Netlify Edge Function (`web/netlify/edge-functions/openai-proxy.ts`) with unbuffered SSE streaming response body forwarding, overcoming browser CORS restrictions on `api.openai.com`.
    * **Autonomous Unified Multi-Engine Web Search Grounding (`web_search`)**:
      * Independent toggles in Settings for **Tavily Search** (`wyrd_tavily_enabled`) and **Exa Search** (`wyrd_exa_enabled`).
      * **Parallel Execution Engine**: When both Tavily and Exa are enabled in Settings, the browser executes both Tavily and Exa concurrently in parallel via `Promise.all()`, returning live factual sources alongside semantic community/forum/review discussions.
@@ -82,7 +83,7 @@ Configured in `.env`:
 
 ## Netlify Deployment (Zero-Server / Serverless)
 
-WYRD Web is a 100% static Single Page Application (SPA). It requires **no server**:
+WYRD Web is a static Single Page Application (SPA) with a lightweight serverless Edge Function:
 * Build Command: `npm run build`
 * Publish Directory: `dist`
-* SPA redirects are pre-configured in [`netlify.toml`](file:///Users/gioelezorzi/Agent_Workspace/_Android/WYRD/web/netlify.toml) and [`public/_redirects`](file:///Users/gioelezorzi/Agent_Workspace/_Android/WYRD/web/public/_redirects).
+* SPA redirects and OpenAI streaming proxy edge function (`netlify/edge-functions/openai-proxy.ts`) are pre-configured in [`netlify.toml`](file:///Users/gioelezorzi/Agent_Workspace/_Android/WYRD/web/netlify.toml) and [`public/_redirects`](file:///Users/gioelezorzi/Agent_Workspace/_Android/WYRD/web/public/_redirects).

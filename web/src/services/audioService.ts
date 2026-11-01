@@ -102,13 +102,35 @@ export async function transcribeAudio(audioBlob: Blob, apiKey?: string): Promise
   formData.append('file', file)
   formData.append('model', 'gpt-4o-mini-transcribe')
 
-  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-    },
-    body: formData,
-  })
+  const candidateEndpoints = [
+    '/api/openai/v1/audio/transcriptions',
+    'https://api.openai.com/v1/audio/transcriptions',
+  ]
+
+  let res: Response | null = null
+  let lastErr: Error | null = null
+
+  for (const endpoint of candidateEndpoints) {
+    try {
+      const candidateRes = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${key}`,
+        },
+        body: formData,
+      })
+      if (candidateRes.ok || candidateRes.status === 401 || candidateRes.status === 403 || candidateRes.status === 400) {
+        res = candidateRes
+        break
+      }
+    } catch (err: unknown) {
+      lastErr = err instanceof Error ? err : new Error(String(err))
+    }
+  }
+
+  if (!res) {
+    throw lastErr || new Error('Network error during transcription')
+  }
 
   if (!res.ok) {
     let errMsg = `Transcription failed (${res.status})`
