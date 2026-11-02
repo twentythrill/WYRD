@@ -1,10 +1,12 @@
 package com.wyrd.app.data.local
 
+import androidx.compose.runtime.Immutable
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
+@Immutable
 @Entity(
     tableName = "messages",
     foreignKeys = [
@@ -70,6 +72,7 @@ data class MessageEntity(
     }
 }
 
+@Immutable
 data class AttachmentItemInfo(
     val uri: String,
     val type: String, // "image", "file"

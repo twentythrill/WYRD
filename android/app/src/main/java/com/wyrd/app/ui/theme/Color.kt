@@ -1,6 +1,7 @@
 package com.wyrd.app.ui.theme
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
@@ -10,6 +11,7 @@ val AccentRed = Color(0xFFFF453A)
 val AccentGreen = Color(0xFF32D74B)
 
 // Color Palette Definition
+@Immutable
 data class WyrdColors(
     val background: Color,
     val surface: Color,

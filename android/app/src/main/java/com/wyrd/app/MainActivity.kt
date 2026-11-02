@@ -1,6 +1,8 @@
 package com.wyrd.app
 
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -39,8 +41,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        requestHighRefreshRate()
 
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 requestNotificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
             }
@@ -92,11 +95,47 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        requestHighRefreshRate()
         if (isFirstResume) {
             isFirstResume = false
             return
         }
         viewModel.refreshSync()
+    }
+
+    private fun requestHighRefreshRate() {
+        try {
+            val currentDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                display
+            } else {
+                @Suppress("DEPRECATION")
+                windowManager.defaultDisplay
+            } ?: return
+
+            val supportedModes = currentDisplay.supportedModes
+            if (supportedModes.isNullOrEmpty()) return
+
+            val currentMode = currentDisplay.mode
+            val highestRateMode = supportedModes
+                .filter {
+                    it.physicalWidth == currentMode.physicalWidth &&
+                        it.physicalHeight == currentMode.physicalHeight
+                }
+                .maxByOrNull { it.refreshRate }
+                ?: supportedModes.maxByOrNull { it.refreshRate }
+                ?: return
+
+            val layoutParams: WindowManager.LayoutParams = window.attributes
+            if (layoutParams.preferredDisplayModeId != highestRateMode.modeId ||
+                layoutParams.preferredRefreshRate != highestRateMode.refreshRate
+            ) {
+                layoutParams.preferredDisplayModeId = highestRateMode.modeId
+                layoutParams.preferredRefreshRate = highestRateMode.refreshRate
+                window.attributes = layoutParams
+            }
+        } catch (_: Exception) {
+            // Gracefully ignore if OEM display service restricts mode queries
+        }
     }
 }
 

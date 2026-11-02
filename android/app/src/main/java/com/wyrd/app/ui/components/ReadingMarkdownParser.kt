@@ -1,5 +1,6 @@
 package com.wyrd.app.ui.components
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -14,6 +15,7 @@ enum class TableColumnAlignment {
     LEFT, CENTER, RIGHT
 }
 
+@Immutable
 data class MarkdownTableCell(
     val rawText: String,
     val annotatedText: AnnotatedString,
@@ -22,10 +24,12 @@ data class MarkdownTableCell(
     val endOffset: Int
 )
 
+@Immutable
 data class MarkdownTableRow(
     val cells: List<MarkdownTableCell>
 )
 
+@Immutable
 data class MarkdownCodeData(
     val language: String,
     val rawCode: String,
@@ -33,6 +37,7 @@ data class MarkdownCodeData(
     val endOffset: Int
 )
 
+@Immutable
 data class MarkdownTableData(
     val headers: List<MarkdownTableCell>,
     val alignments: List<TableColumnAlignment>,
@@ -42,49 +47,59 @@ data class MarkdownTableData(
     val endOffset: Int
 )
 
+@Immutable
 sealed class MessageContentBlock {
+    @Immutable
     data class Paragraph(
         val formatted: FormattedReadingContent,
         val startOffset: Int
     ) : MessageContentBlock()
 
+    @Immutable
     data class Header(
         val level: Int,
         val formatted: FormattedReadingContent,
         val startOffset: Int
     ) : MessageContentBlock()
 
+    @Immutable
     data class Bullet(
         val formatted: FormattedReadingContent,
         val startOffset: Int
     ) : MessageContentBlock()
 
+    @Immutable
     data class Numbered(
         val numberPrefix: String,
         val formatted: FormattedReadingContent,
         val startOffset: Int
     ) : MessageContentBlock()
 
+    @Immutable
     data class Blockquote(
         val formatted: FormattedReadingContent,
         val startOffset: Int
     ) : MessageContentBlock()
 
+    @Immutable
     data class Table(
         val table: MarkdownTableData,
         val startOffset: Int
     ) : MessageContentBlock()
 
+    @Immutable
     data class Code(
         val code: MarkdownCodeData,
         val startOffset: Int
     ) : MessageContentBlock()
 
+    @Immutable
     data class HorizontalRule(
         val startOffset: Int
     ) : MessageContentBlock()
 }
 
+@Immutable
 data class FormattedReadingContent(
     val plainText: String,
     val baseAnnotatedString: AnnotatedString,

@@ -350,9 +350,9 @@ fun HomeScreen(
 
     val density = LocalDensity.current
     val thresholdPx = with(density) { 95.dp.toPx() }
+    val maxShiftPx = with(density) { 28.dp.toPx() }
     val pullDistanceAnim = remember { Animatable(0f) }
     var isSpringEngaged by remember { mutableStateOf(false) }
-    val contentShift = -(pullDistanceAnim.value * 0.16f).coerceAtMost(with(density) { 28.dp.toPx() })
 
     // Auto-focus text box on app open so system keyboard appears
     LaunchedEffect(Unit) {
@@ -549,7 +549,10 @@ fun HomeScreen(
                 containerColor = Black,
                 modifier = Modifier
                     .fillMaxSize()
-                    .offset { IntOffset(x = contentShift.roundToInt(), y = 0) }
+                    .offset {
+                        val contentShift = -(pullDistanceAnim.value * 0.16f).coerceAtMost(maxShiftPx)
+                        IntOffset(x = contentShift.roundToInt(), y = 0)
+                    }
                     .pointerInput(drawerState.isClosed, isRecording, isTranscribing) {
                         if (!drawerState.isClosed || isRecording || isTranscribing) return@pointerInput
                         val edgeSafeZonePx = 50.dp.toPx()
@@ -807,17 +810,27 @@ fun HomeScreen(
                                     .fillMaxSize()
                                     .imePadding()
                             ) {
-                                itemsIndexed(messages, key = { _, message -> message.id }) { index, message ->
+                                itemsIndexed(
+                                    items = messages,
+                                    key = { _, message -> message.id },
+                                    contentType = { _, message -> message.role }
+                                ) { index, message ->
                                     if (message.role == "user") {
+                                        val onCopyUser = remember(message.id) { { it: com.wyrd.app.data.local.MessageEntity -> viewModel.copyToClipboard(it.content) } }
+                                        val onEditUser = remember(message.id) { { it: com.wyrd.app.data.local.MessageEntity -> viewModel.startEditingMessage(it) } }
+                                        val onBranchUser = remember(message.id) { { it: com.wyrd.app.data.local.MessageEntity -> viewModel.branchChat(it) } }
+                                        val onRedoUser = remember(message.id) {
+                                            { it: com.wyrd.app.data.local.MessageEntity ->
+                                                userScrolledUp = false
+                                                viewModel.redoMessage(it)
+                                            }
+                                        }
                                         UserMessageBubble(
                                             message = message,
-                                            onCopy = { viewModel.copyToClipboard(it.content) },
-                                            onEdit = { viewModel.startEditingMessage(it) },
-                                            onBranch = { viewModel.branchChat(it) },
-                                            onRedo = {
-                                                 userScrolledUp = false
-                                                 viewModel.redoMessage(it)
-                                            }
+                                            onCopy = onCopyUser,
+                                            onEdit = onEditUser,
+                                            onBranch = onBranchUser,
+                                            onRedo = onRedoUser
                                         )
                                     } else {
                                         val isItemSpeaking = ttsPlaybackState.messageId == message.id
@@ -827,12 +840,18 @@ fun HomeScreen(
                                         ) {
                                             if (isItemSpeaking) ttsPlaybackState else TtsPlaybackState()
                                         }
+                                        val onCopyAssistant = remember(message.id, message.content) {
+                                            { viewModel.copyToClipboard(message.content) }
+                                        }
+                                        val onSeekAssistant = remember(message.id) {
+                                            { text: String, offset: Int -> viewModel.seekTts(message.id, text, offset) }
+                                        }
                                         AssistantMessageItem(
                                             message = message,
                                             ttsPlaybackState = itemTtsState,
-                                            onCopy = { viewModel.copyToClipboard(message.content) },
-                                            onSeek = { text, offset -> viewModel.seekTts(message.id, text, offset) },
-                                            onActiveWordPosition = { line, wordTopInItem, wordBottomInItem ->
+                                            onCopy = onCopyAssistant,
+                                            onSeek = onSeekAssistant,
+                                            onActiveWordPosition = if (isItemSpeaking) { line, wordTopInItem, wordBottomInItem ->
                                                 if (ttsPlaybackState.isPlaying && !isListDragged && !listState.isScrollInProgress) {
                                                     val layoutInfo = listState.layoutInfo
                                                     val viewportHeight = layoutInfo.viewportSize.height
@@ -860,13 +879,13 @@ fun HomeScreen(
                                                         }
                                                     }
                                                 }
-                                            }
+                                            } else null
                                         )
                                     }
                                 }
 
                                 if (isGenerating) {
-                                    item {
+                                    item(key = "streaming_assistant", contentType = "streaming_assistant") {
                                         StreamingAssistantMessageItem(
                                             streamingContent = streamingContent,
                                             streamingReasoning = streamingReasoning,
@@ -876,7 +895,7 @@ fun HomeScreen(
                                     }
                                 }
 
-                                item(key = "chat_bottom_anchor") {
+                                item(key = "chat_bottom_anchor", contentType = "bottom_anchor") {
                                     Spacer(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -887,12 +906,9 @@ fun HomeScreen(
                         }
                     }
 
-                    // Solid-to-fade bottom gradient: messages smoothly dissolve before the input capsule, with 100% solid background behind the capsule and navbar
+                    // Seamless, slightly transparent bottom gradient: messages softly dissolve through the capsule and navbar down to the bottom edge
                     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                    val bottomSolidHeight = if (isImeOpen) 70.dp else navBarBottom + 74.dp
-                    val bottomFadeHeight = 44.dp
-                    val totalBottomScrimHeight = bottomSolidHeight + bottomFadeHeight
-                    val fadeFraction = if (totalBottomScrimHeight > 0.dp) (bottomFadeHeight / totalBottomScrimHeight).coerceIn(0f, 1f) else 0.4f
+                    val totalBottomScrimHeight = if (isImeOpen) 104.dp else navBarBottom + 108.dp
                     val currentBottomBg = LocalWyrdColors.current.background
                     Box(
                         modifier = Modifier
@@ -904,9 +920,12 @@ fun HomeScreen(
                                 Brush.verticalGradient(
                                     colorStops = arrayOf(
                                         0.0f to Color.Transparent,
-                                        fadeFraction * 0.35f to currentBottomBg.copy(alpha = 0.25f),
-                                        fadeFraction * 0.70f to currentBottomBg.copy(alpha = 0.65f),
-                                        fadeFraction to currentBottomBg,
+                                        0.15f to currentBottomBg.copy(alpha = 0.12f),
+                                        0.30f to currentBottomBg.copy(alpha = 0.28f),
+                                        0.48f to currentBottomBg.copy(alpha = 0.48f),
+                                        0.66f to currentBottomBg.copy(alpha = 0.66f),
+                                        0.82f to currentBottomBg.copy(alpha = 0.82f),
+                                        0.92f to currentBottomBg.copy(alpha = 0.92f),
                                         1.0f to currentBottomBg
                                     )
                                 )
@@ -1177,9 +1196,7 @@ fun HomeScreen(
                         )
                     }
 
-                    // Subtle fade-to-background top gradient: messages smoothly dissolve behind top bar and status bar
-                    // The region behind the top bar is completely solid (alpha = 1.0) through topSolidHeight to eliminate text ghosting/collision.
-                    val solidFraction = if (topGradientHeight > 0.dp) (topSolidHeight / topGradientHeight).coerceIn(0f, 1f) else 0.7f
+                    // Seamless, slightly transparent top gradient: messages softly dissolve through the top bar and status bar to the top edge
                     val currentBg = LocalWyrdColors.current.background
                     Box(
                         modifier = Modifier
@@ -1190,9 +1207,11 @@ fun HomeScreen(
                                 Brush.verticalGradient(
                                     colorStops = arrayOf(
                                         0.0f to currentBg,
-                                        solidFraction to currentBg,
-                                        solidFraction + (1f - solidFraction) * 0.40f to currentBg.copy(alpha = 0.70f),
-                                        solidFraction + (1f - solidFraction) * 0.75f to currentBg.copy(alpha = 0.30f),
+                                        0.18f to currentBg.copy(alpha = 0.92f),
+                                        0.38f to currentBg.copy(alpha = 0.80f),
+                                        0.58f to currentBg.copy(alpha = 0.62f),
+                                        0.78f to currentBg.copy(alpha = 0.32f),
+                                        0.90f to currentBg.copy(alpha = 0.10f),
                                         1.0f to Color.Transparent
                                     )
                                 )

@@ -70,7 +70,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -605,15 +605,17 @@ fun CodeBlockCard(
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     var blockTopInParent by remember { mutableStateOf(0f) }
 
-    LaunchedEffect(localHighlightRange, textLayoutResult) {
-        if (localHighlightRange == null) return@LaunchedEffect
-        val layout = textLayoutResult ?: return@LaunchedEffect
-        val (start, _) = localHighlightRange
-        val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
-        val line = layout.getLineForOffset(safeOffset)
-        val lineTop = layout.getLineTop(line) + blockTopInParent
-        val lineBottom = layout.getLineBottom(line) + blockTopInParent
-        onActiveWordPosition?.invoke(line, lineTop, lineBottom)
+    if (onActiveWordPosition != null) {
+        LaunchedEffect(localHighlightRange, textLayoutResult) {
+            if (localHighlightRange == null) return@LaunchedEffect
+            val layout = textLayoutResult ?: return@LaunchedEffect
+            val (start, _) = localHighlightRange
+            val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
+            val line = layout.getLineForOffset(safeOffset)
+            val lineTop = layout.getLineTop(line) + blockTopInParent
+            val lineBottom = layout.getLineBottom(line) + blockTopInParent
+            onActiveWordPosition.invoke(line, lineTop, lineBottom)
+        }
     }
 
     Box(
@@ -623,9 +625,13 @@ fun CodeBlockCard(
             .clip(RoundedCornerShape(12.dp))
             .background(currentSurface)
             .border(1.dp, currentBorder, RoundedCornerShape(12.dp))
-            .onGloballyPositioned { coordinates ->
-                blockTopInParent = coordinates.positionInParent().y
-            }
+            .then(
+                if (onActiveWordPosition != null) {
+                    Modifier.onPlaced { coordinates ->
+                        blockTopInParent = coordinates.positionInParent().y
+                    }
+                } else Modifier
+            )
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // Header Bar
@@ -1064,15 +1070,17 @@ private fun HeaderBlockItem(
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     var blockTopInParent by remember { mutableStateOf(0f) }
 
-    LaunchedEffect(localHighlightRange, textLayoutResult) {
-        if (localHighlightRange == null) return@LaunchedEffect
-        val layout = textLayoutResult ?: return@LaunchedEffect
-        val (start, _) = localHighlightRange
-        val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
-        val line = layout.getLineForOffset(safeOffset)
-        val lineTop = layout.getLineTop(line) + blockTopInParent
-        val lineBottom = layout.getLineBottom(line) + blockTopInParent
-        onActiveWordPosition?.invoke(line, lineTop, lineBottom)
+    if (onActiveWordPosition != null) {
+        LaunchedEffect(localHighlightRange, textLayoutResult) {
+            if (localHighlightRange == null) return@LaunchedEffect
+            val layout = textLayoutResult ?: return@LaunchedEffect
+            val (start, _) = localHighlightRange
+            val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
+            val line = layout.getLineForOffset(safeOffset)
+            val lineTop = layout.getLineTop(line) + blockTopInParent
+            val lineBottom = layout.getLineBottom(line) + blockTopInParent
+            onActiveWordPosition.invoke(line, lineTop, lineBottom)
+        }
     }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1103,9 +1111,13 @@ private fun HeaderBlockItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = topPadding, bottom = bottomPadding)
-            .onGloballyPositioned { coordinates ->
-                blockTopInParent = coordinates.positionInParent().y
-            }
+            .then(
+                if (onActiveWordPosition != null) {
+                    Modifier.onPlaced { coordinates ->
+                        blockTopInParent = coordinates.positionInParent().y
+                    }
+                } else Modifier
+            )
             .pointerInput(blockStart, block.formatted.plainText) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -1180,15 +1192,17 @@ private fun ParagraphBlockItem(
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     var blockTopInParent by remember { mutableStateOf(0f) }
 
-    LaunchedEffect(localHighlightRange, textLayoutResult) {
-        if (localHighlightRange == null) return@LaunchedEffect
-        val layout = textLayoutResult ?: return@LaunchedEffect
-        val (start, _) = localHighlightRange
-        val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
-        val line = layout.getLineForOffset(safeOffset)
-        val lineTop = layout.getLineTop(line) + blockTopInParent
-        val lineBottom = layout.getLineBottom(line) + blockTopInParent
-        onActiveWordPosition?.invoke(line, lineTop, lineBottom)
+    if (onActiveWordPosition != null) {
+        LaunchedEffect(localHighlightRange, textLayoutResult) {
+            if (localHighlightRange == null) return@LaunchedEffect
+            val layout = textLayoutResult ?: return@LaunchedEffect
+            val (start, _) = localHighlightRange
+            val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
+            val line = layout.getLineForOffset(safeOffset)
+            val lineTop = layout.getLineTop(line) + blockTopInParent
+            val lineBottom = layout.getLineBottom(line) + blockTopInParent
+            onActiveWordPosition.invoke(line, lineTop, lineBottom)
+        }
     }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1197,9 +1211,13 @@ private fun ParagraphBlockItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 10.dp)
-            .onGloballyPositioned { coordinates ->
-                blockTopInParent = coordinates.positionInParent().y
-            }
+            .then(
+                if (onActiveWordPosition != null) {
+                    Modifier.onPlaced { coordinates ->
+                        blockTopInParent = coordinates.positionInParent().y
+                    }
+                } else Modifier
+            )
             .pointerInput(blockStart, block.formatted.plainText) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -1274,15 +1292,17 @@ private fun BulletBlockItem(
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     var blockTopInParent by remember { mutableStateOf(0f) }
 
-    LaunchedEffect(localHighlightRange, textLayoutResult) {
-        if (localHighlightRange == null) return@LaunchedEffect
-        val layout = textLayoutResult ?: return@LaunchedEffect
-        val (start, _) = localHighlightRange
-        val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
-        val line = layout.getLineForOffset(safeOffset)
-        val lineTop = layout.getLineTop(line) + blockTopInParent
-        val lineBottom = layout.getLineBottom(line) + blockTopInParent
-        onActiveWordPosition?.invoke(line, lineTop, lineBottom)
+    if (onActiveWordPosition != null) {
+        LaunchedEffect(localHighlightRange, textLayoutResult) {
+            if (localHighlightRange == null) return@LaunchedEffect
+            val layout = textLayoutResult ?: return@LaunchedEffect
+            val (start, _) = localHighlightRange
+            val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
+            val line = layout.getLineForOffset(safeOffset)
+            val lineTop = layout.getLineTop(line) + blockTopInParent
+            val lineBottom = layout.getLineBottom(line) + blockTopInParent
+            onActiveWordPosition.invoke(line, lineTop, lineBottom)
+        }
     }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1291,9 +1311,13 @@ private fun BulletBlockItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 3.dp)
-            .onGloballyPositioned { coordinates ->
-                blockTopInParent = coordinates.positionInParent().y
-            },
+            .then(
+                if (onActiveWordPosition != null) {
+                    Modifier.onPlaced { coordinates ->
+                        blockTopInParent = coordinates.positionInParent().y
+                    }
+                } else Modifier
+            ),
         verticalAlignment = Alignment.Top
     ) {
         Text(
@@ -1387,15 +1411,17 @@ private fun NumberedBlockItem(
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     var blockTopInParent by remember { mutableStateOf(0f) }
 
-    LaunchedEffect(localHighlightRange, textLayoutResult) {
-        if (localHighlightRange == null) return@LaunchedEffect
-        val layout = textLayoutResult ?: return@LaunchedEffect
-        val (start, _) = localHighlightRange
-        val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
-        val line = layout.getLineForOffset(safeOffset)
-        val lineTop = layout.getLineTop(line) + blockTopInParent
-        val lineBottom = layout.getLineBottom(line) + blockTopInParent
-        onActiveWordPosition?.invoke(line, lineTop, lineBottom)
+    if (onActiveWordPosition != null) {
+        LaunchedEffect(localHighlightRange, textLayoutResult) {
+            if (localHighlightRange == null) return@LaunchedEffect
+            val layout = textLayoutResult ?: return@LaunchedEffect
+            val (start, _) = localHighlightRange
+            val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
+            val line = layout.getLineForOffset(safeOffset)
+            val lineTop = layout.getLineTop(line) + blockTopInParent
+            val lineBottom = layout.getLineBottom(line) + blockTopInParent
+            onActiveWordPosition.invoke(line, lineTop, lineBottom)
+        }
     }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1404,9 +1430,13 @@ private fun NumberedBlockItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 3.dp)
-            .onGloballyPositioned { coordinates ->
-                blockTopInParent = coordinates.positionInParent().y
-            },
+            .then(
+                if (onActiveWordPosition != null) {
+                    Modifier.onPlaced { coordinates ->
+                        blockTopInParent = coordinates.positionInParent().y
+                    }
+                } else Modifier
+            ),
         verticalAlignment = Alignment.Top
     ) {
         Text(
@@ -1502,15 +1532,17 @@ private fun BlockquoteCard(
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     var blockTopInParent by remember { mutableStateOf(0f) }
 
-    LaunchedEffect(localHighlightRange, textLayoutResult) {
-        if (localHighlightRange == null) return@LaunchedEffect
-        val layout = textLayoutResult ?: return@LaunchedEffect
-        val (start, _) = localHighlightRange
-        val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
-        val line = layout.getLineForOffset(safeOffset)
-        val lineTop = layout.getLineTop(line) + blockTopInParent
-        val lineBottom = layout.getLineBottom(line) + blockTopInParent
-        onActiveWordPosition?.invoke(line, lineTop, lineBottom)
+    if (onActiveWordPosition != null) {
+        LaunchedEffect(localHighlightRange, textLayoutResult) {
+            if (localHighlightRange == null) return@LaunchedEffect
+            val layout = textLayoutResult ?: return@LaunchedEffect
+            val (start, _) = localHighlightRange
+            val safeOffset = start.coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
+            val line = layout.getLineForOffset(safeOffset)
+            val lineTop = layout.getLineTop(line) + blockTopInParent
+            val lineBottom = layout.getLineBottom(line) + blockTopInParent
+            onActiveWordPosition.invoke(line, lineTop, lineBottom)
+        }
     }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1519,9 +1551,13 @@ private fun BlockquoteCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .onGloballyPositioned { coordinates ->
-                blockTopInParent = coordinates.positionInParent().y
-            }
+            .then(
+                if (onActiveWordPosition != null) {
+                    Modifier.onPlaced { coordinates ->
+                        blockTopInParent = coordinates.positionInParent().y
+                    }
+                } else Modifier
+            )
     ) {
         Box(
             modifier = Modifier
@@ -1639,9 +1675,13 @@ fun AssistantMessageItem(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .onGloballyPositioned { coordinates ->
-                    textTopInItem = coordinates.positionInParent().y
-                }
+                .then(
+                    if (isCurrentMessage && onActiveWordPosition != null) {
+                        Modifier.onPlaced { coordinates ->
+                            textTopInItem = coordinates.positionInParent().y
+                        }
+                    } else Modifier
+                )
         ) {
             SelectionContainer(
                 modifier = Modifier.suppressBringIntoView()

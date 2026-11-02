@@ -9,8 +9,10 @@ import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import androidx.compose.runtime.Immutable
 import java.util.Locale
 
+@Immutable
 data class TtsPlaybackState(
     val messageId: Long? = null,
     val isPlaying: Boolean = false,

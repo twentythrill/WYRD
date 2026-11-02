@@ -726,12 +726,12 @@ export function ChatArea({
   const isEmptyState = (!chat || displayedMessages.length === 0) && !isGenerating
 
   const topGradient = isDark
-    ? 'linear-gradient(to bottom, #000000 0%, #000000 52px, rgba(0,0,0,0.85) 70px, rgba(0,0,0,0.45) 88px, rgba(0,0,0,0.12) 102px, transparent 112px)'
-    : 'linear-gradient(to bottom, #F9F9F7 0%, #F9F9F7 52px, rgba(249,249,247,0.85) 70px, rgba(249,249,247,0.45) 88px, rgba(249,249,247,0.12) 102px, transparent 112px)'
+    ? 'linear-gradient(to bottom, #000000 0%, rgba(0,0,0,0.92) 18%, rgba(0,0,0,0.80) 38%, rgba(0,0,0,0.62) 58%, rgba(0,0,0,0.32) 78%, rgba(0,0,0,0.10) 90%, transparent 100%)'
+    : 'linear-gradient(to bottom, #F9F9F7 0%, rgba(249,249,247,0.92) 18%, rgba(249,249,247,0.80) 38%, rgba(249,249,247,0.62) 58%, rgba(249,249,247,0.32) 78%, rgba(249,249,247,0.10) 90%, transparent 100%)'
 
   const bottomGradient = isDark
-    ? 'linear-gradient(to top, #000000 0%, rgba(0,0,0,0.90) 25%, rgba(0,0,0,0.70) 50%, rgba(0,0,0,0.38) 75%, rgba(0,0,0,0.12) 90%, transparent 100%)'
-    : 'linear-gradient(to top, #F9F9F7 0%, rgba(249,249,247,0.90) 25%, rgba(249,249,247,0.70) 50%, rgba(249,249,247,0.38) 75%, rgba(249,249,247,0.12) 90%, transparent 100%)'
+    ? 'linear-gradient(to top, #000000 0%, rgba(0,0,0,0.92) 8%, rgba(0,0,0,0.82) 18%, rgba(0,0,0,0.66) 34%, rgba(0,0,0,0.48) 52%, rgba(0,0,0,0.28) 70%, rgba(0,0,0,0.12) 85%, transparent 100%)'
+    : 'linear-gradient(to top, #F9F9F7 0%, rgba(249,249,247,0.92) 8%, rgba(249,249,247,0.82) 18%, rgba(249,249,247,0.66) 34%, rgba(249,249,247,0.48) 52%, rgba(249,249,247,0.28) 70%, rgba(249,249,247,0.12) 85%, transparent 100%)'
 
   // --- Reusable Input Capsule & Attachments Sub-renderers ---
   const renderAudioError = () => {
