@@ -448,7 +448,7 @@ export function SettingsModal({
           {/* Version Footer */}
           <div className="pt-2 pb-1 text-center">
             <span className={`text-[11px] font-sans tracking-[0.8px] ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>
-              WYRD v1.6.1
+              WYRD v1.6.8
             </span>
           </div>
         </div>
