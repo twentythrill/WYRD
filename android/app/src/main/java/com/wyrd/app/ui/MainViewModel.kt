@@ -609,6 +609,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         hapticManager.click()
         viewModelScope.launch {
             preferencesManager.setActiveModel(model)
+            val key = if (model.isOpenAi) {
+                secureKeyStorage.getOpenAiApiKey()
+            } else {
+                secureKeyStorage.getXiaomiApiKey()
+            }
+            mimoService.prewarmConnection(key, model, customBaseUrl.value)
         }
     }
 
@@ -657,6 +663,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _currentAttachments.value = emptyList()
         val editingMsg = _editingMessage.value
         _editingMessage.value = null
+        _isGenerating.value = true
+        _streamingContent.value = ""
+        _streamingReasoning.value = ""
+        _streamingStatus.value = "Sending..."
+        _errorMessage.value = null
 
         generationJob = app.applicationScope.launch(Dispatchers.IO) {
             var currentChatId = _activeChatId.value
@@ -762,6 +773,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         autoReadNextAssistantMessage = false
         _editingMessage.value = null
         nativeTtsManager.stop()
+        _isGenerating.value = true
+        _streamingContent.value = ""
+        _streamingReasoning.value = ""
+        _streamingStatus.value = "Sending..."
+        _errorMessage.value = null
 
         generationJob = app.applicationScope.launch(Dispatchers.IO) {
             val chatId = fromUserMessage.chatId

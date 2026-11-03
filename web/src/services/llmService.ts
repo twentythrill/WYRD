@@ -92,6 +92,7 @@ export function extractToolCall(text: string, explicitToolName?: string): Extrac
 class ThinkAndToolParser {
   private inThink = false
   private inTool = false
+  private hasNotifiedToolStart = false
   private wasInThinkBeforeTool = false
   private buffer = ''
   private toolCallBuffer = ''
@@ -108,7 +109,8 @@ class ThinkAndToolParser {
   feed(
     chunk: string,
     onContent: (s: string) => void,
-    onReasoning: (s: string) => void
+    onReasoning: (s: string) => void,
+    onToolStart?: () => void
   ) {
     this.buffer += chunk
 
@@ -190,6 +192,10 @@ class ThinkAndToolParser {
           }
 
           if (tagType === 'tool_open') {
+            if (!this.hasNotifiedToolStart) {
+              this.hasNotifiedToolStart = true
+              onToolStart?.()
+            }
             const closeBracketIdx = this.buffer.indexOf('>', firstTagIdx)
             if (closeBracketIdx === -1) {
               this.buffer = this.buffer.substring(firstTagIdx)
@@ -265,32 +271,58 @@ const PROXY_OPENAI_CHAT_COMPLETIONS_ENDPOINT = '/api/openai/v1/chat/completions'
 const OPENAI_RESPONSES_ENDPOINT = 'https://api.openai.com/v1/responses'
 const OPENAI_CHAT_COMPLETIONS_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
 
+function getEndpointCacheKey(model: string = 'mimo-v2.6-pro', apiKey: string = ''): string {
+  return `wyrd_working_ep_${model}_${apiKey.trim().slice(0, 4)}`
+}
+
+function getCachedWorkingEndpoint(model: string = 'mimo-v2.6-pro', apiKey: string = ''): string | null {
+  try {
+    return localStorage.getItem(getEndpointCacheKey(model, apiKey))
+  } catch {
+    return null
+  }
+}
+
+function saveWorkingEndpoint(model: string = 'mimo-v2.6-pro', apiKey: string = '', endpoint: string) {
+  try {
+    localStorage.setItem(getEndpointCacheKey(model, apiKey), endpoint)
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 function getCandidateEndpoints(apiKey: string, customBaseUrl?: string, model?: string): string[] {
+  const cached = getCachedWorkingEndpoint(model || 'mimo-v2.6-pro', apiKey)
+  const prioritize = (list: string[]) =>
+    cached && list.includes(cached) ? [cached, ...list.filter((e) => e !== cached)] : list
+
   const trimmed = customBaseUrl?.trim()
   if (trimmed && trimmed !== 'https://api.siliconflow.cn/v1') {
     const clean = trimmed.replace(/\/+$/, '')
     if (clean.endsWith('/responses') || clean.endsWith('/chat/completions')) {
       return [clean]
     }
-    return model === 'gpt-6.1-sol'
-      ? [`${clean}/responses`, `${clean}/chat/completions`]
-      : [`${clean}/chat/completions`]
+    return prioritize(
+      model === 'gpt-6.1-sol'
+        ? [`${clean}/responses`, `${clean}/chat/completions`]
+        : [`${clean}/chat/completions`]
+    )
   }
 
   if (model === 'gpt-6.1-sol') {
-    return [
+    return prioritize([
       PROXY_OPENAI_RESPONSES_ENDPOINT,
       PROXY_OPENAI_CHAT_COMPLETIONS_ENDPOINT,
       OPENAI_RESPONSES_ENDPOINT,
       OPENAI_CHAT_COMPLETIONS_ENDPOINT,
-    ]
+    ])
   }
 
   const cleanKey = apiKey.trim()
   if (cleanKey.startsWith('tp-') || cleanKey.startsWith('ttp-')) {
-    return [TOKEN_PLAN_ENDPOINT, PAY_AS_YOU_GO_ENDPOINT]
+    return prioritize([TOKEN_PLAN_ENDPOINT, PAY_AS_YOU_GO_ENDPOINT])
   }
-  return [PAY_AS_YOU_GO_ENDPOINT, TOKEN_PLAN_ENDPOINT]
+  return prioritize([PAY_AS_YOU_GO_ENDPOINT, TOKEN_PLAN_ENDPOINT])
 }
 
 export async function* streamLlmCompletion({
@@ -390,6 +422,8 @@ If the request does not require external search, answer directly without invokin
   let toolExecutionRounds = 0
   const maxToolExecutionRounds = isSearchEnabled ? 3 : 0
 
+  yield { status: 'Sending...' }
+
   while (toolExecutionRounds <= maxToolExecutionRounds) {
     if (signal?.aborted) return
 
@@ -397,6 +431,7 @@ If the request does not require external search, answer directly without invokin
     let lastError = ''
     let roundContentAccumulator = ''
     let hasEmittedReasoning = false
+    let hasSignaledToolStart = false
     let toolCallName = ''
     let toolCallArgs = ''
     let isStreamSuccess = false
@@ -435,8 +470,8 @@ If the request does not require external search, answer directly without invokin
           ...(effectiveSystemPrompt ? { instructions: effectiveSystemPrompt } : {}),
           input: inputItems,
           reasoning: isThinking
-            ? { mode: 'pro', effort: 'medium', summary: 'detailed' }
-            : { mode: 'standard', effort: 'low' },
+            ? { effort: 'medium', summary: 'detailed' }
+            : { effort: 'low' },
         }
 
         if (isSearchEnabled && toolExecutionRounds < maxToolExecutionRounds && !hasImagesInConversation) {
@@ -520,6 +555,10 @@ If the request does not require external search, answer directly without invokin
           continue
         }
 
+        if (toolExecutionRounds === 0 && !roundContentAccumulator && !hasEmittedReasoning && !hasSignaledToolStart) {
+          yield { status: isThinking ? 'Thinking...' : 'Waiting for response...' }
+        }
+
         const decoder = new TextDecoder()
         let buffer = ''
 
@@ -573,6 +612,7 @@ If the request does not require external search, answer directly without invokin
                 if (deltaText && deltaText !== 'null') {
                   const contentChunks: string[] = []
                   const reasoningChunks: string[] = []
+                  let toolStarted = false
 
                   parser.feed(
                     deltaText,
@@ -580,9 +620,18 @@ If the request does not require external search, answer directly without invokin
                     (r) => {
                       hasEmittedReasoning = true
                       reasoningChunks.push(r)
+                    },
+                    () => {
+                      if (!hasSignaledToolStart) {
+                        hasSignaledToolStart = true
+                        toolStarted = true
+                      }
                     }
                   )
 
+                  if (toolStarted) {
+                    yield { status: 'Searching web...' }
+                  }
                   if (isThinking) {
                     for (const r of reasoningChunks) {
                       yield { reasoning: r }
@@ -597,12 +646,20 @@ If the request does not require external search, answer directly without invokin
               // 3. Responses API: function call output item added
               else if (eventType === 'response.output_item.added') {
                 if (parsed.item?.type === 'function_call') {
+                  if (!hasSignaledToolStart) {
+                    hasSignaledToolStart = true
+                    yield { status: 'Searching web...' }
+                  }
                   if (parsed.item.name) toolCallName = parsed.item.name
                   if (parsed.item.arguments) toolCallArgs += parsed.item.arguments
                 }
               }
               // 4. Responses API: function call arguments delta
               else if (eventType === 'response.function_call_arguments.delta') {
+                if (!hasSignaledToolStart) {
+                  hasSignaledToolStart = true
+                  yield { status: 'Searching web...' }
+                }
                 if (parsed.delta) toolCallArgs += parsed.delta
               }
               // 5. Responses API: function call or reasoning output item done fallback
@@ -656,6 +713,10 @@ If the request does not require external search, answer directly without invokin
 
                   // Native OpenAI tool call streaming
                   if (delta.tool_calls) {
+                    if (!hasSignaledToolStart) {
+                      hasSignaledToolStart = true
+                      yield { status: 'Searching web...' }
+                    }
                     for (const tc of delta.tool_calls) {
                       if (tc.function?.name) {
                         toolCallName = tc.function.name
@@ -677,13 +738,23 @@ If the request does not require external search, answer directly without invokin
                   if (delta.content && delta.content !== 'null') {
                     const contentChunks: string[] = []
                     const reasoningChunks: string[] = []
+                    let toolStarted = false
 
                     parser.feed(
                       delta.content,
                       (c) => contentChunks.push(c),
-                      (r) => reasoningChunks.push(r)
+                      (r) => reasoningChunks.push(r),
+                      () => {
+                        if (!hasSignaledToolStart) {
+                          hasSignaledToolStart = true
+                          toolStarted = true
+                        }
+                      }
                     )
 
+                    if (toolStarted) {
+                      yield { status: 'Searching web...' }
+                    }
                     if (isThinking) {
                       for (const r of reasoningChunks) {
                         yield { reasoning: r }
@@ -727,7 +798,9 @@ If the request does not require external search, answer directly without invokin
           yield { content: c }
         }
 
-        if (isStreamSuccess) {
+        if (isStreamSuccess || roundContentAccumulator || toolCallName || toolCallArgs || parser.getToolCallContent()) {
+          isStreamSuccess = true
+          saveWorkingEndpoint(model, effectiveKey, endpoint)
           break
         }
       } catch (err: unknown) {

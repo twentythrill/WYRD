@@ -46,10 +46,12 @@ data class ChatMessagePayload(
  */
 class ThinkAndToolParser(
     private val onContent: suspend (String) -> Unit,
-    private val onReasoning: suspend (String) -> Unit
+    private val onReasoning: suspend (String) -> Unit,
+    private val onToolStart: (suspend () -> Unit)? = null
 ) {
     private var inThink = false
     private var inTool = false
+    private var hasNotifiedToolStart = false
     private var wasInThinkBeforeTool = false
     private val buffer = StringBuilder()
     private val toolCallBuffer = StringBuilder()
@@ -149,6 +151,10 @@ class ThinkAndToolParser(
 
                     when (tagType) {
                         TagType.TOOL_OPEN -> {
+                            if (!hasNotifiedToolStart) {
+                                hasNotifiedToolStart = true
+                                onToolStart?.invoke()
+                            }
                             val closeBracketIdx = buffer.indexOf(">", firstTagIdx)
                             if (closeBracketIdx == -1) {
                                 // Keep tag prefix in buffer until full opening tag > arrives
@@ -239,12 +245,86 @@ class XiaomiMimoService(
         // otherwise healthy Android connections look like interrupted replies.
         .readTimeout(90, TimeUnit.SECONDS)
         .writeTimeout(15, TimeUnit.SECONDS)
-        .build()
+        .build(),
+    context: android.content.Context? = null
 ) {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
+    private val routePrefs = context?.applicationContext
+        ?.getSharedPreferences("wyrd_llm_route_cache", android.content.Context.MODE_PRIVATE)
+    private val workingEndpointCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val workingPayloadVariantCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val prewarmedOrigins = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
-    @Volatile
-    private var lastWorkingEndpoint: String? = null
+    private fun getEndpointCacheKey(model: SupportedModel, cleanKey: String): String {
+        val keyPrefix = cleanKey.take(4)
+        return "ep_${model.id}_$keyPrefix"
+    }
+
+    private fun getCachedWorkingEndpoint(model: SupportedModel, cleanKey: String): String? {
+        val cacheKey = getEndpointCacheKey(model, cleanKey)
+        return workingEndpointCache[cacheKey] ?: routePrefs?.getString(cacheKey, null)?.also {
+            workingEndpointCache[cacheKey] = it
+        }
+    }
+
+    private fun saveWorkingEndpoint(model: SupportedModel, cleanKey: String, endpoint: String) {
+        val cacheKey = getEndpointCacheKey(model, cleanKey)
+        workingEndpointCache[cacheKey] = endpoint
+        routePrefs?.edit()?.putString(cacheKey, endpoint)?.apply()
+    }
+
+    private fun getPayloadCacheKey(
+        endpoint: String,
+        candidateId: String,
+        isThinkingEnabled: Boolean,
+        hasTools: Boolean
+    ): String = "pl_${endpoint}_${candidateId}_think=${isThinkingEnabled}_tools=$hasTools"
+
+    private fun getCachedPayloadVariant(cacheKey: String): String? {
+        return workingPayloadVariantCache[cacheKey] ?: routePrefs?.getString(cacheKey, null)?.also {
+            workingPayloadVariantCache[cacheKey] = it
+        }
+    }
+
+    private fun saveWorkingPayloadVariant(cacheKey: String, variantKey: String) {
+        if (variantKey.isBlank()) return
+        workingPayloadVariantCache[cacheKey] = variantKey
+        routePrefs?.edit()?.putString(cacheKey, variantKey)?.apply()
+    }
+
+    /**
+     * Pre-warms DNS + TCP + TLS 1.3 connection to the active LLM endpoint in the background
+     * so the user's first prompt reuses a warm HTTP/2 socket from OkHttp's ConnectionPool.
+     */
+    suspend fun prewarmConnection(
+        apiKey: String,
+        model: SupportedModel,
+        customBaseUrl: String? = null
+    ) = withContext(Dispatchers.IO) {
+        val cleanKey = apiKey.trim()
+        if (cleanKey.isBlank()) return@withContext
+        val primaryEndpoint = getCandidateEndpoints(cleanKey, customBaseUrl, model).firstOrNull()
+            ?: return@withContext
+        val originUrl = try {
+            val uri = java.net.URI(primaryEndpoint)
+            "${uri.scheme}://${uri.authority}"
+        } catch (_: Exception) {
+            primaryEndpoint
+        }
+        val now = System.currentTimeMillis()
+        val lastWarm = prewarmedOrigins[originUrl] ?: 0L
+        if (now - lastWarm < 60_000L) return@withContext
+        prewarmedOrigins[originUrl] = now
+        try {
+            val req = Request.Builder()
+                .url(originUrl)
+                .head()
+                .build()
+            client.newCall(req).execute().close()
+        } catch (_: Throwable) {
+            // Best-effort connection warm-up
+        }
+    }
 
     fun streamChatCompletion(
         apiKey: String,
@@ -358,6 +438,7 @@ class XiaomiMimoService(
             var lastErrorMsg = "Unable to connect to $providerName API"
             var tokenEmittedCount = 0
             var hasEmittedReasoning = false
+            var hasSignaledToolStart = false
             var toolCallId = ""
             var toolCallName = ""
             val toolCallArgs = StringBuilder()
@@ -375,8 +456,15 @@ class XiaomiMimoService(
                 val toolsForEndpoint = if (currentWebTools != null) {
                     if (isResponsesApi) getResponsesApiWebSearchTools() else currentWebTools
                 } else null
+                val hasEndpointTools = toolsForEndpoint != null && toolsForEndpoint.length() > 0
 
                 for (candidateId in candidateModels) {
+                    val payloadCacheKey = getPayloadCacheKey(
+                        endpoint = endpoint,
+                        candidateId = candidateId,
+                        isThinkingEnabled = isThinkingEnabled,
+                        hasTools = hasEndpointTools
+                    )
                     val payloads = buildCandidatePayloads(
                         candidateId = candidateId,
                         messagesJsonArray = currentMessages,
@@ -385,12 +473,17 @@ class XiaomiMimoService(
                         tools = toolsForEndpoint,
                         isSol = isSol,
                         isResponsesApi = isResponsesApi,
-                        effectiveSystemPrompt = effectiveSystemPrompt
+                        effectiveSystemPrompt = effectiveSystemPrompt,
+                        preferredVariantKey = getCachedPayloadVariant(payloadCacheKey)
                     )
                     for (payload in payloads) {
+                        val variantKey = payload.optString("_wyrdVariantKey", "")
+                        if (payload.has("_wyrdVariantKey")) {
+                            payload.remove("_wyrdVariantKey")
+                        }
                         val thinkingInfo = payload.optJSONObject("thinking")?.optString("type")
                             ?: payload.optString("reasoning_effort", payload.optJSONObject("reasoning")?.optString("effort") ?: "none")
-                        Log.d(TAG, "Attempting stream endpoint: $endpoint with model: $candidateId, isThinkingEnabled=$isThinkingEnabled, thinking=$thinkingInfo")
+                        Log.d(TAG, "Attempting stream endpoint: $endpoint with model: $candidateId, isThinkingEnabled=$isThinkingEnabled, thinking=$thinkingInfo, variant=$variantKey")
 
                         val requestBuilder = Request.Builder()
                             .url(endpoint)
@@ -427,6 +520,11 @@ class XiaomiMimoService(
                                 continue
                             }
 
+                            // Prompt has been accepted by the server; update UI status so it doesn't stay stuck on "Sending..."
+                            if (toolExecutionRounds == 0 && tokenEmittedCount == 0 && !hasSignaledToolStart) {
+                                emit(StreamEvent.Status(if (isThinkingEnabled) "Thinking..." else "Waiting for response..."))
+                            }
+
                             val reader = BufferedReader(InputStreamReader(body.byteStream()))
                             val parser = ThinkAndToolParser(
                                 onContent = {
@@ -439,6 +537,12 @@ class XiaomiMimoService(
                                         hasEmittedReasoning = true
                                         tokenEmittedCount++
                                         emit(StreamEvent.Reasoning(it))
+                                    }
+                                },
+                                onToolStart = {
+                                    if (!hasSignaledToolStart) {
+                                        hasSignaledToolStart = true
+                                        emit(StreamEvent.Status("Searching web..."))
                                     }
                                 }
                             )
@@ -493,6 +597,10 @@ class XiaomiMimoService(
                                         else if (eventType == "response.output_item.added") {
                                             val item = json.optJSONObject("item")
                                             if (item != null && item.optString("type", "") == "function_call") {
+                                                if (!hasSignaledToolStart) {
+                                                    hasSignaledToolStart = true
+                                                    emit(StreamEvent.Status("Searching web..."))
+                                                }
                                                 val callId = item.optString("call_id", item.optString("id", ""))
                                                 if (callId.isNotBlank()) toolCallId = callId
                                                 val name = item.optString("name", "")
@@ -503,6 +611,10 @@ class XiaomiMimoService(
                                         }
                                         // 4. Responses API: function call arguments delta
                                         else if (eventType == "response.function_call_arguments.delta") {
+                                            if (!hasSignaledToolStart) {
+                                                hasSignaledToolStart = true
+                                                emit(StreamEvent.Status("Searching web..."))
+                                            }
                                             val argsChunk = json.optString("delta", "")
                                             if (argsChunk.isNotEmpty()) {
                                                 toolCallArgs.append(argsChunk)
@@ -589,6 +701,10 @@ class XiaomiMimoService(
 
                                                     val deltaToolCalls = delta.optJSONArray("tool_calls")
                                                     if (deltaToolCalls != null && deltaToolCalls.length() > 0) {
+                                                        if (!hasSignaledToolStart) {
+                                                            hasSignaledToolStart = true
+                                                            emit(StreamEvent.Status("Searching web..."))
+                                                        }
                                                         for (tIdx in 0 until deltaToolCalls.length()) {
                                                             val tc = deltaToolCalls.getJSONObject(tIdx)
                                                             val id = tc.optString("id", "")
@@ -649,8 +765,9 @@ class XiaomiMimoService(
                                 response.close()
                             }
 
-                            if (tokenEmittedCount > 0 || toolCallName.isNotBlank()) {
-                                lastWorkingEndpoint = endpoint
+                            if (tokenEmittedCount > 0 || toolCallName.isNotBlank() || toolCallArgs.isNotBlank() || parser.getToolCallContent().isNotBlank()) {
+                                saveWorkingEndpoint(model, cleanKey, endpoint)
+                                saveWorkingPayloadVariant(payloadCacheKey, variantKey)
                                 isStreamSuccess = true
                                 break@outerStream
                             } else {
@@ -667,7 +784,7 @@ class XiaomiMimoService(
                 }
             }
 
-            if (!isStreamSuccess && tokenEmittedCount == 0 && toolCallName.isBlank()) {
+            if (!isStreamSuccess && tokenEmittedCount == 0 && toolCallName.isBlank() && toolCallArgs.isBlank() && activeParser?.getToolCallContent().isNullOrBlank()) {
                 throw IllegalStateException(lastErrorMsg)
             }
 
@@ -1051,15 +1168,21 @@ class XiaomiMimoService(
         customBaseUrl: String? = null,
         model: SupportedModel = SupportedModel.MIMO_2_6_PRO
     ): List<String> {
+        val cached = getCachedWorkingEndpoint(model, cleanKey)
         if (model.isOpenAi) {
             if (!customBaseUrl.isNullOrBlank()) {
                 val trimmed = customBaseUrl.trim().removeSuffix("/")
-                if (trimmed.endsWith("/responses") || trimmed.endsWith("/chat/completions")) {
-                    return listOf(trimmed)
+                val customList = if (trimmed.endsWith("/responses") || trimmed.endsWith("/chat/completions")) {
+                    listOf(trimmed)
+                } else {
+                    listOf("$trimmed/responses", "$trimmed/chat/completions")
                 }
-                return listOf("$trimmed/responses", "$trimmed/chat/completions")
+                return if (cached != null && customList.contains(cached)) {
+                    listOf(cached) + customList.filter { it != cached }
+                } else {
+                    customList
+                }
             }
-            val cached = lastWorkingEndpoint
             val baseList = listOf(OPENAI_RESPONSES_ENDPOINT, OPENAI_CHAT_COMPLETIONS_ENDPOINT)
             return if (cached != null && baseList.contains(cached)) {
                 listOf(cached) + baseList.filter { it != cached }
@@ -1086,7 +1209,6 @@ class XiaomiMimoService(
             )
         }
 
-        val cached = lastWorkingEndpoint
         return if (cached != null && baseList.contains(cached)) {
             listOf(cached) + baseList.filter { it != cached }
         } else {
@@ -1098,6 +1220,16 @@ class XiaomiMimoService(
         return listOf(model.id)
     }
 
+    private fun prioritizeCachedPayload(
+        list: List<JSONObject>,
+        preferredVariantKey: String?
+    ): List<JSONObject> {
+        if (preferredVariantKey.isNullOrBlank() || list.size <= 1) return list
+        val preferred = list.firstOrNull { it.optString("_wyrdVariantKey") == preferredVariantKey }
+            ?: return list
+        return listOf(preferred) + list.filter { it !== preferred }
+    }
+
     private fun buildCandidatePayloads(
         candidateId: String,
         messagesJsonArray: JSONArray,
@@ -1106,7 +1238,8 @@ class XiaomiMimoService(
         tools: JSONArray? = null,
         isSol: Boolean = false,
         isResponsesApi: Boolean = false,
-        effectiveSystemPrompt: String = ""
+        effectiveSystemPrompt: String = "",
+        preferredVariantKey: String? = null
     ): List<JSONObject> {
         val list = mutableListOf<JSONObject>()
         val seenSignatures = mutableSetOf<String>()
@@ -1155,6 +1288,7 @@ class XiaomiMimoService(
                 reasoningSummary: String?,
                 withTools: Boolean
             ) {
+                val variantKey = "resp_mode=${reasoningMode ?: "none"}_eff=${reasoningEffort ?: "none"}_sum=${reasoningSummary ?: "none"}_tools=$withTools"
                 val payload = JSONObject().apply {
                     put("model", candidateId)
                     if (effectiveSystemPrompt.isNotBlank()) {
@@ -1178,30 +1312,35 @@ class XiaomiMimoService(
                     }
                 }
                 if (seenSignatures.add(payload.toString())) {
+                    payload.put("_wyrdVariantKey", variantKey)
                     list.add(payload)
                 }
             }
 
             if (isThinkingEnabled) {
-                // When Thinking toggle is ON: reasoning defaults to hardcoded medium effort in pro mode with summary stream
+                // Standard OpenAI Responses schema first (no non-standard 'mode' key that triggers HTTP 400), followed by custom mode fallbacks
                 if (hasTools) {
+                    addResponsesPayload(reasoningMode = null, reasoningEffort = "medium", reasoningSummary = "detailed", withTools = true)
+                    addResponsesPayload(reasoningMode = null, reasoningEffort = "medium", reasoningSummary = "auto", withTools = true)
                     addResponsesPayload(reasoningMode = "pro", reasoningEffort = "medium", reasoningSummary = "detailed", withTools = true)
                     addResponsesPayload(reasoningMode = "pro", reasoningEffort = "medium", reasoningSummary = "auto", withTools = true)
-                    addResponsesPayload(reasoningMode = null, reasoningEffort = "medium", reasoningSummary = "detailed", withTools = true)
                 }
+                addResponsesPayload(reasoningMode = null, reasoningEffort = "medium", reasoningSummary = "detailed", withTools = false)
+                addResponsesPayload(reasoningMode = null, reasoningEffort = "medium", reasoningSummary = "auto", withTools = false)
                 addResponsesPayload(reasoningMode = "pro", reasoningEffort = "medium", reasoningSummary = "detailed", withTools = false)
                 addResponsesPayload(reasoningMode = "pro", reasoningEffort = "medium", reasoningSummary = "auto", withTools = false)
-                addResponsesPayload(reasoningMode = null, reasoningEffort = "medium", reasoningSummary = "detailed", withTools = false)
             } else {
-                // When Thinking toggle is OFF: Sol reasoning is completely off in UI, standard mode / low effort in API
+                // When Thinking toggle is OFF: standard OpenAI low-effort schema first
                 if (hasTools) {
+                    addResponsesPayload(reasoningMode = null, reasoningEffort = "low", reasoningSummary = null, withTools = true)
                     addResponsesPayload(reasoningMode = "standard", reasoningEffort = "low", reasoningSummary = null, withTools = true)
                 }
+                addResponsesPayload(reasoningMode = null, reasoningEffort = "low", reasoningSummary = null, withTools = false)
                 addResponsesPayload(reasoningMode = "standard", reasoningEffort = "low", reasoningSummary = null, withTools = false)
                 addResponsesPayload(reasoningMode = null, reasoningEffort = null, reasoningSummary = null, withTools = false)
             }
 
-            return list
+            return prioritizeCachedPayload(list, preferredVariantKey)
         }
 
         if (isSol) {
@@ -1210,6 +1349,7 @@ class XiaomiMimoService(
                 withTools: Boolean,
                 useNestedReasoning: Boolean = false
             ) {
+                val variantKey = "sol_eff=${reasoningEffort ?: "none"}_nested=${useNestedReasoning}_tools=$withTools"
                 val maxTokens = if (isThinkingEnabled) 32768 else 8192
                 val payload = JSONObject().apply {
                     put("model", candidateId)
@@ -1233,6 +1373,7 @@ class XiaomiMimoService(
                     }
                 }
                 if (seenSignatures.add(payload.toString())) {
+                    payload.put("_wyrdVariantKey", variantKey)
                     list.add(payload)
                 }
             }
@@ -1251,13 +1392,14 @@ class XiaomiMimoService(
                 addOpenAiPayload(reasoningEffort = null, withTools = false)
             }
 
-            return list
+            return prioritizeCachedPayload(list, preferredVariantKey)
         }
 
         fun addPayload(
             thinkingType: String?,
             withTools: Boolean
         ) {
+            val variantKey = "mimo_think=${thinkingType ?: "none"}_tools=$withTools"
             val maxTokens = if (isThinkingEnabled) 32768 else 8192
             val temp = if (isThinkingEnabled) 1.0 else 0.7
 
@@ -1286,6 +1428,7 @@ class XiaomiMimoService(
                 }
             }
             if (seenSignatures.add(payload.toString())) {
+                payload.put("_wyrdVariantKey", variantKey)
                 list.add(payload)
             }
         }
@@ -1296,7 +1439,7 @@ class XiaomiMimoService(
         }
         addPayload(thinkingType = thinkingType, withTools = false)
 
-        return list
+        return prioritizeCachedPayload(list, preferredVariantKey)
     }
 
     data class ExtractedToolCall(

@@ -1,4 +1,4 @@
-# WYRD (v1.6.8)
+# WYRD (v1.6.9)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -13,15 +13,15 @@ WYRD/
 ├── android/          # Native Android AI Client (Kotlin + Jetpack Compose)
 │   ├── app/          # App source, UI components, Room database, network services
 │   ├── build.gradle.kts
-│   └── README.md     # Android client architecture & documentation (v1.6.8)
+│   └── README.md     # Android client architecture & documentation (v1.6.9)
 │
 ├── web/              # Desktop & Browser Companion (React 19 + TypeScript + Vite)
 │   ├── src/          # React components, services, Supabase integration
 │   ├── package.json
-│   └── README.md     # Web client architecture & documentation (v1.6.8)
+│   └── README.md     # Web client architecture & documentation (v1.6.9)
 │
 ├── .gitignore        # Unified repository ignore rules
-└── README.md         # Master repository overview (v1.6.8)
+└── README.md         # Master repository overview (v1.6.9)
 ```
 
 ---
@@ -85,6 +85,7 @@ WYRD/
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.6.9** | 2026-11-03 | First-Prompt Latency Elimination, Persistent Route Caching & Live Stream Status Transitions: Eliminated sequential HTTP 400 payload probing on `/v1/responses` by prioritizing standard OpenAI reasoning schemas first; added persistent endpoint and payload-variant caching (`SharedPreferences` on Android, `localStorage` on Web) so cold starts immediately use the proven endpoint and payload format; added background TLS/HTTP2 connection pre-warming (`prewarmConnection`) on Android app launch and model switch; fixed XML `<tool_call>`-only streams being misclassified as 0-token failures on Android; and added immediate status transitions from `"Sending..."` to `"Thinking..."` / `"Waiting for response..."` upon HTTP 200 connection and to `"Searching web..."` the instant a tool call starts streaming. |
 | **v1.6.8** | 2026-11-02 | Seamless Top/Bottom Fade Gradients & 120Hz Android Scroll Pipeline: Replaced solid top and bottom scrim blocks with continuous, slightly transparent multi-stop vertical fade gradients across both dark (`#000000`) and light (`#F9F9F7`) themes on Android and Web; added explicit 120Hz+ hardware display mode negotiation (`preferredDisplayModeId` & `preferredRefreshRate`) in `MainActivity`; annotated AST and entity models with `@Immutable`, added `LazyColumn` `contentType` slot reuse, and replaced per-frame `.onGloballyPositioned` callbacks with conditional `.onPlaced` tracking active strictly during TTS playback; and bumped versions to v1.6.8 across Android and Web. |
 | **v1.6.7** | 2026-10-30 | OpenAI GPT 6.1 Sol Responses API Architecture & Thinking Stream Parity: Routed GPT 6.1 Sol to OpenAI's Responses API (`/v1/responses`) to resolve HTTP 400 tool-reasoning incompatibility and enable full real-time reasoning stream summaries (`response.reasoning_summary_text.delta`); added `"mode": "pro"` with hardcoded medium effort and detailed summaries when Thinking is on, and `"mode": "standard"` with low effort when off; implemented deduplication guards and token-count fallbacks for backend heuristics; and bumped versions to v1.6.7 across Android and Web. |
 | **v1.6.6** | 2026-10-30 | OpenAI GPT 6.1 Sol Integration & Unified Inference/STT Architecture: Added OpenAI GPT 6.1 Sol (`gpt-6.1-sol`) to model selector dropdowns across Android and Web; wired native OpenAI API request formatting with hardcoded medium reasoning effort when Thinking toggle is on and complete reasoning shutoff when off; renamed Settings OpenAI section to accurately reflect unified inference and gpt-4o-mini-transcribe voice STT usage; and bumped versions to v1.6.6 across Android and Web. |

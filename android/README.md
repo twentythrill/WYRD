@@ -1,4 +1,4 @@
-# WYRD — Native Android AI Client (v1.6.8)
+# WYRD — Native Android AI Client (v1.6.9)
 
 WYRD is a high-performance, minimalist, brutalist native Android chat application built with Kotlin and Jetpack Compose. Operating strictly client-side with zero intermediary servers, it combines cloud LLM intelligence (Xiaomi MiMo & OpenAI GPT 6.1 Sol) with parallel dual web search engines (Tavily AI for live web and Exa AI for semantic exploration), native high-fidelity speech synthesis (TTS) with interactive word tracking, hardware-accelerated speech-to-text (`gpt-4o-mini-transcribe`), and complete local session persistence.
 

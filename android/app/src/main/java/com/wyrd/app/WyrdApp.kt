@@ -40,7 +40,8 @@ class WyrdApp : Application() {
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .readTimeout(90, TimeUnit.SECONDS)
                 .writeTimeout(15, TimeUnit.SECONDS)
-                .build()
+                .build(),
+            context = this
         )
     }
     val exaSearchService by lazy {
@@ -79,6 +80,18 @@ class WyrdApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        applicationScope.launch(Dispatchers.IO) {
+            try {
+                val model = preferencesManager.getCachedActiveModel()
+                val key = if (model.isOpenAi) {
+                    secureKeyStorage.getOpenAiApiKey()
+                } else {
+                    secureKeyStorage.getXiaomiApiKey()
+                }
+                val baseUrl = preferencesManager.getCachedCustomBaseUrl()
+                mimoService.prewarmConnection(key, model, baseUrl)
+            } catch (_: Exception) {}
+        }
         applicationScope.launch(Dispatchers.IO) {
             try {
                 if (supabaseSyncManager.isUserSignedIn()) {
