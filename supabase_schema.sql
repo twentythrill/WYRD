@@ -221,25 +221,31 @@ END $$;
 
 DO $$
 BEGIN
+    -- Files are stored as attachments/<user_id>/<file>. The bucket is public so
+    -- shared links work, but the API only lets each user list, upload, change or
+    -- delete files inside their own folder.
     DROP POLICY IF EXISTS "Public access to attachments" ON storage.objects;
-    CREATE POLICY "Public access to attachments"
-        ON storage.objects FOR SELECT
-        USING (bucket_id = 'attachments');
+    DROP POLICY IF EXISTS "Users can read their attachments" ON storage.objects;
+    CREATE POLICY "Users can read their attachments"
+        ON storage.objects FOR SELECT TO authenticated
+        USING (bucket_id = 'attachments' AND (storage.foldername(name))[1] = auth.uid()::text);
 
     DROP POLICY IF EXISTS "Authenticated users can upload attachments" ON storage.objects;
-    CREATE POLICY "Authenticated users can upload attachments"
-        ON storage.objects FOR INSERT
-        WITH CHECK (bucket_id = 'attachments' AND auth.role() = 'authenticated');
+    DROP POLICY IF EXISTS "Users can upload their attachments" ON storage.objects;
+    CREATE POLICY "Users can upload their attachments"
+        ON storage.objects FOR INSERT TO authenticated
+        WITH CHECK (bucket_id = 'attachments' AND (storage.foldername(name))[1] = auth.uid()::text);
 
     DROP POLICY IF EXISTS "Users can update their attachments" ON storage.objects;
     CREATE POLICY "Users can update their attachments"
-        ON storage.objects FOR UPDATE
-        USING (bucket_id = 'attachments' AND auth.role() = 'authenticated');
+        ON storage.objects FOR UPDATE TO authenticated
+        USING (bucket_id = 'attachments' AND (storage.foldername(name))[1] = auth.uid()::text)
+        WITH CHECK (bucket_id = 'attachments' AND (storage.foldername(name))[1] = auth.uid()::text);
 
     DROP POLICY IF EXISTS "Users can delete their attachments" ON storage.objects;
     CREATE POLICY "Users can delete their attachments"
-        ON storage.objects FOR DELETE
-        USING (bucket_id = 'attachments' AND auth.role() = 'authenticated');
+        ON storage.objects FOR DELETE TO authenticated
+        USING (bucket_id = 'attachments' AND (storage.foldername(name))[1] = auth.uid()::text);
 EXCEPTION WHEN OTHERS THEN
     NULL;
 END $$;

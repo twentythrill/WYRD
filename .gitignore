@@ -41,3 +41,6 @@ web/pnpm-debug.log*
 
 # Logs
 *.log
+
+# Design mockups (local only)
+android/Mockups/

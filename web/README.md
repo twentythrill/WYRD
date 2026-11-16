@@ -77,7 +77,7 @@ npm run lint && npm run build
 
 ## Environment Variables
 
-Configured in `.env`:
+Configured in `.env` (copy `.env.example` to `.env` and fill in your own project):
 * `VITE_SUPABASE_URL`: Supabase project endpoint
 * `VITE_SUPABASE_ANON_KEY`: Supabase public publishable/anon key
 
@@ -86,4 +86,4 @@ Configured in `.env`:
 WYRD Web is a static Single Page Application (SPA) with a lightweight serverless Edge Function:
 * Build Command: `npm run build`
 * Publish Directory: `dist`
-* SPA redirects and OpenAI streaming proxy edge function (`netlify/edge-functions/openai-proxy.ts`) are pre-configured in [`netlify.toml`](file:///Users/gioelezorzi/Agent_Workspace/_Android/WYRD/web/netlify.toml) and [`public/_redirects`](file:///Users/gioelezorzi/Agent_Workspace/_Android/WYRD/web/public/_redirects).
+* SPA redirects and OpenAI streaming proxy edge function (`netlify/edge-functions/openai-proxy.ts`) are pre-configured in [`netlify.toml`](netlify.toml) and [`public/_redirects`](public/_redirects).
