@@ -183,10 +183,10 @@ export function Sidebar({
         } ${
           isSelected
             ? isDark
-              ? 'bg-[#1F1E1D] text-[#CECDC4]'
+              ? 'bg-[#100F0F] text-[#CECDC4]'
               : 'bg-[#E1E0D6] text-[#100F0F]'
             : isDark
-            ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#1F1E1D]'
+            ? 'text-[#84837D] hover:text-[#CECDC4] hover:bg-[#100F0F]'
             : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#EBE9DF]'
         }`}
       >
@@ -207,7 +207,7 @@ export function Sidebar({
             title={chat.is_pinned ? 'Unpin' : 'Pin'}
             className={`p-1 rounded cursor-pointer ${
               isDark
-                ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#2E2D2C]'
+                ? 'text-[#84837D] hover:text-[#CECDC4] hover:bg-[#21211F]'
                 : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#D8D6CD]'
             }`}
           >
@@ -222,7 +222,7 @@ export function Sidebar({
             title="Rename"
             className={`p-1 rounded cursor-pointer ${
               isDark
-                ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#2E2D2C]'
+                ? 'text-[#84837D] hover:text-[#CECDC4] hover:bg-[#21211F]'
                 : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#D8D6CD]'
             }`}
           >
@@ -236,7 +236,7 @@ export function Sidebar({
             title="Delete"
             className={`p-1 rounded cursor-pointer ${
               isDark
-                ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#2E2D2C]'
+                ? 'text-[#84837D] hover:text-[#CECDC4] hover:bg-[#21211F]'
                 : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#D8D6CD]'
             }`}
           >
@@ -259,10 +259,10 @@ export function Sidebar({
 
       <aside
         className={`fixed md:relative inset-y-0 left-0 z-50 h-screen flex flex-col select-none transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
-          isDark ? 'bg-[#100F0F]' : 'bg-[#FEFCF1]'
+          isDark ? 'bg-[#000000]' : 'bg-[#FEFCF1]'
         } ${
           isOpen
-            ? `w-[270px] translate-x-0 opacity-100 border-r ${isDark ? 'border-[#2E2D2C]' : 'border-[#D8D6CD]'}`
+            ? `w-[270px] translate-x-0 opacity-100 border-r ${isDark ? 'border-[#21211F]' : 'border-[#D8D6CD]'}`
             : 'w-0 -translate-x-full md:translate-x-0 md:w-0 opacity-0 pointer-events-none border-r-0'
         }`}
       >
@@ -286,7 +286,7 @@ export function Sidebar({
               title="Collapse sidebar"
               className={`p-2 rounded-lg transition-colors flex items-center justify-center cursor-pointer ${
                 isDark
-                  ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#1F1E1D]'
+                  ? 'text-[#84837D] hover:text-[#CECDC4] hover:bg-[#100F0F]'
                   : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#EBE9DF]'
               }`}
             >
@@ -304,8 +304,8 @@ export function Sidebar({
               }}
               className={`w-full h-11 px-3 flex items-center rounded-xl transition-colors cursor-pointer ${
                 activeChatId === null && activeProjectId === null
-                  ? isDark ? 'bg-[#1F1E1D] text-[#CECDC4]' : 'bg-[#E1E0D6] text-[#100F0F]'
-                  : isDark ? 'hover:bg-[#1F1E1D] text-[#CECDC4]' : 'hover:bg-[#EBE9DF] text-[#100F0F]'
+                  ? isDark ? 'bg-[#100F0F] text-[#CECDC4]' : 'bg-[#E1E0D6] text-[#100F0F]'
+                  : isDark ? 'hover:bg-[#100F0F] text-[#CECDC4]' : 'hover:bg-[#EBE9DF] text-[#100F0F]'
               }`}
             >
               <Plus className={`w-5 h-5 stroke-[2] ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`} />
@@ -316,7 +316,7 @@ export function Sidebar({
             <button
               onClick={() => setIsSearchExpanded(!isSearchExpanded)}
               className={`w-full h-11 px-3 flex items-center rounded-xl transition-colors cursor-pointer ${
-                isDark ? 'hover:bg-[#1F1E1D] text-[#CECDC4]' : 'hover:bg-[#EBE9DF] text-[#100F0F]'
+                isDark ? 'hover:bg-[#100F0F] text-[#CECDC4]' : 'hover:bg-[#EBE9DF] text-[#100F0F]'
               }`}
             >
               <Search className={`w-5 h-5 stroke-[2] ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`} />
@@ -335,7 +335,7 @@ export function Sidebar({
                     autoFocus
                     className={`w-full px-3 py-2 border rounded-xl text-xs font-sans focus:outline-none ${
                       isDark
-                        ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4] placeholder-[#8A8983] focus:border-[#CECDC4]'
+                        ? 'bg-[#100F0F] border-[#21211F] text-[#CECDC4] placeholder-[#84837D] focus:border-[#CECDC4]'
                         : 'bg-[#EBE9DF] border-[#D8D6CD] text-[#100F0F] placeholder-[#666460] focus:border-[#100F0F]'
                     }`}
                   />
@@ -343,7 +343,7 @@ export function Sidebar({
                     <button
                       onClick={() => setSearchQuery('')}
                       className={`absolute right-2.5 cursor-pointer ${
-                        isDark ? 'text-[#8A8983] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'
+                        isDark ? 'text-[#84837D] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'
                       }`}
                     >
                       <X className="w-3.5 h-3.5" />
@@ -360,7 +360,7 @@ export function Sidebar({
                 if (window.innerWidth < 768) onClose()
               }}
               className={`w-full h-11 px-3 flex items-center rounded-xl transition-colors cursor-pointer ${
-                isDark ? 'hover:bg-[#1F1E1D] text-[#CECDC4]' : 'hover:bg-[#EBE9DF] text-[#100F0F]'
+                isDark ? 'hover:bg-[#100F0F] text-[#CECDC4]' : 'hover:bg-[#EBE9DF] text-[#100F0F]'
               }`}
             >
               <Settings className={`w-5 h-5 stroke-[2] ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`} />
@@ -369,14 +369,14 @@ export function Sidebar({
           </div>
 
           {/* Divider */}
-          <div className={`my-2.5 mx-3 border-t shrink-0 ${isDark ? 'border-[#2E2D2C]' : 'border-[#D8D6CD]'}`} />
+          <div className={`my-2.5 mx-3 border-t shrink-0 ${isDark ? 'border-[#21211F]' : 'border-[#D8D6CD]'}`} />
 
           {/* Scrollable area for Projects & History */}
           <div className="flex-1 overflow-y-auto px-2 py-1 space-y-3">
             {/* PROJECTS SECTION */}
             <div>
               <div className={`pl-3 pr-2 py-1 flex items-center justify-between text-[10px] font-sans font-bold tracking-[1.2px] uppercase ${
-                isDark ? 'text-[#8A8983]' : 'text-[#666460]'
+                isDark ? 'text-[#84837D]' : 'text-[#666460]'
               }`}>
                 <span>PROJECTS</span>
                 <button
@@ -393,7 +393,7 @@ export function Sidebar({
               </div>
 
               {projects.length === 0 ? (
-                <div className={`px-3 py-2 text-xs font-sans ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>
+                <div className={`px-3 py-2 text-xs font-sans ${isDark ? 'text-[#84837D]' : 'text-[#666460]'}`}>
                   No projects yet. Click + to create one.
                 </div>
               ) : (
@@ -419,13 +419,13 @@ export function Sidebar({
                           }}
                           className={`group flex items-center justify-between px-2 py-2 rounded-xl cursor-pointer transition-colors ${
                             isProjectActive
-                              ? isDark ? 'bg-[#1F1E1D] text-[#CECDC4]' : 'bg-[#E1E0D6] text-[#100F0F]'
-                              : isDark ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#1F1E1D]' : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#EBE9DF]'
+                              ? isDark ? 'bg-[#100F0F] text-[#CECDC4]' : 'bg-[#E1E0D6] text-[#100F0F]'
+                              : isDark ? 'text-[#84837D] hover:text-[#CECDC4] hover:bg-[#100F0F]' : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#EBE9DF]'
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0 pr-1.5">
                             <span className={`p-0.5 rounded cursor-pointer ${
-                              isDark ? 'text-[#8A8983] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'
+                              isDark ? 'text-[#84837D] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'
                             }`}>
                               {isExpanded ? (
                                 <ChevronDown className="w-3.5 h-3.5" />
@@ -441,7 +441,7 @@ export function Sidebar({
                             ) : (
                               <Folder
                                 className="w-4 h-4 shrink-0"
-                                style={{ color: project.color?.trim() || (isDark ? '#8A8983' : '#666460') }}
+                                style={{ color: project.color?.trim() || (isDark ? '#84837D' : '#666460') }}
                               />
                             )}
                             <span className="text-xs font-semibold font-sans truncate">
@@ -459,7 +459,7 @@ export function Sidebar({
                               title="Project Settings"
                               className={`opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-all cursor-pointer ${
                                 isDark
-                                  ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#2E2D2C]'
+                                  ? 'text-[#84837D] hover:text-[#CECDC4] hover:bg-[#21211F]'
                                   : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#D8D6CD]'
                               }`}
                             >
@@ -475,7 +475,7 @@ export function Sidebar({
                               title="New chat in project"
                               className={`w-12 h-[30px] rounded-[10px] transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                                 isDark
-                                  ? 'bg-[#1F1E1D] hover:bg-[#2E2D2C] text-[#CECDC4] hover:text-[#CECDC4]'
+                                  ? 'bg-[#100F0F] hover:bg-[#21211F] text-[#CECDC4] hover:text-[#CECDC4]'
                                   : 'bg-[#EBE9DF] hover:bg-[#D8D6CD] text-[#100F0F] hover:text-[#100F0F]'
                               }`}
                             >
@@ -494,7 +494,7 @@ export function Sidebar({
                                   if (window.innerWidth < 768) onClose()
                                 }}
                                 className={`pl-8 pr-3 py-1.5 text-xs rounded-xl cursor-pointer font-sans transition-colors ${
-                                  isDark ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#1F1E1D]' : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#EBE9DF]'
+                                  isDark ? 'text-[#84837D] hover:text-[#CECDC4] hover:bg-[#100F0F]' : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#EBE9DF]'
                                 }`}
                               >
                                 + Start first chat in {project.name}
@@ -512,19 +512,19 @@ export function Sidebar({
             </div>
 
             {/* Divider */}
-            <div className={`my-2 border-t ${isDark ? 'border-[#2E2D2C]' : 'border-[#D8D6CD]'}`} />
+            <div className={`my-2 border-t ${isDark ? 'border-[#21211F]' : 'border-[#D8D6CD]'}`} />
 
             {/* HISTORY SECTION (Generic Chats) */}
             <div>
               <div className={`px-3 py-1 text-[10px] font-sans font-bold tracking-[1.2px] uppercase ${
-                isDark ? 'text-[#8A8983]' : 'text-[#666460]'
+                isDark ? 'text-[#84837D]' : 'text-[#666460]'
               }`}>
                 HISTORY
               </div>
 
               <div className="space-y-0.5 mt-1">
                 {genericChats.length === 0 ? (
-                  <div className={`px-3 py-2 text-xs font-sans ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>
+                  <div className={`px-3 py-2 text-xs font-sans ${isDark ? 'text-[#84837D]' : 'text-[#666460]'}`}>
                     {searchQuery ? 'No matching generic chats' : 'No chats yet'}
                   </div>
                 ) : (
@@ -540,7 +540,7 @@ export function Sidebar({
       {chatToRename && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#100F0F]/70 backdrop-blur-sm p-4">
           <div className={`w-full max-w-sm border rounded-2xl p-5 shadow-2xl ${
-            isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
+            isDark ? 'bg-[#100F0F] border-[#21211F]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
           }`}>
             <h3 className={`text-sm font-bold font-sans mb-3 ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`}>
               Rename Conversation
@@ -556,7 +556,7 @@ export function Sidebar({
               autoFocus
               className={`w-full px-3 py-2 border rounded-xl text-sm font-sans focus:outline-none ${
                 isDark
-                  ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4] focus:border-[#CECDC4]'
+                  ? 'bg-[#100F0F] border-[#21211F] text-[#CECDC4] focus:border-[#CECDC4]'
                   : 'bg-[#EBE9DF] border-[#D8D6CD] text-[#100F0F] focus:border-[#100F0F]'
               }`}
             />
@@ -564,7 +564,7 @@ export function Sidebar({
               <button
                 onClick={() => setChatToRename(null)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
-                  isDark ? 'text-[#8A8983] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'
+                  isDark ? 'text-[#84837D] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'
                 }`}
               >
                 Cancel
@@ -575,7 +575,7 @@ export function Sidebar({
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   !renameText.trim()
                     ? isDark
-                      ? 'bg-[#2E2D2C] text-[#8A8983] cursor-not-allowed border border-[#2E2D2C]'
+                      ? 'bg-[#21211F] text-[#84837D] cursor-not-allowed border border-[#21211F]'
                       : 'bg-[#D8D6CD] text-[#666460] cursor-not-allowed border border-[#D8D6CD]'
                     : isDark
                     ? 'bg-[#CECDC4] text-[#100F0F] hover:bg-[#CECDC4] active:scale-95'
@@ -597,7 +597,7 @@ export function Sidebar({
         >
           <div
             className={`w-full max-w-sm border rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-150 ${
-              isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
+              isDark ? 'bg-[#100F0F] border-[#21211F]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
             }`}
             onClick={(e) => e.stopPropagation()}
           >
@@ -607,7 +607,7 @@ export function Sidebar({
               Delete chat?
             </h3>
             <p className={`text-[15px] font-sans leading-relaxed mb-6 ${
-              isDark ? 'text-[#8A8983]' : 'text-[#666460]'
+              isDark ? 'text-[#84837D]' : 'text-[#666460]'
             }`}>
               Are you sure you want to delete this chat?
             </p>
@@ -616,7 +616,7 @@ export function Sidebar({
                 onClick={() => setChatToDelete(null)}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors font-sans cursor-pointer ${
                   isDark
-                    ? 'bg-[#1F1E1D] hover:bg-[#2E2D2C] text-[#CECDC4]'
+                    ? 'bg-[#100F0F] hover:bg-[#21211F] text-[#CECDC4]'
                     : 'bg-[#E1E0D6] hover:bg-[#D8D6CD] text-[#100F0F]'
                 }`}
               >
@@ -642,7 +642,7 @@ export function Sidebar({
         <div
           style={{ top: projectContextMenu.y, left: projectContextMenu.x }}
           className={`fixed z-50 min-w-[140px] border rounded-xl py-1 shadow-2xl animate-in fade-in duration-100 select-none ${
-            isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
+            isDark ? 'bg-[#100F0F] border-[#21211F]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
@@ -654,7 +654,7 @@ export function Sidebar({
             }}
             className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 cursor-pointer transition-colors font-sans ${
               isDark
-                ? 'text-[#CECDC4] hover:text-[#CECDC4] hover:bg-[#1F1E1D]'
+                ? 'text-[#CECDC4] hover:text-[#CECDC4] hover:bg-[#100F0F]'
                 : 'text-[#100F0F] hover:text-[#100F0F] hover:bg-[#E1E0D6]'
             }`}
           >

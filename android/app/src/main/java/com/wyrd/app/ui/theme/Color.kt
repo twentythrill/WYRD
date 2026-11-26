@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 // DitherMono design system: two inks on one ground.
 // Paper #FEFCF1, black #100F0F, soft grey #CECDC4. Every other value is ink at an opacity,
 // pre-composited onto `surface` so overlays (drawer, dialogs) stay opaque.
+// Dark mode sits on true AMOLED black; there ink 8% lands on the brand black #100F0F.
 //   fill     = ink 8%   composer, selected row, icon buttons, cards
 //   hairline = ink 16%  dividers, borders
 //   muted    = ink 64%  secondary text, labels, placeholders
@@ -16,6 +17,7 @@ object DitherMono {
     val Paper = Color(0xFFFEFCF1)
     val Black = Color(0xFF100F0F)
     val Grey = Color(0xFFCECDC4)
+    val Amoled = Color(0xFF000000)
 }
 
 // Color Palette Definition
@@ -36,17 +38,17 @@ data class WyrdColors(
 )
 
 val DarkWyrdColors = WyrdColors(
-    background = DitherMono.Black,          // surface
-    surface = DitherMono.Black,             // surface (drawer, dialogs: split by hairline)
-    surfaceElevated = Color(0xFF1F1E1D),    // fill
-    card = Color(0xFF1F1E1D),               // fill
-    border = Color(0xFF2E2D2C),             // hairline
+    background = DitherMono.Amoled,         // surface (true black)
+    surface = DitherMono.Amoled,            // surface (drawer, dialogs: split by hairline)
+    surfaceElevated = DitherMono.Black,     // fill (ink 8% on black = #100F0F)
+    card = DitherMono.Black,                // fill
+    border = Color(0xFF21211F),             // hairline
     textPrimary = DitherMono.Grey,          // ink
-    textSecondary = Color(0xFF8A8983),      // ink-muted
-    textMuted = Color(0xFF8A8983),          // ink-muted
-    textPlaceholder = Color(0xFF8A8983),    // ink-muted
+    textSecondary = Color(0xFF84837D),      // ink-muted
+    textMuted = Color(0xFF84837D),          // ink-muted
+    textPlaceholder = Color(0xFF84837D),    // ink-muted
     primary = DitherMono.Grey,              // ink (send button)
-    onPrimary = DitherMono.Black,           // surface on ink
+    onPrimary = DitherMono.Amoled,          // surface on ink
     isDark = true
 )
 

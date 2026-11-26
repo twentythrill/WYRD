@@ -69,8 +69,8 @@ export const FormattedMessage = React.memo(function FormattedMessage({
   }
 
   const textColor = isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'
-  const mutedColor = isDark ? 'text-[#8A8983]' : 'text-[#666460]'
-  const quoteBorder = isDark ? 'border-[#8A8983]' : 'border-[#666460]'
+  const mutedColor = isDark ? 'text-[#84837D]' : 'text-[#666460]'
+  const quoteBorder = isDark ? 'border-[#84837D]' : 'border-[#666460]'
 
   return (
     <div
@@ -258,7 +258,7 @@ function RenderSpans({
         else if (span.type === 'code') {
           spanClasses = `px-1.5 py-0.5 rounded-[4px] font-mono text-[14.5px] border ${
             isDark
-              ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4]'
+              ? 'bg-[#100F0F] border-[#21211F] text-[#CECDC4]'
               : 'bg-[#EBE9DF] border-[#D8D6CD] text-[#100F0F]'
           }`
         }
@@ -367,9 +367,9 @@ function CodeBlockItem({
     setTimeout(() => setCopied(false), 1800)
   }
 
-  const containerBg = isDark ? 'bg-[#100F0F] border-[#2E2D2C]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
-  const headerBg = isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#EBE9DF] border-[#D8D6CD]'
-  const headerText = isDark ? 'text-[#8A8983]' : 'text-[#666460]'
+  const containerBg = isDark ? 'bg-[#000000] border-[#21211F]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
+  const headerBg = isDark ? 'bg-[#100F0F] border-[#21211F]' : 'bg-[#EBE9DF] border-[#D8D6CD]'
+  const headerText = isDark ? 'text-[#84837D]' : 'text-[#666460]'
   const codeColor = isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'
 
   return (
@@ -419,11 +419,11 @@ function TableBlockItem({
   isDark: boolean
   activeWordRef: React.MutableRefObject<HTMLSpanElement | null>
 }) {
-  const containerBg = isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#EBE9DF] border-[#D8D6CD]'
-  const headerBg = isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#E1E0D6] border-[#D8D6CD]'
+  const containerBg = isDark ? 'bg-[#100F0F] border-[#21211F]' : 'bg-[#EBE9DF] border-[#D8D6CD]'
+  const headerBg = isDark ? 'bg-[#100F0F] border-[#21211F]' : 'bg-[#E1E0D6] border-[#D8D6CD]'
   const headerTextColor = isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'
-  const rowBorder = isDark ? 'border-[#2E2D2C]' : 'border-[#D8D6CD]'
-  const hoverRowBg = isDark ? 'hover:bg-[#1F1E1D]/50' : 'hover:bg-[#E1E0D6]/50'
+  const rowBorder = isDark ? 'border-[#21211F]' : 'border-[#D8D6CD]'
+  const hoverRowBg = isDark ? 'hover:bg-[#100F0F]/50' : 'hover:bg-[#E1E0D6]/50'
 
   const getAlignClass = (align?: ColumnAlignment) => {
     switch (align) {
@@ -469,7 +469,7 @@ function TableBlockItem({
             <tr
               key={rIdx}
               className={`border-b ${rowBorder} last:border-b-0 ${hoverRowBg} ${
-                rIdx % 2 === 1 ? (isDark ? 'bg-[#100F0F]/60' : 'bg-[#EBE9DF]/60') : 'bg-transparent'
+                rIdx % 2 === 1 ? (isDark ? 'bg-[#000000]/60' : 'bg-[#EBE9DF]/60') : 'bg-transparent'
               } transition-colors`}
             >
               {row.cells.map((cell, cIdx) => {

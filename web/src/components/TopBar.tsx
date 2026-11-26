@@ -80,7 +80,7 @@ export function TopBar({
           title="Expand sidebar"
           className={`p-2 -ml-1 mr-1 rounded-lg transition-colors flex items-center justify-center shrink-0 ${
             isDark
-              ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#1F1E1D]'
+              ? 'text-[#84837D] hover:text-[#CECDC4] hover:bg-[#100F0F]'
               : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#EBE9DF]'
           }`}
         >
@@ -93,7 +93,7 @@ export function TopBar({
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
           className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-colors text-left ${
-            isDark ? 'hover:bg-[#1F1E1D]' : 'hover:bg-[#EBE9DF]'
+            isDark ? 'hover:bg-[#100F0F]' : 'hover:bg-[#EBE9DF]'
           }`}
         >
           <span className={`text-[17px] font-bold font-sans ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`}>
@@ -103,20 +103,20 @@ export function TopBar({
             {modelSuffix}
           </span>
           {isThinking && (
-            <span className={`text-[15px] font-normal font-sans ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>
+            <span className={`text-[15px] font-normal font-sans ${isDark ? 'text-[#84837D]' : 'text-[#666460]'}`}>
               {' · Thinking'}
             </span>
           )}
-          <ChevronDown className={`w-4 h-4 ml-1 stroke-[2] ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`} />
+          <ChevronDown className={`w-4 h-4 ml-1 stroke-[2] ${isDark ? 'text-[#84837D]' : 'text-[#666460]'}`} />
         </button>
 
         {/* Dropdown Menu */}
         {dropdownOpen && (
           <div className={`absolute left-0 top-full mt-1.5 w-56 rounded-xl border shadow-2xl py-2 z-50 text-sm ${
-            isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
+            isDark ? 'bg-[#100F0F] border-[#21211F]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
           }`}>
             <div className={`px-3.5 py-1.5 text-[10px] font-semibold tracking-wider uppercase font-sans ${
-              isDark ? 'text-[#8A8983]' : 'text-[#666460]'
+              isDark ? 'text-[#84837D]' : 'text-[#666460]'
             }`}>
               MODEL
             </div>
@@ -130,14 +130,14 @@ export function TopBar({
                     setDropdownOpen(false)
                   }}
                   className={`w-full px-3.5 py-2 flex items-center justify-between text-left transition-colors cursor-pointer ${
-                    isDark ? 'hover:bg-[#2E2D2C]/60' : 'hover:bg-[#E1E0D6]'
+                    isDark ? 'hover:bg-[#21211F]/60' : 'hover:bg-[#E1E0D6]'
                   }`}
                 >
                   <span
                     className={`font-sans text-sm ${
                       isSelected
                         ? `font-bold ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`
-                        : `font-normal ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`
+                        : `font-normal ${isDark ? 'text-[#84837D]' : 'text-[#666460]'}`
                     }`}
                   >
                     {model.shortName}
@@ -149,19 +149,19 @@ export function TopBar({
               )
             })}
 
-            <div className={`my-1.5 border-t ${isDark ? 'border-[#2E2D2C]' : 'border-[#D8D6CD]'}`} />
+            <div className={`my-1.5 border-t ${isDark ? 'border-[#21211F]' : 'border-[#D8D6CD]'}`} />
 
             <div
               onClick={() => handleToggleThinking(!isThinking)}
               className={`px-3.5 py-2 flex items-center justify-between cursor-pointer transition-colors ${
-                isDark ? 'hover:bg-[#2E2D2C]/60' : 'hover:bg-[#E1E0D6]'
+                isDark ? 'hover:bg-[#21211F]/60' : 'hover:bg-[#E1E0D6]'
               }`}
             >
               <div className="flex flex-col">
                 <span className={`font-sans text-sm font-medium ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`}>
                   Thinking
                 </span>
-                <span className={`font-sans text-[11px] ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>
+                <span className={`font-sans text-[11px] ${isDark ? 'text-[#84837D]' : 'text-[#666460]'}`}>
                   Deep reasoning mode
                 </span>
               </div>
@@ -176,14 +176,14 @@ export function TopBar({
                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                   isThinking
                     ? isDark ? 'bg-[#CECDC4]' : 'bg-[#100F0F]'
-                    : isDark ? 'bg-[#2E2D2C]' : 'bg-[#D8D6CD]'
+                    : isDark ? 'bg-[#21211F]' : 'bg-[#D8D6CD]'
                 }`}
               >
                 <span
                   className={`pointer-events-none inline-block h-4 w-4 transform rounded-full shadow ring-0 transition duration-200 ease-in-out ${
                     isThinking
-                      ? `translate-x-4 ${isDark ? 'bg-[#1F1E1D]' : 'bg-[#FEFCF1]'}`
-                      : `translate-x-0 ${isDark ? 'bg-[#8A8983]' : 'bg-[#FEFCF1]'}`
+                      ? `translate-x-4 ${isDark ? 'bg-[#100F0F]' : 'bg-[#FEFCF1]'}`
+                      : `translate-x-0 ${isDark ? 'bg-[#84837D]' : 'bg-[#FEFCF1]'}`
                   }`}
                 />
               </button>
@@ -195,7 +195,7 @@ export function TopBar({
       {/* Active Conversation / Project Breadcrumb */}
       {activeProjectName ? (
         <div className={`ml-2 pl-2.5 sm:ml-2.5 sm:pl-3 border-l h-5 flex items-center min-w-0 gap-1.5 text-xs ${
-          isDark ? 'border-[#2E2D2C] text-[#8A8983]' : 'border-[#D8D6CD] text-[#666460]'
+          isDark ? 'border-[#21211F] text-[#84837D]' : 'border-[#D8D6CD] text-[#666460]'
         }`}>
           <Folder
             className="w-3.5 h-3.5 shrink-0"
@@ -208,7 +208,7 @@ export function TopBar({
           </span>
           {activeChatTitle && (
             <>
-              <span className={isDark ? 'text-[#8A8983]' : 'text-[#666460]'}>/</span>
+              <span className={isDark ? 'text-[#84837D]' : 'text-[#666460]'}>/</span>
               <span className="truncate max-w-[100px] sm:max-w-[200px] lg:max-w-[320px] font-sans">
                 {activeChatTitle}
               </span>
@@ -217,10 +217,10 @@ export function TopBar({
         </div>
       ) : activeChatTitle ? (
         <div className={`ml-2 pl-2.5 sm:ml-2.5 sm:pl-3 border-l h-5 flex items-center min-w-0 ${
-          isDark ? 'border-[#2E2D2C]' : 'border-[#D8D6CD]'
+          isDark ? 'border-[#21211F]' : 'border-[#D8D6CD]'
         }`}>
           <span className={`text-xs truncate font-sans max-w-[140px] sm:max-w-[280px] lg:max-w-[420px] ${
-            isDark ? 'text-[#8A8983]' : 'text-[#666460]'
+            isDark ? 'text-[#84837D]' : 'text-[#666460]'
           }`}>
             {activeChatTitle}
           </span>
@@ -235,7 +235,7 @@ export function TopBar({
             title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
             className={`p-2 rounded-lg transition-colors flex items-center justify-center shrink-0 cursor-pointer ${
               isDark
-                ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#1F1E1D]'
+                ? 'text-[#84837D] hover:text-[#CECDC4] hover:bg-[#100F0F]'
                 : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#EBE9DF]'
             }`}
           >

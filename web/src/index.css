@@ -4,29 +4,30 @@
   font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   color-scheme: dark;
 
-  /* DitherMono — dark: soft grey ink on black. Every non-ink value is ink at an
-     opacity (fill 8%, hairline 16%, muted 64%), pre-composited on surface. */
-  --wyrd-bg: #100F0F;
-  --wyrd-surface: #100F0F;
-  --wyrd-surface-elevated: #1F1E1D;
-  --wyrd-card: #1F1E1D;
-  --wyrd-border: #2E2D2C;
-  --wyrd-border-subtle: #2E2D2C;
+  /* DitherMono — dark: soft grey ink on true AMOLED black. Every non-ink value is
+     ink at an opacity (fill 8%, hairline 16%, muted 64%), pre-composited on surface;
+     fill lands on the brand black #100F0F. */
+  --wyrd-bg: #000000;
+  --wyrd-surface: #000000;
+  --wyrd-surface-elevated: #100F0F;
+  --wyrd-card: #100F0F;
+  --wyrd-border: #21211F;
+  --wyrd-border-subtle: #21211F;
   --wyrd-text-primary: #CECDC4;
-  --wyrd-text-secondary: #8A8983;
-  --wyrd-text-muted: #8A8983;
-  --wyrd-text-placeholder: #8A8983;
+  --wyrd-text-secondary: #84837D;
+  --wyrd-text-muted: #84837D;
+  --wyrd-text-placeholder: #84837D;
   --wyrd-primary: #CECDC4;
-  --wyrd-on-primary: #100F0F;
-  --wyrd-hover: #1F1E1D;
-  --wyrd-hover-card: #2E2D2C;
+  --wyrd-on-primary: #000000;
+  --wyrd-hover: #100F0F;
+  --wyrd-hover-card: #21211F;
   --wyrd-hover-text: #CECDC4;
-  --wyrd-reasoning-bg: #1F1E1D;
+  --wyrd-reasoning-bg: #100F0F;
   --wyrd-reasoning-header: rgba(206, 205, 196, 0.08);
-  --wyrd-code-bg: #1F1E1D;
-  --wyrd-code-header: #2E2D2C;
-  --wyrd-scrollbar: #2E2D2C;
-  --wyrd-scrollbar-hover: #3E3D3A;
+  --wyrd-code-bg: #100F0F;
+  --wyrd-code-header: #21211F;
+  --wyrd-scrollbar: #21211F;
+  --wyrd-scrollbar-hover: #31312F;
 }
 
 [data-theme="light"], .light {

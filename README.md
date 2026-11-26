@@ -1,4 +1,4 @@
-# WYRD (v1.7.0)
+# WYRD (v1.7.1)
 
 A modern, high-performance, minimalist AI client ecosystem operating strictly client-side with zero intermediary servers. Features real-time bidirectional cloud synchronization across Android and Desktop Web via Supabase.
 
@@ -13,15 +13,15 @@ WYRD/
 ├── android/          # Native Android AI Client (Kotlin + Jetpack Compose)
 │   ├── app/          # App source, UI components, Room database, network services
 │   ├── build.gradle.kts
-│   └── README.md     # Android client architecture & documentation (v1.7.0)
+│   └── README.md     # Android client architecture & documentation (v1.7.1)
 │
 ├── web/              # Desktop & Browser Companion (React 19 + TypeScript + Vite)
 │   ├── src/          # React components, services, Supabase integration
 │   ├── package.json
-│   └── README.md     # Web client architecture & documentation (v1.7.0)
+│   └── README.md     # Web client architecture & documentation (v1.7.1)
 │
 ├── .gitignore        # Unified repository ignore rules
-└── README.md         # Master repository overview (v1.7.0)
+└── README.md         # Master repository overview (v1.7.1)
 ```
 
 ---
@@ -33,17 +33,17 @@ Both clients follow the DitherMono design system: three colours, paper `#FEFCF1`
 
 | Token | Light | Dark | Use |
 | :--- | :--- | :--- | :--- |
-| `surface` | `#FEFCF1` | `#100F0F` | The only ground: page, drawer, dialogs |
+| `surface` | `#FEFCF1` | `#000000` | The only ground: page, drawer, dialogs |
 | `ink` | `#100F0F` | `#CECDC4` | Text, icons, primary (send) button fill |
-| `ink-muted` (ink 64%) | `#666460` | `#8A8983` | Secondary text, labels, placeholders |
-| `fill` (ink 8%) | `#EBE9DF` | `#1F1E1D` | Composer, cards, bubbles, selected rows |
-| `hairline` (ink 16%) | `#D8D6CD` | `#2E2D2C` | Dividers and borders |
+| `ink-muted` (ink 64%) | `#666460` | `#84837D` | Secondary text, labels, placeholders |
+| `fill` (ink 8%) | `#EBE9DF` | `#100F0F` | Composer, cards, bubbles, selected rows |
+| `hairline` (ink 16%) | `#D8D6CD` | `#21211F` | Dividers and borders |
 
-* **Dark**: soft grey ink on black (about 12:1). **Light**: black ink on warm paper.
+* **Dark**: soft grey ink on true AMOLED black `#000000`, so dark pixels stay off; ink at 8% lands exactly on the brand black `#100F0F`, which becomes the fill. **Light**: black ink on warm paper.
 * **Typography**: Space Grotesk for everything.
 * **Modular AST Block Architecture & Hanging Indents**: Both Android and Desktop Web render assistant responses through discrete modular block components (`Header`, `Paragraph`, `Bullet`, `Numbered`, `Blockquote`, `Table`, `Code`, `HorizontalRule`). Multi-line bullet (`•`) and numbered list items render in a two-column layout (`Row` on Android, `flex` on Web) with dedicated fixed-width leading badge containers (`20dp` / `28dp`), ensuring multi-line list text wraps strictly indented to the right of the bullet/number rather than collapsing under it.
 * **Heading Scale & Gestalt Proximity Spacing**: Heading tags (`#`, `##`, `###`) as well as standalone bold header lines (`**Heading**` / `__Heading__`) are elevated with clear typographic hierarchy (22sp bold for H1, 19sp bold for H2, 17sp semibold for H3) and asymmetric Gestalt proximity margins (20–24dp top margin, 8dp bottom margin), visually grouping headers with the sections they introduce. Models like Xiaomi MiMo that emit standalone bold lines instead of `#` headers now render with flawless editorial hierarchy.
-* **Seamless TopBar & Bottom Fade Gradients**: Multi-stop, slightly transparent vertical fade gradients across both dark (`#100F0F`) and light (`#FEFCF1`) themes smoothly dissolve scrolling messages behind the floating top bar, status bar, input capsule, and Android 3-button system navigation bar on both Android and Web.
+* **Seamless TopBar & Bottom Fade Gradients**: Multi-stop, slightly transparent vertical fade gradients across both dark (`#000000`) and light (`#FEFCF1`) themes smoothly dissolve scrolling messages behind the floating top bar, status bar, input capsule, and Android 3-button system navigation bar on both Android and Web.
 * **120Hz High-Refresh Scrolling Pipeline (Android)**: Explicit hardware display mode negotiation (`preferredDisplayModeId` & `preferredRefreshRate`) locks supported displays to 120Hz+, paired with `@Immutable` AST/entity models, `LazyColumn` `contentType` slot reuse, conditional `onPlaced` coordinate tracking (active only during TTS playback), and R8 full-mode release optimization.
 * **Typographic & Code Block Pipeline**: Space Grotesk variable typography and JetBrains Mono monospace code formatting with condensed line-height parity (23sp on Android, leading-[24px]/[23px] on Web). Native fenced code blocks render inside dedicated DitherMono cards (`CodeBlockCard` on Android, `CodeBlockItem` on Web) featuring a language badge, one-tap copy button with haptic feedback, automatic soft line-wrapping (eliminating horizontal scrolling), and 1:1 TTS word-seek highlight synchronization.
 
@@ -95,9 +95,10 @@ Both clients follow the DitherMono design system: three colours, paper `#FEFCF1`
 
 | Version | Date | Description |
 | :--- | :--- | :--- |
+| **v1.7.1** | 2026-11-27 | AMOLED Dark: Dark mode returns to true black `#000000`; DitherMono fill, hairline and muted are re-composited on it, so the brand black `#100F0F` becomes the dark fill. |
 | **v1.7.0** | 2026-11-27 | DitherMono Rebrand: Unified Android and Web on the DitherMono palette (paper `#FEFCF1`, black `#100F0F`, soft grey `#CECDC4`, plus ink-opacity `fill`, `hairline` and `ink-muted`). Removed the red and green accents in favour of pure mono states; project colours are kept. |
 | **v1.6.9** | 2026-11-03 | First-Prompt Latency Elimination, Persistent Route Caching & Live Stream Status Transitions: Eliminated sequential HTTP 400 payload probing on `/v1/responses` by prioritizing standard OpenAI reasoning schemas first; added persistent endpoint and payload-variant caching (`SharedPreferences` on Android, `localStorage` on Web) so cold starts immediately use the proven endpoint and payload format; added background TLS/HTTP2 connection pre-warming (`prewarmConnection`) on Android app launch and model switch; fixed XML `<tool_call>`-only streams being misclassified as 0-token failures on Android; and added immediate status transitions from `"Sending..."` to `"Thinking..."` / `"Waiting for response..."` upon HTTP 200 connection and to `"Searching web..."` the instant a tool call starts streaming. |
-| **v1.6.8** | 2026-11-02 | Seamless Top/Bottom Fade Gradients & 120Hz Android Scroll Pipeline: Replaced solid top and bottom scrim blocks with continuous, slightly transparent multi-stop vertical fade gradients across both dark (`#100F0F`) and light (`#FEFCF1`) themes on Android and Web; added explicit 120Hz+ hardware display mode negotiation (`preferredDisplayModeId` & `preferredRefreshRate`) in `MainActivity`; annotated AST and entity models with `@Immutable`, added `LazyColumn` `contentType` slot reuse, and replaced per-frame `.onGloballyPositioned` callbacks with conditional `.onPlaced` tracking active strictly during TTS playback; and bumped versions to v1.6.8 across Android and Web. |
+| **v1.6.8** | 2026-11-02 | Seamless Top/Bottom Fade Gradients & 120Hz Android Scroll Pipeline: Replaced solid top and bottom scrim blocks with continuous, slightly transparent multi-stop vertical fade gradients across both dark (`#000000`) and light (`#FEFCF1`) themes on Android and Web; added explicit 120Hz+ hardware display mode negotiation (`preferredDisplayModeId` & `preferredRefreshRate`) in `MainActivity`; annotated AST and entity models with `@Immutable`, added `LazyColumn` `contentType` slot reuse, and replaced per-frame `.onGloballyPositioned` callbacks with conditional `.onPlaced` tracking active strictly during TTS playback; and bumped versions to v1.6.8 across Android and Web. |
 | **v1.6.7** | 2026-10-30 | OpenAI GPT 6.1 Sol Responses API Architecture & Thinking Stream Parity: Routed GPT 6.1 Sol to OpenAI's Responses API (`/v1/responses`) to resolve HTTP 400 tool-reasoning incompatibility and enable full real-time reasoning stream summaries (`response.reasoning_summary_text.delta`); added `"mode": "pro"` with hardcoded medium effort and detailed summaries when Thinking is on, and `"mode": "standard"` with low effort when off; implemented deduplication guards and token-count fallbacks for backend heuristics; and bumped versions to v1.6.7 across Android and Web. |
 | **v1.6.6** | 2026-10-30 | OpenAI GPT 6.1 Sol Integration & Unified Inference/STT Architecture: Added OpenAI GPT 6.1 Sol (`gpt-6.1-sol`) to model selector dropdowns across Android and Web; wired native OpenAI API request formatting with hardcoded medium reasoning effort when Thinking toggle is on and complete reasoning shutoff when off; renamed Settings OpenAI section to accurately reflect unified inference and gpt-4o-mini-transcribe voice STT usage; and bumped versions to v1.6.6 across Android and Web. |
 | **v1.6.5** | 2026-10-22 | Bold Headings, Dynamic Table Columns & Multi-Stop Scrim Opacity: Parsed standalone bold lines (`**Heading**` and `__Heading__`) into Level 2 Header blocks (19sp bold Space Grotesk, 20dp top margin, 8dp bottom margin) across both Android and Web, restoring typographic hierarchy for models like Xiaomi MiMo that emit bold lines instead of `#` headers; dynamic column width calculation (`minWordWidth = (longestWordChars * 11f + 32f).coerceAtLeast(125f)`) preventing multi-character word hyphenation and character wrapping in markdown tables; multi-stop bottom scrim gradient with 100% solid opacity extending through the floating input capsule and Android 3-button system navigation bar with zero text bleed-through or button collision; and elevated top bar scrim fade geometry. |

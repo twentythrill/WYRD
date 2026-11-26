@@ -9,7 +9,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 ### 1. Visual Design & Theming
 - **Dual DitherMono Theme**:
   - **DitherMono palette** (`ui/theme/Color.kt`): one `surface` ground, `ink` for text/icons/primary button, and `fill` / `hairline` / `ink-muted` as ink at 8% / 16% / 64% pre-composited on `surface`. No accent colours.
-  - **Dark**: `#CECDC4` ink on `#100F0F` (fill `#1F1E1D`, hairline `#2E2D2C`, muted `#8A8983`).
+  - **Dark**: `#CECDC4` ink on true AMOLED black `#000000` (fill `#100F0F`, hairline `#21211F`, muted `#84837D`).
   - **Light**: `#100F0F` ink on `#FEFCF1` (fill `#EBE9DF`, hairline `#D8D6CD`, muted `#666460`).
   - **Theme Selection**: Settings dropdown under **APPEARANCE** supporting **System** (tracks OS theme), **Light** (manual forced light mode), and **Dark** (manual dark).
   - **Adaptive Insets**: Edge-to-edge status and navigation bar icons invert dynamically for continuous contrast.

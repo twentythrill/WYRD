@@ -1,4 +1,4 @@
-# WYRD Web (Desktop & Browser Companion) (v1.7.0)
+# WYRD Web (Desktop & Browser Companion) (v1.7.1)
 
 A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversations, settings, and cognitive states in real-time with the Android application via Supabase.
 
@@ -18,7 +18,7 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
    * Compact 270px sidebar with smooth animated collapse/expand toggle on desktop and responsive mobile drawer.
    * Breadcrumb display in the top navigation bar showing the active project and conversation thread title.
 2. **DitherMono Light & Dark Modes**:
-   * Exact parity with Android `LightWyrdColors` and `DarkWyrdColors` via the `--wyrd-*` variables in `src/index.css`. Light: ink `#100F0F` on paper `#FEFCF1`, fill `#EBE9DF`, hairline `#D8D6CD`, muted `#666460`. Dark: ink `#CECDC4` on `#100F0F`, fill `#1F1E1D`, hairline `#2E2D2C`, muted `#8A8983`. No accent colours.
+   * Exact parity with Android `LightWyrdColors` and `DarkWyrdColors` via the `--wyrd-*` variables in `src/index.css`. Light: ink `#100F0F` on paper `#FEFCF1`, fill `#EBE9DF`, hairline `#D8D6CD`, muted `#666460`. Dark: ink `#CECDC4` on AMOLED black `#000000`, fill `#100F0F`, hairline `#21211F`, muted `#84837D`. No accent colours.
    * Dynamic eye logo & favicon switching: crisp white starburst (`/app_logo.png`) in dark mode, deep black starburst (`/app_icon_trans_black.png`) in light mode.
    * Theme controls: quick toggle icon in top bar and three-way preference (`System`, `Dark`, `Light`) in Settings.
 3. **Audio Experience (STT, Double-Click to Hear TTS & Word-by-Word Highlighting)**:

@@ -967,7 +967,7 @@ export function App() {
       />
 
       {/* Main Screen */}
-      <div className={`flex-1 relative flex flex-col h-full min-w-0 overflow-hidden ${isDark ? 'bg-[#100F0F] text-[#CECDC4]' : 'bg-[#FEFCF1] text-[#100F0F]'}`}>
+      <div className={`flex-1 relative flex flex-col h-full min-w-0 overflow-hidden ${isDark ? 'bg-[#000000] text-[#CECDC4]' : 'bg-[#FEFCF1] text-[#100F0F]'}`}>
         {/* TopBar matching TopBar.kt */}
         <div className="absolute top-0 left-0 right-0 z-30 pointer-events-auto">
           <TopBar

@@ -149,7 +149,7 @@ private fun appendInlineFormatted(
     text: String,
     boldColor: Color = DitherMono.Grey,
     italicColor: Color = boldColor,
-    inlineCodeBg: Color = Color(0xFF1F1E1D),
+    inlineCodeBg: Color = DitherMono.Black,
     inlineCodeColor: Color = DitherMono.Grey
 ) {
     var cursor = 0
@@ -351,7 +351,7 @@ fun formatMarkdownForReading(
     markdown: String,
     textColor: Color = DitherMono.Grey,
     headerColor: Color = DitherMono.Grey,
-    inlineCodeBg: Color = Color(0xFF1F1E1D),
+    inlineCodeBg: Color = DitherMono.Black,
     inlineCodeColor: Color = textColor,
     boldColor: Color = headerColor,
     italicColor: Color = textColor,

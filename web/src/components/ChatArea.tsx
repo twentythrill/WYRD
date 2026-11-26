@@ -739,12 +739,12 @@ export function ChatArea({
     return (
       <div className="w-full mb-3 pointer-events-auto">
         <div className={`px-4 py-2.5 rounded-xl border border-wyrd-text-primary/40 text-wyrd-text-primary text-xs font-sans flex items-center justify-between shadow-lg ${
-          isDark ? 'bg-[#1F1E1D]' : 'bg-[#EBE9DF]'
+          isDark ? 'bg-[#100F0F]' : 'bg-[#EBE9DF]'
         }`}>
           <span>{audioError}</span>
           <button
             onClick={() => setAudioError(null)}
-            className={`p-1 ${isDark ? 'text-[#8A8983] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'}`}
+            className={`p-1 ${isDark ? 'text-[#84837D] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'}`}
           >
             <X className="w-4 h-4" />
           </button>
@@ -759,13 +759,13 @@ export function ChatArea({
       <>
         {stagedAttachments.length > 0 && (
           <div className={`mb-2 p-2 rounded-2xl border flex items-center gap-2 overflow-x-auto pointer-events-auto shadow-md max-w-full ${
-            isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#E1E0D6] border-[#D8D6CD]'
+            isDark ? 'bg-[#100F0F] border-[#21211F]' : 'bg-[#E1E0D6] border-[#D8D6CD]'
           }`}>
             {stagedAttachments.map((att) => (
               <div
                 key={att.id}
                 className={`relative group shrink-0 flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-xs ${
-                  isDark ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4]' : 'bg-[#EBE9DF] border-[#D8D6CD] text-[#100F0F]'
+                  isDark ? 'bg-[#100F0F] border-[#21211F] text-[#CECDC4]' : 'bg-[#EBE9DF] border-[#D8D6CD] text-[#100F0F]'
                 }`}
               >
                 {att.type === 'image' ? (
@@ -774,7 +774,7 @@ export function ChatArea({
                       src={att.previewUrl}
                       alt={att.name}
                       className={`w-8 h-8 rounded-lg object-cover border ${
-                        isDark ? 'border-[#2E2D2C]' : 'border-[#D8D6CD]'
+                        isDark ? 'border-[#21211F]' : 'border-[#D8D6CD]'
                       }`}
                     />
                     <div className="flex flex-col">
@@ -795,7 +795,7 @@ export function ChatArea({
                   onClick={() => handleRemoveStagedAttachment(att.id)}
                   title="Remove attachment"
                   className={`ml-1 w-4 h-4 rounded-full flex items-center justify-center text-wyrd-text-secondary transition-colors cursor-pointer ${
-                    isDark ? 'bg-[#2E2D2C] hover:bg-[#2E2D2C] hover:text-[#CECDC4]' : 'bg-[#D8D6CD] hover:bg-[#B2B0A9] hover:text-[#100F0F]'
+                    isDark ? 'bg-[#21211F] hover:bg-[#21211F] hover:text-[#CECDC4]' : 'bg-[#D8D6CD] hover:bg-[#B2B0A9] hover:text-[#100F0F]'
                   }`}
                 >
                   <X className="w-2.5 h-2.5 stroke-[2.5]" />
@@ -805,7 +805,7 @@ export function ChatArea({
             {isProcessingAttachments && (
               <div className="flex items-center gap-1.5 px-3 py-1 text-xs text-wyrd-text-secondary shrink-0">
                 <div className={`w-3.5 h-3.5 border-2 rounded-full animate-spin ${
-                  isDark ? 'border-[#2E2D2C] border-t-[#CECDC4]' : 'border-[#D8D6CD] border-t-[#100F0F]'
+                  isDark ? 'border-[#21211F] border-t-[#CECDC4]' : 'border-[#D8D6CD] border-t-[#100F0F]'
                 }`} />
                 <span>Processing...</span>
               </div>
@@ -815,10 +815,10 @@ export function ChatArea({
 
         {stagedAttachments.length === 0 && isProcessingAttachments && (
           <div className={`mb-2 px-3.5 py-2 rounded-2xl border flex items-center gap-2 text-xs text-wyrd-text-secondary font-sans pointer-events-auto shadow-md ${
-            isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#E1E0D6] border-[#D8D6CD]'
+            isDark ? 'bg-[#100F0F] border-[#21211F]' : 'bg-[#E1E0D6] border-[#D8D6CD]'
           }`}>
             <div className={`w-3.5 h-3.5 border-2 rounded-full animate-spin ${
-              isDark ? 'border-[#2E2D2C] border-t-[#CECDC4]' : 'border-[#D8D6CD] border-t-[#100F0F]'
+              isDark ? 'border-[#21211F] border-t-[#CECDC4]' : 'border-[#D8D6CD] border-t-[#100F0F]'
             }`} />
             <span>Loading attachment...</span>
           </div>
@@ -830,7 +830,7 @@ export function ChatArea({
   const renderInputCapsule = () => (
     <div
       style={{
-        backgroundColor: isDark ? '#1F1E1D' : '#EBE9DF',
+        backgroundColor: isDark ? '#100F0F' : '#EBE9DF',
       }}
       className="relative flex items-center rounded-[34px] pl-2.5 pr-1.5 py-1.5 pointer-events-auto transition-colors min-h-[66px]"
     >
@@ -841,7 +841,7 @@ export function ChatArea({
         title="Add Attachment (Images, Documents, Code)"
         className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors shrink-0 cursor-pointer ${
           isDark
-            ? 'text-[#8A8983] hover:text-[#CECDC4]'
+            ? 'text-[#84837D] hover:text-[#CECDC4]'
             : 'text-[#666460] hover:text-[#100F0F]'
         }`}
       >
@@ -873,7 +873,7 @@ export function ChatArea({
               title="Cancel recording"
               className={`p-1.5 rounded-full transition-colors ${
                 isDark
-                  ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#1F1E1D]'
+                  ? 'text-[#84837D] hover:text-[#CECDC4] hover:bg-[#100F0F]'
                   : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#E1E0D6]'
               }`}
             >
@@ -897,7 +897,7 @@ export function ChatArea({
         <div className="flex-1 flex items-center gap-2.5 px-3 py-2 text-wyrd-text-secondary text-xs font-sans">
           <div className={`w-4 h-4 border-2 rounded-full animate-spin ${
             isDark
-              ? 'border-[#2E2D2C] border-t-[#CECDC4]'
+              ? 'border-[#21211F] border-t-[#CECDC4]'
               : 'border-[#D8D6CD] border-t-[#100F0F]'
           }`} />
           <span>Transcribing audio with OpenAI gpt-4o-mini-transcribe...</span>
@@ -913,7 +913,7 @@ export function ChatArea({
           placeholder="Ask away..."
           className={`flex-1 px-3 py-2 bg-transparent text-[16px] focus:outline-none resize-none max-h-44 font-sans leading-snug ${
             isDark
-              ? 'text-[#CECDC4] placeholder-[#8A8983]'
+              ? 'text-[#CECDC4] placeholder-[#84837D]'
               : 'text-[#100F0F] placeholder-[#666460]'
           }`}
         />
@@ -928,7 +928,7 @@ export function ChatArea({
             title="Voice dictation (OpenAI gpt-4o-mini-transcribe)"
             className={`w-10 h-10 rounded-full flex items-center justify-center text-wyrd-text-secondary transition-colors cursor-pointer ${
               isDark
-                ? 'hover:text-[#CECDC4] hover:bg-[#1F1E1D]'
+                ? 'hover:text-[#CECDC4] hover:bg-[#100F0F]'
                 : 'hover:text-[#100F0F] hover:bg-[#E1E0D6]'
             }`}
           >
@@ -951,7 +951,7 @@ export function ChatArea({
             >
               <div
                 style={{
-                  backgroundColor: isDark ? '#100F0F' : '#FEFCF1',
+                  backgroundColor: isDark ? '#000000' : '#FEFCF1',
                 }}
                 className="w-4 h-4 rounded-[3px]"
               />
@@ -964,7 +964,7 @@ export function ChatArea({
               style={{
                 backgroundColor: isDark ? '#CECDC4' : '#100F0F',
                 color: canSend
-                  ? (isDark ? '#100F0F' : '#FEFCF1')
+                  ? (isDark ? '#000000' : '#FEFCF1')
                   : (isDark ? 'rgba(0, 0, 0, 0.35)' : 'rgba(249, 249, 247, 0.35)'),
               }}
               className={`w-[54px] h-[54px] rounded-full flex items-center justify-center transition-all shrink-0 ml-1 ${
@@ -984,7 +984,7 @@ export function ChatArea({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`flex-1 h-full min-h-0 relative overflow-hidden ${isDark ? 'bg-[#100F0F] text-[#CECDC4]' : 'bg-[#FEFCF1] text-[#100F0F]'}`}
+      className={`flex-1 h-full min-h-0 relative overflow-hidden ${isDark ? 'bg-[#000000] text-[#CECDC4]' : 'bg-[#FEFCF1] text-[#100F0F]'}`}
     >
       {/* Hidden File Input */}
       <input
@@ -1018,7 +1018,7 @@ export function ChatArea({
       {isLoadingMessages ? (
         <div className="h-full flex flex-col items-center justify-center text-center select-none py-12">
           <div className={`w-6 h-6 border-2 rounded-full animate-spin mb-3 ${
-            isDark ? 'border-[#2E2D2C] border-t-[#CECDC4]' : 'border-[#D8D6CD] border-t-[#100F0F]'
+            isDark ? 'border-[#21211F] border-t-[#CECDC4]' : 'border-[#D8D6CD] border-t-[#100F0F]'
           }`} />
           <span className="font-sans text-xs text-wyrd-text-secondary">Loading conversation...</span>
         </div>
@@ -1043,17 +1043,17 @@ export function ChatArea({
                 </span>
               </div>
               <div className="h-2.5" />
-              <div className={`font-sans text-[22px] ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>(◕‿◕)</div>
+              <div className={`font-sans text-[22px] ${isDark ? 'text-[#84837D]' : 'text-[#666460]'}`}>(◕‿◕)</div>
               {activeProject && (
                 <div
                   className={`mt-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl text-xs font-sans border ${
                     isDark
-                      ? 'border-[#2E2D2C] bg-[#1F1E1D] text-[#CECDC4]'
+                      ? 'border-[#21211F] bg-[#100F0F] text-[#CECDC4]'
                       : 'border-[#D8D6CD] bg-[#EBE9DF] text-[#100F0F]'
                   }`}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-[#CECDC4]' : 'bg-[#100F0F]'}`} />
-                  <span className={isDark ? 'text-[#8A8983]' : 'text-[#666460]'}>
+                  <span className={isDark ? 'text-[#84837D]' : 'text-[#666460]'}>
                     Drafting in <span className={`font-semibold ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`}>{activeProject.name}</span>
                   </span>
                 </div>
@@ -1164,7 +1164,7 @@ export function ChatArea({
                     title="Scroll to bottom"
                     className={`w-11 h-11 rounded-full border transition-all duration-200 flex items-center justify-center cursor-pointer pointer-events-auto ${
                       isDark
-                        ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4] hover:bg-[#1F1E1D] hover:border-[#3E3D3A]'
+                        ? 'bg-[#100F0F] border-[#21211F] text-[#CECDC4] hover:bg-[#100F0F] hover:border-[#31312F]'
                         : 'bg-[#EBE9DF] border-[#D8D6CD] text-[#100F0F] hover:bg-[#E1E0D6]'
                     } ${
                       showScrollBottom
@@ -1192,7 +1192,7 @@ export function ChatArea({
                         ttsState.isPlaying
                           ? {
                               backgroundColor: isDark ? '#CECDC4' : '#100F0F',
-                              color: isDark ? '#100F0F' : '#FEFCF1',
+                              color: isDark ? '#000000' : '#FEFCF1',
                               borderColor: isDark ? '#CECDC4' : '#100F0F',
                             }
                           : undefined
@@ -1201,7 +1201,7 @@ export function ChatArea({
                         ttsState.isPlaying
                           ? 'shadow-md'
                           : isDark
-                          ? 'bg-[#1F1E1D] text-[#CECDC4] border-[#2E2D2C] hover:bg-[#1F1E1D] hover:border-[#3E3D3A]'
+                          ? 'bg-[#100F0F] text-[#CECDC4] border-[#21211F] hover:bg-[#100F0F] hover:border-[#31312F]'
                           : 'bg-[#EBE9DF] text-[#100F0F] border-[#D8D6CD] hover:bg-[#E1E0D6]'
                       }`}
                     >
@@ -1219,7 +1219,7 @@ export function ChatArea({
               {editingMessage && (
                 <div className={`mb-2 px-4 py-2 rounded-2xl border flex items-center justify-between text-xs font-sans pointer-events-auto shadow-md ${
                   isDark
-                    ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4]'
+                    ? 'bg-[#100F0F] border-[#21211F] text-[#CECDC4]'
                     : 'bg-[#E1E0D6] border-[#D8D6CD] text-[#100F0F]'
                 }`}>
                   <div className="flex items-center gap-2">
@@ -1234,7 +1234,7 @@ export function ChatArea({
                       if (textareaRef.current) textareaRef.current.style.height = 'auto'
                     }}
                     className={`p-1 rounded transition-colors flex items-center gap-1 cursor-pointer ${
-                      isDark ? 'text-[#8A8983] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'
+                      isDark ? 'text-[#84837D] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'
                     }`}
                     title="Cancel editing"
                   >
@@ -1355,7 +1355,7 @@ const MessageItem = React.memo(function MessageItem({
           onDoubleClick={handleDoubleClick}
           title="Double click for options"
           className={`max-w-[88%] rounded-[22px] px-4.5 py-3.5 select-text cursor-pointer transition-colors ${
-            isDark ? 'bg-[#1F1E1D] text-[#CECDC4]' : 'bg-[#E1E0D6] text-[#100F0F]'
+            isDark ? 'bg-[#100F0F] text-[#CECDC4]' : 'bg-[#E1E0D6] text-[#100F0F]'
           }`}
         >
           {/* Internal Attachments inside user bubble matching Android */}
@@ -1367,7 +1367,7 @@ const MessageItem = React.memo(function MessageItem({
                   {imageAttachments.length === 1 ? (
                     <div
                       className={`relative rounded-[14px] overflow-hidden border ${
-                        isDark ? 'border-[#2E2D2C] bg-[#1F1E1D]' : 'border-[#D8D6CD] bg-[#EBE9DF]'
+                        isDark ? 'border-[#21211F] bg-[#100F0F]' : 'border-[#D8D6CD] bg-[#EBE9DF]'
                       } cursor-pointer group`}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -1389,7 +1389,7 @@ const MessageItem = React.memo(function MessageItem({
                         <div
                           key={idx}
                           className={`relative h-[130px] rounded-[12px] overflow-hidden border ${
-                            isDark ? 'border-[#2E2D2C] bg-[#1F1E1D]' : 'border-[#D8D6CD] bg-[#EBE9DF]'
+                            isDark ? 'border-[#21211F] bg-[#100F0F]' : 'border-[#D8D6CD] bg-[#EBE9DF]'
                           } cursor-pointer group`}
                           onClick={(e) => {
                             e.stopPropagation()
@@ -1412,7 +1412,7 @@ const MessageItem = React.memo(function MessageItem({
                         <div
                           key={idx}
                           className={`relative w-[110px] h-[110px] shrink-0 rounded-[12px] overflow-hidden border ${
-                            isDark ? 'border-[#2E2D2C] bg-[#1F1E1D]' : 'border-[#D8D6CD] bg-[#EBE9DF]'
+                            isDark ? 'border-[#21211F] bg-[#100F0F]' : 'border-[#D8D6CD] bg-[#EBE9DF]'
                           } cursor-pointer group`}
                           onClick={(e) => {
                             e.stopPropagation()
@@ -1449,13 +1449,13 @@ const MessageItem = React.memo(function MessageItem({
                         }}
                         className={`flex items-center gap-2.5 p-2 rounded-xl border transition-colors ${
                           isDark
-                            ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4]'
+                            ? 'bg-[#100F0F] border-[#21211F] text-[#CECDC4]'
                             : 'bg-[#EBE9DF] border-[#D8D6CD] text-[#100F0F]'
                         } ${isRemote ? 'cursor-pointer hover:opacity-90' : ''}`}
                       >
                         <div
                           className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                            isDark ? 'bg-[#1F1E1D]' : 'bg-[#E1E0D6]'
+                            isDark ? 'bg-[#100F0F]' : 'bg-[#E1E0D6]'
                           }`}
                         >
                           <FileText className="w-5 h-5 text-wyrd-text-secondary" />
@@ -1491,7 +1491,7 @@ const MessageItem = React.memo(function MessageItem({
               ref={menuRef}
               style={{ top: menuPosition.y, left: menuPosition.x }}
               className={`fixed z-50 w-52 rounded-xl border shadow-2xl py-1.5 text-sm animate-in fade-in duration-100 select-none ${
-                isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#E1E0D6] border-[#D8D6CD]'
+                isDark ? 'bg-[#100F0F] border-[#21211F]' : 'bg-[#E1E0D6] border-[#D8D6CD]'
               }`}
               onClick={(e) => e.stopPropagation()}
             >
@@ -1501,7 +1501,7 @@ const MessageItem = React.memo(function MessageItem({
                   setMenuPosition(null)
                 }}
                 className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
-                  isDark ? 'text-[#CECDC4] hover:bg-[#2E2D2C]' : 'text-[#100F0F] hover:bg-[#D8D6CD]'
+                  isDark ? 'text-[#CECDC4] hover:bg-[#21211F]' : 'text-[#100F0F] hover:bg-[#D8D6CD]'
                 }`}
               >
                 {isCopied ? (
@@ -1518,7 +1518,7 @@ const MessageItem = React.memo(function MessageItem({
                     setMenuPosition(null)
                   }}
                   className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
-                    isDark ? 'text-[#CECDC4] hover:bg-[#2E2D2C]' : 'text-[#100F0F] hover:bg-[#D8D6CD]'
+                    isDark ? 'text-[#CECDC4] hover:bg-[#21211F]' : 'text-[#100F0F] hover:bg-[#D8D6CD]'
                   }`}
                 >
                   <Edit2 className="w-4 h-4" />
@@ -1532,7 +1532,7 @@ const MessageItem = React.memo(function MessageItem({
                     setMenuPosition(null)
                   }}
                   className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
-                    isDark ? 'text-[#CECDC4] hover:bg-[#2E2D2C]' : 'text-[#100F0F] hover:bg-[#D8D6CD]'
+                    isDark ? 'text-[#CECDC4] hover:bg-[#21211F]' : 'text-[#100F0F] hover:bg-[#D8D6CD]'
                   }`}
                 >
                   <GitBranch className="w-4 h-4" />
@@ -1546,7 +1546,7 @@ const MessageItem = React.memo(function MessageItem({
                     setMenuPosition(null)
                   }}
                   className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-left text-sm transition-colors cursor-pointer ${
-                    isDark ? 'text-[#CECDC4] hover:bg-[#2E2D2C]' : 'text-[#100F0F] hover:bg-[#D8D6CD]'
+                    isDark ? 'text-[#CECDC4] hover:bg-[#21211F]' : 'text-[#100F0F] hover:bg-[#D8D6CD]'
                   }`}
                 >
                   <RotateCcw className="w-4 h-4" />
@@ -1595,7 +1595,7 @@ const MessageItem = React.memo(function MessageItem({
         const caption = [modelLabel, reasoningLabel].filter(Boolean).join(' · ')
         return caption ? (
           <div
-            className={`text-[11px] leading-[15px] select-none ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}
+            className={`text-[11px] leading-[15px] select-none ${isDark ? 'text-[#84837D]' : 'text-[#666460]'}`}
           >
             {caption}
           </div>
@@ -1609,7 +1609,7 @@ const MessageItem = React.memo(function MessageItem({
           title="Copy message"
           className={`w-12 h-12 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
             isDark
-              ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#1F1E1D]'
+              ? 'bg-[#100F0F] border-[#21211F] text-[#84837D] hover:text-[#CECDC4] hover:bg-[#100F0F]'
               : 'bg-[#EBE9DF] border-[#D8D6CD] text-[#666460] hover:text-[#100F0F] hover:bg-[#E1E0D6]'
           }`}
         >
@@ -1645,11 +1645,11 @@ function ReasoningBlock({
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const bgClass = isDark ? 'bg-[#1F1E1D]' : 'bg-[#EBE9DF]'
+  const bgClass = isDark ? 'bg-[#100F0F]' : 'bg-[#EBE9DF]'
   const hoverTextClass = isDark ? 'hover:text-[#CECDC4]' : 'hover:text-[#100F0F]'
   const activeColor = isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'
-  const mutedColor = isDark ? 'text-[#8A8983]' : 'text-[#666460]'
-  const dividerBorder = isDark ? 'border-[#2E2D2C]' : 'border-[#D8D6CD]'
+  const mutedColor = isDark ? 'text-[#84837D]' : 'text-[#666460]'
+  const dividerBorder = isDark ? 'border-[#21211F]' : 'border-[#D8D6CD]'
 
   return (
     <div
@@ -1689,7 +1689,7 @@ function ReasoningBlock({
 
       {isExpanded && (
         <div
-          className={`p-3.5 text-[13px] ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'} font-sans leading-[18px] whitespace-pre-wrap border-t ${dividerBorder} max-h-60 overflow-y-auto select-text`}
+          className={`p-3.5 text-[13px] ${isDark ? 'text-[#84837D]' : 'text-[#666460]'} font-sans leading-[18px] whitespace-pre-wrap border-t ${dividerBorder} max-h-60 overflow-y-auto select-text`}
         >
           {reasoning}
         </div>
