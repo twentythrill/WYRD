@@ -217,24 +217,24 @@ export function ProjectModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#100F0F]/80 backdrop-blur-sm p-4">
       <div className={`w-full max-w-lg border rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden select-none ${
-        isDark ? 'bg-[#0A0A0A] border-[#262626]' : 'bg-[#F0EFEA] border-[#CECDC4]'
+        isDark ? 'bg-[#100F0F] border-[#2E2D2C]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
       }`}>
         {/* Header */}
         <div className={`h-14 px-4 border-b flex items-center justify-between shrink-0 ${
-          isDark ? 'border-[#262626] bg-[#0A0A0A]' : 'border-[#CECDC4] bg-[#F0EFEA]'
+          isDark ? 'border-[#2E2D2C] bg-[#100F0F]' : 'border-[#D8D6CD] bg-[#FEFCF1]'
         }`}>
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
               className={`p-1.5 -ml-1 rounded-lg transition-colors cursor-pointer ${
-                isDark ? 'text-[#CECDC4] hover:text-white' : 'text-[#141414] hover:text-black'
+                isDark ? 'text-[#CECDC4] hover:text-[#CECDC4]' : 'text-[#100F0F] hover:text-[#100F0F]'
               }`}
             >
               <ArrowLeft className="w-6 h-6 stroke-[2]" />
             </button>
-            <span className={`font-sans font-bold text-base ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
+            <span className={`font-sans font-bold text-base ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`}>
               {project ? 'Project Settings' : 'New Project'}
             </span>
           </div>
@@ -244,14 +244,14 @@ export function ProjectModal({
             disabled={!name.trim() || isSaving}
             className={`px-4 py-1.5 rounded-xl font-sans text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
               savedSuccess
-                ? 'bg-[#32D74B] text-black font-semibold'
+                ? 'bg-wyrd-primary text-wyrd-on-primary font-semibold'
                 : !name.trim() || isSaving
                 ? isDark
-                  ? 'bg-[#262626] text-[#636366] cursor-not-allowed border border-[#262626]'
-                  : 'bg-[#CECDC4] text-[#8E8E93] cursor-not-allowed border border-[#CECDC4]'
+                  ? 'bg-[#2E2D2C] text-[#8A8983] cursor-not-allowed border border-[#2E2D2C]'
+                  : 'bg-[#D8D6CD] text-[#666460] cursor-not-allowed border border-[#D8D6CD]'
                 : isDark
-                ? 'bg-[#CECDC4] text-black hover:bg-white active:scale-95'
-                : 'bg-[#141414] text-[#F9F9F7] hover:bg-black active:scale-95'
+                ? 'bg-[#CECDC4] text-[#100F0F] hover:bg-[#CECDC4] active:scale-95'
+                : 'bg-[#100F0F] text-[#FEFCF1] hover:bg-[#100F0F] active:scale-95'
             }`}
           >
             {savedSuccess ? (
@@ -272,7 +272,7 @@ export function ProjectModal({
           {/* Error Banner */}
           {errorMessage && (
             <div className={`p-3 border rounded-xl text-xs flex items-center justify-between gap-2 ${
-              isDark ? 'bg-[#1F1414] border-[#FF453A]/40 text-[#FF453A]' : 'bg-[#FDF2F2] border-[#FF453A]/30 text-[#FF453A]'
+              isDark ? 'bg-[#1F1E1D] border-[#CECDC4]/40 text-[#CECDC4]' : 'bg-[#EBE9DF] border-[#100F0F]/30 text-[#100F0F]'
             }`}>
               <div className="flex items-center gap-2 min-w-0">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -282,7 +282,7 @@ export function ProjectModal({
                 type="button"
                 onClick={() => setErrorMessage(null)}
                 className={`p-1 transition-colors cursor-pointer ${
-                  isDark ? 'hover:text-white' : 'hover:text-black'
+                  isDark ? 'hover:text-[#CECDC4]' : 'hover:text-[#100F0F]'
                 }`}
               >
                 <X className="w-3.5 h-3.5" />
@@ -292,8 +292,8 @@ export function ProjectModal({
 
           {/* Project Name */}
           <div className="space-y-1.5">
-            <label className={`text-xs font-medium flex items-center gap-1 ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
-              Project Name <span className="text-[#FF453A]">*</span>
+            <label className={`text-xs font-medium flex items-center gap-1 ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`}>
+              Project Name <span className="text-wyrd-text-primary">*</span>
             </label>
             <input
               type="text"
@@ -311,15 +311,15 @@ export function ProjectModal({
               placeholder="e.g. Website Redesign, Paper Research..."
               className={`w-full rounded-xl text-sm focus:outline-none p-3 transition-colors border ${
                 isDark
-                  ? 'bg-[#141414] border-[#262626] text-[#CECDC4] placeholder-[#7A7A7A] focus:border-[#CECDC4]'
-                  : 'bg-[#E8E7E1] border-[#CECDC4] text-[#141414] placeholder-[#9E9E9B] focus:border-[#141414]'
+                  ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4] placeholder-[#8A8983] focus:border-[#CECDC4]'
+                  : 'bg-[#EBE9DF] border-[#D8D6CD] text-[#100F0F] placeholder-[#666460] focus:border-[#100F0F]'
               }`}
             />
           </div>
 
           {/* Description */}
           <div className="space-y-1.5">
-            <label className={`text-xs font-medium ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
+            <label className={`text-xs font-medium ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>
               Description (Optional)
             </label>
             <input
@@ -329,15 +329,15 @@ export function ProjectModal({
               placeholder="Brief description of the project purpose..."
               className={`w-full rounded-xl text-sm focus:outline-none p-3 transition-colors border ${
                 isDark
-                  ? 'bg-[#141414] border-[#262626] text-[#CECDC4] placeholder-[#7A7A7A] focus:border-[#CECDC4]'
-                  : 'bg-[#E8E7E1] border-[#CECDC4] text-[#141414] placeholder-[#9E9E9B] focus:border-[#141414]'
+                  ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4] placeholder-[#8A8983] focus:border-[#CECDC4]'
+                  : 'bg-[#EBE9DF] border-[#D8D6CD] text-[#100F0F] placeholder-[#666460] focus:border-[#100F0F]'
               }`}
             />
           </div>
 
           {/* Project Color */}
           <div className="space-y-1.5">
-            <label className={`text-xs font-medium ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
+            <label className={`text-xs font-medium ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`}>
               Project Color
             </label>
             <div className="flex items-center gap-1.5 pt-1 pb-1 px-0.5 overflow-x-auto">
@@ -351,8 +351,8 @@ export function ProjectModal({
                     title={preset.name}
                     className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer shrink-0 ${
                       isSelected
-                        ? isDark ? 'border-2 border-white' : 'border-2 border-[#141414]'
-                        : isDark ? 'border-2 border-transparent hover:border-[#383838]' : 'border-2 border-transparent hover:border-[#CECDC4]'
+                        ? isDark ? 'border-2 border-[#CECDC4]' : 'border-2 border-[#100F0F]'
+                        : isDark ? 'border-2 border-transparent hover:border-[#3E3D3A]' : 'border-2 border-transparent hover:border-[#D8D6CD]'
                     }`}
                   >
                     <span
@@ -378,7 +378,7 @@ export function ProjectModal({
           {/* Custom System Prompt Override */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className={`text-xs font-medium ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
+              <label className={`text-xs font-medium ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`}>
                 Project System Instructions
               </label>
             </div>
@@ -389,16 +389,16 @@ export function ProjectModal({
               placeholder="e.g. You are a senior frontend architect specializing in React and Tailwind. Always format responses with concise TypeScript code snippets and verify edge cases..."
               className={`w-full rounded-xl text-sm focus:outline-none p-3 resize-none font-mono text-xs transition-colors border ${
                 isDark
-                  ? 'bg-[#141414] border-[#262626] text-[#CECDC4] placeholder-[#7A7A7A] focus:border-[#CECDC4]'
-                  : 'bg-[#E8E7E1] border-[#CECDC4] text-[#141414] placeholder-[#9E9E9B] focus:border-[#141414]'
+                  ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4] placeholder-[#8A8983] focus:border-[#CECDC4]'
+                  : 'bg-[#EBE9DF] border-[#D8D6CD] text-[#100F0F] placeholder-[#666460] focus:border-[#100F0F]'
               }`}
             />
           </div>
 
           {/* Source Files / Knowledge Base */}
-          <div className={`space-y-2 pt-2 border-t ${isDark ? 'border-[#262626]' : 'border-[#CECDC4]'}`}>
+          <div className={`space-y-2 pt-2 border-t ${isDark ? 'border-[#2E2D2C]' : 'border-[#D8D6CD]'}`}>
             <div className="flex items-center justify-between">
-              <h4 className={`text-xs font-semibold ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>Knowledge Base Files</h4>
+              <h4 className={`text-xs font-semibold ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`}>Knowledge Base Files</h4>
 
               <button
                 type="button"
@@ -406,8 +406,8 @@ export function ProjectModal({
                 disabled={isUploading}
                 className={`px-2.5 py-1 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
                   isDark
-                    ? 'bg-[#141414] hover:bg-[#1A1A1A] border-[#262626] text-[#CECDC4]'
-                    : 'bg-[#E8E7E1] hover:bg-[#DFDED8] border-[#CECDC4] text-[#141414]'
+                    ? 'bg-[#1F1E1D] hover:bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4]'
+                    : 'bg-[#EBE9DF] hover:bg-[#E1E0D6] border-[#D8D6CD] text-[#100F0F]'
                 }`}
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -425,9 +425,9 @@ export function ProjectModal({
             />
 
             {isLoadingFiles ? (
-              <div className={`p-4 flex items-center justify-center gap-2 text-xs ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
+              <div className={`p-4 flex items-center justify-center gap-2 text-xs ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>
                 <div className={`w-3.5 h-3.5 border-2 rounded-full animate-spin ${
-                  isDark ? 'border-[#262626] border-t-[#CECDC4]' : 'border-[#CECDC4] border-t-[#141414]'
+                  isDark ? 'border-[#2E2D2C] border-t-[#CECDC4]' : 'border-[#D8D6CD] border-t-[#100F0F]'
                 }`} />
                 <span>Loading project files...</span>
               </div>
@@ -436,12 +436,12 @@ export function ProjectModal({
                 onClick={() => fileInputRef.current?.click()}
                 className={`p-6 border border-dashed rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${
                   isDark
-                    ? 'bg-[#141414]/50 border-[#262626] hover:border-[#383838]'
-                    : 'bg-[#E8E7E1]/50 border-[#CECDC4] hover:border-[#9E9E9B]'
+                    ? 'bg-[#1F1E1D]/50 border-[#2E2D2C] hover:border-[#3E3D3A]'
+                    : 'bg-[#EBE9DF]/50 border-[#D8D6CD] hover:border-[#B2B0A9]'
                 }`}
               >
-                <Upload className={`w-6 h-6 ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`} />
-                <span className={`text-xs ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>Click to add context files (.md, .txt, .pdf, code)</span>
+                <Upload className={`w-6 h-6 ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`} />
+                <span className={`text-xs ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>Click to add context files (.md, .txt, .pdf, code)</span>
               </div>
             ) : (
               <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
@@ -450,21 +450,21 @@ export function ProjectModal({
                   <div
                     key={`staged_${idx}`}
                     className={`flex items-center justify-between p-2.5 border rounded-xl group transition-colors ${
-                      isDark ? 'bg-[#141414] border-[#383838]' : 'bg-[#E8E7E1] border-[#CECDC4]'
+                      isDark ? 'bg-[#1F1E1D] border-[#3E3D3A]' : 'bg-[#EBE9DF] border-[#D8D6CD]'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                      <FileText className={`w-4 h-4 shrink-0 ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
+                      <FileText className={`w-4 h-4 shrink-0 ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`} />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className={`text-xs font-medium truncate ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>{file.name}</p>
+                          <p className={`text-xs font-medium truncate ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`}>{file.name}</p>
                           <span className={`text-[9px] font-mono uppercase px-1.5 py-0.2 rounded ${
-                            isDark ? 'bg-[#262626] text-[#8E8E93]' : 'bg-[#DFDED8] text-[#636366]'
+                            isDark ? 'bg-[#2E2D2C] text-[#8A8983]' : 'bg-[#E1E0D6] text-[#666460]'
                           }`}>
                             Staged
                           </span>
                         </div>
-                        <p className={`text-[10px] ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>{formatFileSize(file.size)}</p>
+                        <p className={`text-[10px] ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>{formatFileSize(file.size)}</p>
                       </div>
                     </div>
 
@@ -473,7 +473,7 @@ export function ProjectModal({
                       onClick={() => handleRemoveStagedFile(idx)}
                       title="Remove staged file"
                       className={`p-1 rounded transition-colors cursor-pointer ${
-                        isDark ? 'text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#FF453A]/10' : 'text-[#636366] hover:text-[#FF453A] hover:bg-[#FF453A]/10'
+                        isDark ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#CECDC4]/10' : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#100F0F]/10'
                       }`}
                     >
                       <X className="w-3.5 h-3.5" />
@@ -487,15 +487,15 @@ export function ProjectModal({
                     key={file.id}
                     className={`flex items-center justify-between p-2.5 border rounded-xl group transition-colors ${
                       isDark
-                        ? 'bg-[#141414] border-[#262626] hover:border-[#383838]'
-                        : 'bg-[#E8E7E1] border-[#CECDC4] hover:border-[#9E9E9B]'
+                        ? 'bg-[#1F1E1D] border-[#2E2D2C] hover:border-[#3E3D3A]'
+                        : 'bg-[#EBE9DF] border-[#D8D6CD] hover:border-[#B2B0A9]'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                      <FileText className={`w-4 h-4 shrink-0 ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`} />
+                      <FileText className={`w-4 h-4 shrink-0 ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`} />
                       <div className="min-w-0">
-                        <p className={`text-xs font-medium truncate ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>{file.name}</p>
-                        <p className={`text-[10px] ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>{formatFileSize(file.size)}</p>
+                        <p className={`text-xs font-medium truncate ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`}>{file.name}</p>
+                        <p className={`text-[10px] ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>{formatFileSize(file.size)}</p>
                       </div>
                     </div>
 
@@ -503,7 +503,7 @@ export function ProjectModal({
                       onClick={() => handleDeleteFile(file)}
                       title="Remove file"
                       className={`p-1 rounded transition-colors cursor-pointer ${
-                        isDark ? 'text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#FF453A]/10' : 'text-[#636366] hover:text-[#FF453A] hover:bg-[#FF453A]/10'
+                        isDark ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#CECDC4]/10' : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#100F0F]/10'
                       }`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -516,25 +516,25 @@ export function ProjectModal({
 
           {/* Delete Project Section (only if editing existing project) */}
           {project && onDelete && (
-            <div className={`pt-4 border-t ${isDark ? 'border-[#262626]' : 'border-[#CECDC4]'}`}>
+            <div className={`pt-4 border-t ${isDark ? 'border-[#2E2D2C]' : 'border-[#D8D6CD]'}`}>
               {!showDeleteConfirm ? (
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="w-full py-2.5 px-4 rounded-xl border border-[#FF453A]/20 bg-[#FF453A]/5 hover:bg-[#FF453A]/10 text-xs text-[#FF453A] font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-xl border border-wyrd-text-primary/20 bg-wyrd-text-primary/5 hover:bg-wyrd-text-primary/10 text-xs text-wyrd-text-primary font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" />
                   <span>Delete Project</span>
                 </button>
               ) : (
                 <div className={`p-3 border rounded-xl space-y-2 ${
-                  isDark ? 'bg-[#1F1414] border-[#FF453A]/30' : 'bg-[#FDF2F2] border-[#FF453A]/30'
+                  isDark ? 'bg-[#1F1E1D] border-[#CECDC4]/30' : 'bg-[#EBE9DF] border-[#100F0F]/30'
                 }`}>
-                  <div className="flex items-center gap-2 text-xs text-[#FF453A] font-semibold">
+                  <div className="flex items-center gap-2 text-xs text-wyrd-text-primary font-semibold">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
                     <span>Delete "{project.name}" and all its files?</span>
                   </div>
-                  <p className={`text-[11px] ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
+                  <p className={`text-[11px] ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>
                     Chats within this project will be converted to regular chats or removed. This action cannot be undone.
                   </p>
                   <div className="flex items-center justify-end gap-2 pt-1">
@@ -542,7 +542,7 @@ export function ProjectModal({
                       type="button"
                       onClick={() => setShowDeleteConfirm(false)}
                       className={`px-3 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
-                        isDark ? 'bg-[#262626] text-[#CECDC4] hover:bg-[#333333]' : 'bg-[#DFDED8] text-[#141414] hover:bg-[#CECDC4]'
+                        isDark ? 'bg-[#2E2D2C] text-[#CECDC4] hover:bg-[#2E2D2C]' : 'bg-[#E1E0D6] text-[#100F0F] hover:bg-[#D8D6CD]'
                       }`}
                     >
                       Cancel
@@ -551,7 +551,7 @@ export function ProjectModal({
                       type="button"
                       disabled={isDeleting}
                       onClick={handleDeleteProject}
-                      className="px-3 py-1.5 rounded-lg bg-[#FF453A] text-xs text-white font-medium hover:bg-[#FF453A]/90 transition-colors cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-wyrd-primary text-xs text-wyrd-on-primary font-medium hover:opacity-90 transition-colors cursor-pointer"
                     >
                       {isDeleting ? 'Deleting...' : 'Confirm Delete'}
                     </button>
@@ -564,13 +564,13 @@ export function ProjectModal({
 
         {/* Footer */}
         <div className={`h-14 px-4 border-t flex items-center justify-end gap-2 shrink-0 ${
-          isDark ? 'border-[#262626] bg-[#0A0A0A]' : 'border-[#CECDC4] bg-[#F0EFEA]'
+          isDark ? 'border-[#2E2D2C] bg-[#100F0F]' : 'border-[#D8D6CD] bg-[#FEFCF1]'
         }`}>
           <button
             type="button"
             onClick={onClose}
             className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
-              isDark ? 'text-[#8E8E93] hover:text-[#CECDC4]' : 'text-[#636366] hover:text-[#141414]'
+              isDark ? 'text-[#8A8983] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'
             }`}
           >
             Cancel
@@ -581,14 +581,14 @@ export function ProjectModal({
             disabled={!name.trim() || isSaving}
             className={`px-5 py-2 rounded-xl font-sans text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
               savedSuccess
-                ? 'bg-[#32D74B] text-black font-semibold'
+                ? 'bg-wyrd-primary text-wyrd-on-primary font-semibold'
                 : !name.trim() || isSaving
                 ? isDark
-                  ? 'bg-[#262626] text-[#636366] cursor-not-allowed border border-[#262626]'
-                  : 'bg-[#CECDC4] text-[#8E8E93] cursor-not-allowed border border-[#CECDC4]'
+                  ? 'bg-[#2E2D2C] text-[#8A8983] cursor-not-allowed border border-[#2E2D2C]'
+                  : 'bg-[#D8D6CD] text-[#666460] cursor-not-allowed border border-[#D8D6CD]'
                 : isDark
-                ? 'bg-[#CECDC4] text-black hover:bg-white active:scale-95'
-                : 'bg-[#141414] text-[#F9F9F7] hover:bg-black active:scale-95'
+                ? 'bg-[#CECDC4] text-[#100F0F] hover:bg-[#CECDC4] active:scale-95'
+                : 'bg-[#100F0F] text-[#FEFCF1] hover:bg-[#100F0F] active:scale-95'
             }`}
           >
             {savedSuccess ? (

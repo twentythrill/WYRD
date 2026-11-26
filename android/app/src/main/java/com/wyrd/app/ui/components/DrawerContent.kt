@@ -70,7 +70,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wyrd.app.data.local.ChatEntity
-import com.wyrd.app.ui.theme.AccentRed
 import com.wyrd.app.ui.theme.DarkBorder
 import com.wyrd.app.ui.theme.DarkCard
 import com.wyrd.app.ui.theme.DarkSurface
@@ -515,8 +514,7 @@ private fun ProjectItemRow(
                     .width(48.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(
-                        if (isAppThemeDark) Color(0xFF202020)
-                        else Color(0xFFE0DFDA)
+                        DarkSurfaceElevated
                     )
                     .clickable {
                         hapticManager?.tick()
@@ -696,13 +694,13 @@ private fun ChatItemRow(
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = null,
-                            tint = AccentRed,
+                            tint = TextWhite,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Delete chat",
-                            color = AccentRed,
+                            color = TextWhite,
                             fontFamily = SpaceGrotesk,
                             fontSize = 14.sp
                         )

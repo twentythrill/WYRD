@@ -183,16 +183,16 @@ export function Sidebar({
         } ${
           isSelected
             ? isDark
-              ? 'bg-[#1A1A1A] text-[#CECDC4]'
-              : 'bg-[#DFDED8] text-[#141414]'
+              ? 'bg-[#1F1E1D] text-[#CECDC4]'
+              : 'bg-[#E1E0D6] text-[#100F0F]'
             : isDark
-            ? 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#141414]'
-            : 'text-[#636366] hover:text-[#141414] hover:bg-[#E8E7E1]'
+            ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#1F1E1D]'
+            : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#EBE9DF]'
         }`}
       >
         <div className="flex items-center gap-2 min-w-0 pr-1.5">
           {chat.is_pinned && (
-            <Pin className={`w-3 h-3 shrink-0 fill-current ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
+            <Pin className={`w-3 h-3 shrink-0 fill-current ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`} />
           )}
           <span className="text-[13px] font-sans truncate">{chat.title}</span>
         </div>
@@ -207,8 +207,8 @@ export function Sidebar({
             title={chat.is_pinned ? 'Unpin' : 'Pin'}
             className={`p-1 rounded cursor-pointer ${
               isDark
-                ? 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626]'
-                : 'text-[#636366] hover:text-[#141414] hover:bg-[#CECDC4]'
+                ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#2E2D2C]'
+                : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#D8D6CD]'
             }`}
           >
             {chat.is_pinned ? (
@@ -222,8 +222,8 @@ export function Sidebar({
             title="Rename"
             className={`p-1 rounded cursor-pointer ${
               isDark
-                ? 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626]'
-                : 'text-[#636366] hover:text-[#141414] hover:bg-[#CECDC4]'
+                ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#2E2D2C]'
+                : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#D8D6CD]'
             }`}
           >
             <Edit3 className="w-3 h-3" />
@@ -236,8 +236,8 @@ export function Sidebar({
             title="Delete"
             className={`p-1 rounded cursor-pointer ${
               isDark
-                ? 'text-[#8E8E93] hover:text-[#FF453A] hover:bg-[#262626]'
-                : 'text-[#636366] hover:text-[#FF453A] hover:bg-[#CECDC4]'
+                ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#2E2D2C]'
+                : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#D8D6CD]'
             }`}
           >
             <Trash2 className="w-3 h-3" />
@@ -253,16 +253,16 @@ export function Sidebar({
       {isOpen && (
         <div
           onClick={onClose}
-          className="fixed inset-0 bg-black/60 z-40 md:hidden"
+          className="fixed inset-0 bg-[#100F0F]/60 z-40 md:hidden"
         />
       )}
 
       <aside
         className={`fixed md:relative inset-y-0 left-0 z-50 h-screen flex flex-col select-none transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
-          isDark ? 'bg-[#0A0A0A]' : 'bg-[#F0EFEA]'
+          isDark ? 'bg-[#100F0F]' : 'bg-[#FEFCF1]'
         } ${
           isOpen
-            ? `w-[270px] translate-x-0 opacity-100 border-r ${isDark ? 'border-[#262626]' : 'border-[#CECDC4]'}`
+            ? `w-[270px] translate-x-0 opacity-100 border-r ${isDark ? 'border-[#2E2D2C]' : 'border-[#D8D6CD]'}`
             : 'w-0 -translate-x-full md:translate-x-0 md:w-0 opacity-0 pointer-events-none border-r-0'
         }`}
       >
@@ -276,7 +276,7 @@ export function Sidebar({
                 className="w-7 h-7 object-contain"
               />
               <span className={`ml-2.5 font-sans font-bold text-[18px] tracking-[2px] uppercase ${
-                isDark ? 'text-[#CECDC4]' : 'text-[#141414]'
+                isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'
               }`}>
                 WYRD
               </span>
@@ -286,8 +286,8 @@ export function Sidebar({
               title="Collapse sidebar"
               className={`p-2 rounded-lg transition-colors flex items-center justify-center cursor-pointer ${
                 isDark
-                  ? 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#141414]'
-                  : 'text-[#636366] hover:text-[#141414] hover:bg-[#E8E7E1]'
+                  ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#1F1E1D]'
+                  : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#EBE9DF]'
               }`}
             >
               <PanelLeftClose className="w-5 h-5 stroke-[2]" />
@@ -304,11 +304,11 @@ export function Sidebar({
               }}
               className={`w-full h-11 px-3 flex items-center rounded-xl transition-colors cursor-pointer ${
                 activeChatId === null && activeProjectId === null
-                  ? isDark ? 'bg-[#1A1A1A] text-[#CECDC4]' : 'bg-[#DFDED8] text-[#141414]'
-                  : isDark ? 'hover:bg-[#141414] text-[#CECDC4]' : 'hover:bg-[#E8E7E1] text-[#141414]'
+                  ? isDark ? 'bg-[#1F1E1D] text-[#CECDC4]' : 'bg-[#E1E0D6] text-[#100F0F]'
+                  : isDark ? 'hover:bg-[#1F1E1D] text-[#CECDC4]' : 'hover:bg-[#EBE9DF] text-[#100F0F]'
               }`}
             >
-              <Plus className={`w-5 h-5 stroke-[2] ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
+              <Plus className={`w-5 h-5 stroke-[2] ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`} />
               <span className="ml-3 font-sans text-sm font-medium">New Chat</span>
             </button>
 
@@ -316,10 +316,10 @@ export function Sidebar({
             <button
               onClick={() => setIsSearchExpanded(!isSearchExpanded)}
               className={`w-full h-11 px-3 flex items-center rounded-xl transition-colors cursor-pointer ${
-                isDark ? 'hover:bg-[#141414] text-[#CECDC4]' : 'hover:bg-[#E8E7E1] text-[#141414]'
+                isDark ? 'hover:bg-[#1F1E1D] text-[#CECDC4]' : 'hover:bg-[#EBE9DF] text-[#100F0F]'
               }`}
             >
-              <Search className={`w-5 h-5 stroke-[2] ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
+              <Search className={`w-5 h-5 stroke-[2] ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`} />
               <span className="ml-3 font-sans text-sm font-medium">Search Chats</span>
             </button>
 
@@ -335,15 +335,15 @@ export function Sidebar({
                     autoFocus
                     className={`w-full px-3 py-2 border rounded-xl text-xs font-sans focus:outline-none ${
                       isDark
-                        ? 'bg-[#141414] border-[#262626] text-[#CECDC4] placeholder-[#636366] focus:border-[#CECDC4]'
-                        : 'bg-[#E8E7E1] border-[#CECDC4] text-[#141414] placeholder-[#9E9E9B] focus:border-[#141414]'
+                        ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4] placeholder-[#8A8983] focus:border-[#CECDC4]'
+                        : 'bg-[#EBE9DF] border-[#D8D6CD] text-[#100F0F] placeholder-[#666460] focus:border-[#100F0F]'
                     }`}
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
                       className={`absolute right-2.5 cursor-pointer ${
-                        isDark ? 'text-[#8E8E93] hover:text-[#CECDC4]' : 'text-[#636366] hover:text-[#141414]'
+                        isDark ? 'text-[#8A8983] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'
                       }`}
                     >
                       <X className="w-3.5 h-3.5" />
@@ -360,23 +360,23 @@ export function Sidebar({
                 if (window.innerWidth < 768) onClose()
               }}
               className={`w-full h-11 px-3 flex items-center rounded-xl transition-colors cursor-pointer ${
-                isDark ? 'hover:bg-[#141414] text-[#CECDC4]' : 'hover:bg-[#E8E7E1] text-[#141414]'
+                isDark ? 'hover:bg-[#1F1E1D] text-[#CECDC4]' : 'hover:bg-[#EBE9DF] text-[#100F0F]'
               }`}
             >
-              <Settings className={`w-5 h-5 stroke-[2] ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`} />
+              <Settings className={`w-5 h-5 stroke-[2] ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`} />
               <span className="ml-3 font-sans text-sm font-medium">Settings</span>
             </button>
           </div>
 
           {/* Divider */}
-          <div className={`my-2.5 mx-3 border-t shrink-0 ${isDark ? 'border-[#262626]' : 'border-[#CECDC4]'}`} />
+          <div className={`my-2.5 mx-3 border-t shrink-0 ${isDark ? 'border-[#2E2D2C]' : 'border-[#D8D6CD]'}`} />
 
           {/* Scrollable area for Projects & History */}
           <div className="flex-1 overflow-y-auto px-2 py-1 space-y-3">
             {/* PROJECTS SECTION */}
             <div>
               <div className={`pl-3 pr-2 py-1 flex items-center justify-between text-[10px] font-sans font-bold tracking-[1.2px] uppercase ${
-                isDark ? 'text-[#636366]' : 'text-[#8E8E93]'
+                isDark ? 'text-[#8A8983]' : 'text-[#666460]'
               }`}>
                 <span>PROJECTS</span>
                 <button
@@ -384,8 +384,8 @@ export function Sidebar({
                   title="Create new project"
                   className={`w-12 h-[30px] rounded-lg transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                     isDark
-                      ? 'text-[#CECDC4] hover:text-white'
-                      : 'text-[#141414] hover:text-black'
+                      ? 'text-[#CECDC4] hover:text-[#CECDC4]'
+                      : 'text-[#100F0F] hover:text-[#100F0F]'
                   }`}
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -393,7 +393,7 @@ export function Sidebar({
               </div>
 
               {projects.length === 0 ? (
-                <div className={`px-3 py-2 text-xs font-sans ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>
+                <div className={`px-3 py-2 text-xs font-sans ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>
                   No projects yet. Click + to create one.
                 </div>
               ) : (
@@ -419,13 +419,13 @@ export function Sidebar({
                           }}
                           className={`group flex items-center justify-between px-2 py-2 rounded-xl cursor-pointer transition-colors ${
                             isProjectActive
-                              ? isDark ? 'bg-[#1A1A1A] text-[#CECDC4]' : 'bg-[#DFDED8] text-[#141414]'
-                              : isDark ? 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#141414]' : 'text-[#636366] hover:text-[#141414] hover:bg-[#E8E7E1]'
+                              ? isDark ? 'bg-[#1F1E1D] text-[#CECDC4]' : 'bg-[#E1E0D6] text-[#100F0F]'
+                              : isDark ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#1F1E1D]' : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#EBE9DF]'
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0 pr-1.5">
                             <span className={`p-0.5 rounded cursor-pointer ${
-                              isDark ? 'text-[#636366] hover:text-[#CECDC4]' : 'text-[#8E8E93] hover:text-[#141414]'
+                              isDark ? 'text-[#8A8983] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'
                             }`}>
                               {isExpanded ? (
                                 <ChevronDown className="w-3.5 h-3.5" />
@@ -436,12 +436,12 @@ export function Sidebar({
                             {isExpanded ? (
                               <FolderOpen
                                 className="w-4 h-4 shrink-0"
-                                style={{ color: project.color?.trim() || (isDark ? '#CECDC4' : '#141414') }}
+                                style={{ color: project.color?.trim() || (isDark ? '#CECDC4' : '#100F0F') }}
                               />
                             ) : (
                               <Folder
                                 className="w-4 h-4 shrink-0"
-                                style={{ color: project.color?.trim() || (isDark ? '#8E8E93' : '#636366') }}
+                                style={{ color: project.color?.trim() || (isDark ? '#8A8983' : '#666460') }}
                               />
                             )}
                             <span className="text-xs font-semibold font-sans truncate">
@@ -459,8 +459,8 @@ export function Sidebar({
                               title="Project Settings"
                               className={`opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-all cursor-pointer ${
                                 isDark
-                                  ? 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#262626]'
-                                  : 'text-[#636366] hover:text-[#141414] hover:bg-[#CECDC4]'
+                                  ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#2E2D2C]'
+                                  : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#D8D6CD]'
                               }`}
                             >
                               <Settings className="w-3.5 h-3.5" />
@@ -475,8 +475,8 @@ export function Sidebar({
                               title="New chat in project"
                               className={`w-12 h-[30px] rounded-[10px] transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                                 isDark
-                                  ? 'bg-[#202020] hover:bg-[#2A2A2A] text-[#CECDC4] hover:text-white'
-                                  : 'bg-[#E0DFDA] hover:bg-[#D5D4CE] text-[#141414] hover:text-black'
+                                  ? 'bg-[#1F1E1D] hover:bg-[#2E2D2C] text-[#CECDC4] hover:text-[#CECDC4]'
+                                  : 'bg-[#EBE9DF] hover:bg-[#D8D6CD] text-[#100F0F] hover:text-[#100F0F]'
                               }`}
                             >
                               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -494,7 +494,7 @@ export function Sidebar({
                                   if (window.innerWidth < 768) onClose()
                                 }}
                                 className={`pl-8 pr-3 py-1.5 text-xs rounded-xl cursor-pointer font-sans transition-colors ${
-                                  isDark ? 'text-[#636366] hover:text-[#CECDC4] hover:bg-[#141414]' : 'text-[#8E8E93] hover:text-[#141414] hover:bg-[#E8E7E1]'
+                                  isDark ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#1F1E1D]' : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#EBE9DF]'
                                 }`}
                               >
                                 + Start first chat in {project.name}
@@ -512,19 +512,19 @@ export function Sidebar({
             </div>
 
             {/* Divider */}
-            <div className={`my-2 border-t ${isDark ? 'border-[#262626]' : 'border-[#CECDC4]'}`} />
+            <div className={`my-2 border-t ${isDark ? 'border-[#2E2D2C]' : 'border-[#D8D6CD]'}`} />
 
             {/* HISTORY SECTION (Generic Chats) */}
             <div>
               <div className={`px-3 py-1 text-[10px] font-sans font-bold tracking-[1.2px] uppercase ${
-                isDark ? 'text-[#636366]' : 'text-[#8E8E93]'
+                isDark ? 'text-[#8A8983]' : 'text-[#666460]'
               }`}>
                 HISTORY
               </div>
 
               <div className="space-y-0.5 mt-1">
                 {genericChats.length === 0 ? (
-                  <div className={`px-3 py-2 text-xs font-sans ${isDark ? 'text-[#636366]' : 'text-[#8E8E93]'}`}>
+                  <div className={`px-3 py-2 text-xs font-sans ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>
                     {searchQuery ? 'No matching generic chats' : 'No chats yet'}
                   </div>
                 ) : (
@@ -538,11 +538,11 @@ export function Sidebar({
 
       {/* Rename Chat Modal */}
       {chatToRename && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#100F0F]/70 backdrop-blur-sm p-4">
           <div className={`w-full max-w-sm border rounded-2xl p-5 shadow-2xl ${
-            isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#F0EFEA] border-[#CECDC4]'
+            isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
           }`}>
-            <h3 className={`text-sm font-bold font-sans mb-3 ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
+            <h3 className={`text-sm font-bold font-sans mb-3 ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`}>
               Rename Conversation
             </h3>
             <input
@@ -556,15 +556,15 @@ export function Sidebar({
               autoFocus
               className={`w-full px-3 py-2 border rounded-xl text-sm font-sans focus:outline-none ${
                 isDark
-                  ? 'bg-[#1A1A1A] border-[#262626] text-[#CECDC4] focus:border-[#CECDC4]'
-                  : 'bg-[#E8E7E1] border-[#CECDC4] text-[#141414] focus:border-[#141414]'
+                  ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4] focus:border-[#CECDC4]'
+                  : 'bg-[#EBE9DF] border-[#D8D6CD] text-[#100F0F] focus:border-[#100F0F]'
               }`}
             />
             <div className="mt-4 flex items-center justify-end gap-2">
               <button
                 onClick={() => setChatToRename(null)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
-                  isDark ? 'text-[#8E8E93] hover:text-[#CECDC4]' : 'text-[#636366] hover:text-[#141414]'
+                  isDark ? 'text-[#8A8983] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'
                 }`}
               >
                 Cancel
@@ -575,11 +575,11 @@ export function Sidebar({
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   !renameText.trim()
                     ? isDark
-                      ? 'bg-[#262626] text-[#636366] cursor-not-allowed border border-[#262626]'
-                      : 'bg-[#CECDC4] text-[#8E8E93] cursor-not-allowed border border-[#CECDC4]'
+                      ? 'bg-[#2E2D2C] text-[#8A8983] cursor-not-allowed border border-[#2E2D2C]'
+                      : 'bg-[#D8D6CD] text-[#666460] cursor-not-allowed border border-[#D8D6CD]'
                     : isDark
-                    ? 'bg-[#CECDC4] text-black hover:bg-white active:scale-95'
-                    : 'bg-[#141414] text-[#F9F9F7] hover:bg-black active:scale-95'
+                    ? 'bg-[#CECDC4] text-[#100F0F] hover:bg-[#CECDC4] active:scale-95'
+                    : 'bg-[#100F0F] text-[#FEFCF1] hover:bg-[#100F0F] active:scale-95'
                 }`}
               >
                 Save
@@ -592,22 +592,22 @@ export function Sidebar({
       {/* Delete Chat Confirmation Modal */}
       {chatToDelete && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 select-none animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#100F0F]/70 backdrop-blur-sm p-4 select-none animate-in fade-in duration-150"
           onClick={() => setChatToDelete(null)}
         >
           <div
             className={`w-full max-w-sm border rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-150 ${
-              isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#F0EFEA] border-[#CECDC4]'
+              isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
             }`}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className={`text-lg font-semibold font-sans mb-1.5 ${
-              isDark ? 'text-[#CECDC4]' : 'text-[#141414]'
+              isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'
             }`}>
               Delete chat?
             </h3>
             <p className={`text-[15px] font-sans leading-relaxed mb-6 ${
-              isDark ? 'text-[#8E8E93]' : 'text-[#636366]'
+              isDark ? 'text-[#8A8983]' : 'text-[#666460]'
             }`}>
               Are you sure you want to delete this chat?
             </p>
@@ -616,8 +616,8 @@ export function Sidebar({
                 onClick={() => setChatToDelete(null)}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors font-sans cursor-pointer ${
                   isDark
-                    ? 'bg-[#1A1A1A] hover:bg-[#262626] text-[#CECDC4]'
-                    : 'bg-[#DFDED8] hover:bg-[#CECDC4] text-[#141414]'
+                    ? 'bg-[#1F1E1D] hover:bg-[#2E2D2C] text-[#CECDC4]'
+                    : 'bg-[#E1E0D6] hover:bg-[#D8D6CD] text-[#100F0F]'
                 }`}
               >
                 Cancel
@@ -628,7 +628,7 @@ export function Sidebar({
                   setChatToDelete(null)
                   onDeleteChat(id)
                 }}
-                className="px-4 py-2 rounded-xl bg-[#FF453A] hover:opacity-90 text-white text-sm font-semibold shadow-sm transition-colors font-sans cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-wyrd-primary hover:opacity-90 text-wyrd-on-primary text-sm font-semibold shadow-sm transition-colors font-sans cursor-pointer"
               >
                 Delete
               </button>
@@ -642,7 +642,7 @@ export function Sidebar({
         <div
           style={{ top: projectContextMenu.y, left: projectContextMenu.x }}
           className={`fixed z-50 min-w-[140px] border rounded-xl py-1 shadow-2xl animate-in fade-in duration-100 select-none ${
-            isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#F0EFEA] border-[#CECDC4]'
+            isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
@@ -654,8 +654,8 @@ export function Sidebar({
             }}
             className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 cursor-pointer transition-colors font-sans ${
               isDark
-                ? 'text-[#CECDC4] hover:text-white hover:bg-[#1A1A1A]'
-                : 'text-[#141414] hover:text-black hover:bg-[#DFDED8]'
+                ? 'text-[#CECDC4] hover:text-[#CECDC4] hover:bg-[#1F1E1D]'
+                : 'text-[#100F0F] hover:text-[#100F0F] hover:bg-[#E1E0D6]'
             }`}
           >
             <Settings2 className="w-3.5 h-3.5 stroke-[2]" />

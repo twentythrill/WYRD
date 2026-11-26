@@ -1,4 +1,4 @@
-# WYRD Web (Desktop & Browser Companion) (v1.6.9)
+# WYRD Web (Desktop & Browser Companion) (v1.7.0)
 
 A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversations, settings, and cognitive states in real-time with the Android application via Supabase.
 
@@ -17,8 +17,8 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
 1. **Collapsible Sidebar & Breadcrumbs**:
    * Compact 270px sidebar with smooth animated collapse/expand toggle on desktop and responsive mobile drawer.
    * Breadcrumb display in the top navigation bar showing the active project and conversation thread title.
-2. **Warm Brutalist Light & Dark Modes**:
-   * Exact parity with Android `LightWyrdColors` and `DarkWyrdColors`: warm parchment `#F9F9F7`, surfaces `#F0EFEA` / `#E8E7E1`, cards `#DFDED8`, border `#CECDC4`, deep black `#141414`.
+2. **DitherMono Light & Dark Modes**:
+   * Exact parity with Android `LightWyrdColors` and `DarkWyrdColors` via the `--wyrd-*` variables in `src/index.css`. Light: ink `#100F0F` on paper `#FEFCF1`, fill `#EBE9DF`, hairline `#D8D6CD`, muted `#666460`. Dark: ink `#CECDC4` on `#100F0F`, fill `#1F1E1D`, hairline `#2E2D2C`, muted `#8A8983`. No accent colours.
    * Dynamic eye logo & favicon switching: crisp white starburst (`/app_logo.png`) in dark mode, deep black starburst (`/app_icon_trans_black.png`) in light mode.
    * Theme controls: quick toggle icon in top bar and three-way preference (`System`, `Dark`, `Light`) in Settings.
 3. **Audio Experience (STT, Double-Click to Hear TTS & Word-by-Word Highlighting)**:
@@ -56,7 +56,7 @@ A minimal, hyper-efficient web companion for **WYRD**, synchronizing conversatio
      * **Parallel Execution Engine**: When both Tavily and Exa are enabled in Settings, the browser executes both Tavily and Exa concurrently in parallel via `Promise.all()`, returning live factual sources alongside semantic community/forum/review discussions.
      * **Multi-Tiered Fallback Resilience**: If Tavily fails or returns zero results, the engine automatically falls back to Exa API (provided Exa has not been explicitly disabled in Settings); if neither API is working or both are disabled in settings, it seamlessly falls back to Exa's keyless MCP endpoint (`https://mcp.exa.ai/mcp`).
 9. **Projects & Knowledge Base Spaces**:
-   * **Custom Project Colors & Palettes**: 9-color curated warm brutalist palette with swatches in the project modal.
+   * **Custom Project Colors & Palettes**: 9-color curated project palette with swatches in the project modal.
    * **Custom System Prompt Override & Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code files to any project. Text (including extracted PDF text) is injected into the LLM context for all chats within that project.
 
 ## Local Development & Spin-Up

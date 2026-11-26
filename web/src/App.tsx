@@ -921,7 +921,7 @@ export function App() {
 
   if (loadingAuth) {
     return (
-      <div className="w-screen h-screen bg-black flex items-center justify-center font-sans text-xs text-[#636366]">
+      <div className="w-screen h-screen bg-wyrd-bg flex items-center justify-center font-sans text-xs text-wyrd-text-secondary">
         WYRD
       </div>
     )
@@ -936,7 +936,7 @@ export function App() {
     projects.find((p) => p.id === (activeChat ? (activeChat.project_id || null) : activeProjectId)) || null
 
   return (
-    <div className="w-screen h-screen flex bg-black overflow-hidden select-none font-sans text-[#CECDC4]">
+    <div className="w-screen h-screen flex bg-wyrd-bg overflow-hidden select-none font-sans text-wyrd-text-primary">
       {/* Drawer / Sidebar matching DrawerContent.kt */}
       <Sidebar
         isOpen={isSidebarOpen}
@@ -967,7 +967,7 @@ export function App() {
       />
 
       {/* Main Screen */}
-      <div className={`flex-1 relative flex flex-col h-full min-w-0 overflow-hidden ${isDark ? 'bg-black text-[#CECDC4]' : 'bg-[#F9F9F7] text-[#141414]'}`}>
+      <div className={`flex-1 relative flex flex-col h-full min-w-0 overflow-hidden ${isDark ? 'bg-[#100F0F] text-[#CECDC4]' : 'bg-[#FEFCF1] text-[#100F0F]'}`}>
         {/* TopBar matching TopBar.kt */}
         <div className="absolute top-0 left-0 right-0 z-30 pointer-events-auto">
           <TopBar

@@ -89,7 +89,6 @@ import com.wyrd.app.data.local.MessageEntity
 import com.wyrd.app.data.preferences.SupportedModel
 import com.wyrd.app.data.tts.NativeTtsManager
 import com.wyrd.app.data.tts.TtsPlaybackState
-import com.wyrd.app.ui.theme.AccentGreen
 import com.wyrd.app.ui.theme.DarkBorder
 import com.wyrd.app.ui.theme.DarkCard
 import com.wyrd.app.ui.theme.DarkSurfaceElevated
@@ -670,7 +669,7 @@ fun CodeBlockCard(
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = "Copied",
-                            tint = AccentGreen,
+                            tint = TextWhite,
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
@@ -678,7 +677,7 @@ fun CodeBlockCard(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
-                            color = AccentGreen
+                            color = TextWhite
                         )
                     } else {
                         Icon(
@@ -855,7 +854,7 @@ fun MarkdownTableCard(
                 // Table Header Row
                 Row(
                     modifier = Modifier
-                        .background(if (wyrdColors.isDark) Color(0xFF1A1A1A) else Color(0xFFDFDED8))
+                        .background(wyrdColors.card)
                         .padding(vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -935,7 +934,7 @@ fun MarkdownTableCard(
                 table.rows.forEachIndexed { rIdx, row ->
                     val isLastRow = rIdx == table.rows.size - 1
                     val rowBg = if (rIdx % 2 == 1) {
-                        if (wyrdColors.isDark) Color(0xFF101010) else Color(0xFFE5E4DD)
+                        wyrdColors.textPrimary.copy(alpha = 0.04f)
                     } else {
                         Color.Transparent
                     }
@@ -1840,7 +1839,7 @@ fun AssistantMessageItem(
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = "Copied",
-                            tint = AccentGreen,
+                            tint = TextWhite,
                             modifier = Modifier.size(22.dp)
                         )
                     } else {

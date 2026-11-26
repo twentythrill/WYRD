@@ -4,55 +4,56 @@
   font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   color-scheme: dark;
 
-  /* AMOLED Dark Palette (Default - matching Android DarkWyrdColors) */
-  --wyrd-bg: #000000;
-  --wyrd-surface: #0A0A0A;
-  --wyrd-surface-elevated: #141414;
-  --wyrd-card: #1A1A1A;
-  --wyrd-border: #262626;
-  --wyrd-border-subtle: #1F1F1F;
+  /* DitherMono — dark: soft grey ink on black. Every non-ink value is ink at an
+     opacity (fill 8%, hairline 16%, muted 64%), pre-composited on surface. */
+  --wyrd-bg: #100F0F;
+  --wyrd-surface: #100F0F;
+  --wyrd-surface-elevated: #1F1E1D;
+  --wyrd-card: #1F1E1D;
+  --wyrd-border: #2E2D2C;
+  --wyrd-border-subtle: #2E2D2C;
   --wyrd-text-primary: #CECDC4;
-  --wyrd-text-secondary: #8E8E93;
-  --wyrd-text-muted: #636366;
-  --wyrd-text-placeholder: #7A7A7A;
+  --wyrd-text-secondary: #8A8983;
+  --wyrd-text-muted: #8A8983;
+  --wyrd-text-placeholder: #8A8983;
   --wyrd-primary: #CECDC4;
-  --wyrd-on-primary: #000000;
-  --wyrd-hover: #141414;
-  --wyrd-hover-card: #262626;
-  --wyrd-hover-text: #FFFFFF;
-  --wyrd-reasoning-bg: #0E0E0E;
-  --wyrd-reasoning-header: rgba(20, 20, 20, 0.5);
-  --wyrd-code-bg: #0A0A0A;
-  --wyrd-code-header: #141414;
-  --wyrd-scrollbar: #262626;
-  --wyrd-scrollbar-hover: #383838;
+  --wyrd-on-primary: #100F0F;
+  --wyrd-hover: #1F1E1D;
+  --wyrd-hover-card: #2E2D2C;
+  --wyrd-hover-text: #CECDC4;
+  --wyrd-reasoning-bg: #1F1E1D;
+  --wyrd-reasoning-header: rgba(206, 205, 196, 0.08);
+  --wyrd-code-bg: #1F1E1D;
+  --wyrd-code-header: #2E2D2C;
+  --wyrd-scrollbar: #2E2D2C;
+  --wyrd-scrollbar-hover: #3E3D3A;
 }
 
 [data-theme="light"], .light {
   color-scheme: light;
 
-  /* Warm Brutalist Parchment Palette (Exact Android LightWyrdColors) */
-  --wyrd-bg: #F9F9F7;
-  --wyrd-surface: #F0EFEA;
-  --wyrd-surface-elevated: #E8E7E1;
-  --wyrd-card: #DFDED8;
-  --wyrd-border: #CECDC4;
-  --wyrd-border-subtle: #D8D7D0;
-  --wyrd-text-primary: #141414;
-  --wyrd-text-secondary: #636366;
-  --wyrd-text-muted: #8E8E93;
-  --wyrd-text-placeholder: #9E9E9B;
-  --wyrd-primary: #141414;
-  --wyrd-on-primary: #F9F9F7;
-  --wyrd-hover: #E8E7E1;
-  --wyrd-hover-card: #DFDED8;
-  --wyrd-hover-text: #000000;
-  --wyrd-reasoning-bg: #EAE9E3;
-  --wyrd-reasoning-header: rgba(223, 222, 216, 0.6);
-  --wyrd-code-bg: #F0EFEA;
-  --wyrd-code-header: #E8E7E1;
-  --wyrd-scrollbar: #CECDC4;
-  --wyrd-scrollbar-hover: #B8B7AF;
+  /* DitherMono — light: black ink on warm paper. */
+  --wyrd-bg: #FEFCF1;
+  --wyrd-surface: #FEFCF1;
+  --wyrd-surface-elevated: #EBE9DF;
+  --wyrd-card: #EBE9DF;
+  --wyrd-border: #D8D6CD;
+  --wyrd-border-subtle: #D8D6CD;
+  --wyrd-text-primary: #100F0F;
+  --wyrd-text-secondary: #666460;
+  --wyrd-text-muted: #666460;
+  --wyrd-text-placeholder: #666460;
+  --wyrd-primary: #100F0F;
+  --wyrd-on-primary: #FEFCF1;
+  --wyrd-hover: #EBE9DF;
+  --wyrd-hover-card: #E1E0D6;
+  --wyrd-hover-text: #100F0F;
+  --wyrd-reasoning-bg: #EBE9DF;
+  --wyrd-reasoning-header: rgba(16, 15, 15, 0.08);
+  --wyrd-code-bg: #EBE9DF;
+  --wyrd-code-header: #E1E0D6;
+  --wyrd-scrollbar: #D8D6CD;
+  --wyrd-scrollbar-hover: #B2B0A9;
 }
 
 @theme {
@@ -68,8 +69,8 @@
   --color-wyrd-text-secondary: var(--wyrd-text-secondary);
   --color-wyrd-text-muted: var(--wyrd-text-muted);
   --color-wyrd-text-placeholder: var(--wyrd-text-placeholder);
-  --color-accent-red: #FF453A;
-  --color-accent-green: #32D74B;
+  --color-wyrd-primary: var(--wyrd-primary);
+  --color-wyrd-on-primary: var(--wyrd-on-primary);
 }
 
 body {

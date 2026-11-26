@@ -2,6 +2,7 @@ package com.wyrd.app.ui.components
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import com.wyrd.app.ui.theme.DitherMono
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -146,10 +147,10 @@ private fun appendInlineFormatted(
     builder: AnnotatedString.Builder,
     plainBuilder: StringBuilder,
     text: String,
-    boldColor: Color = Color(0xFFCECDC4),
+    boldColor: Color = DitherMono.Grey,
     italicColor: Color = boldColor,
-    inlineCodeBg: Color = Color(0xFF222222),
-    inlineCodeColor: Color = Color(0xFFCECDC4)
+    inlineCodeBg: Color = Color(0xFF1F1E1D),
+    inlineCodeColor: Color = DitherMono.Grey
 ) {
     var cursor = 0
     val len = text.length
@@ -348,9 +349,9 @@ private fun formatInlineContent(
 
 fun formatMarkdownForReading(
     markdown: String,
-    textColor: Color = Color(0xFFCECDC4),
-    headerColor: Color = Color(0xFFCECDC4),
-    inlineCodeBg: Color = Color(0xFF222222),
+    textColor: Color = DitherMono.Grey,
+    headerColor: Color = DitherMono.Grey,
+    inlineCodeBg: Color = Color(0xFF1F1E1D),
     inlineCodeColor: Color = textColor,
     boldColor: Color = headerColor,
     italicColor: Color = textColor,
@@ -618,8 +619,8 @@ fun formatMarkdownForReading(
 fun getHighlightedAnnotatedString(
     formatted: FormattedReadingContent,
     highlightRange: Pair<Int, Int>?,
-    highlightBg: Color = Color(0xFFCECDC4),
-    highlightTextColor: Color = Color(0xFF000000)
+    highlightBg: Color = DitherMono.Grey,
+    highlightTextColor: Color = DitherMono.Black
 ): AnnotatedString {
     if (highlightRange == null) return formatted.baseAnnotatedString
 

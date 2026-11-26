@@ -59,8 +59,8 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-      <div className="w-full max-w-sm bg-[#0A0A0A] border border-[#262626] rounded-3xl p-8 shadow-2xl relative text-center select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#100F0F]/90 backdrop-blur-md p-4">
+      <div className="w-full max-w-sm bg-[#100F0F] border border-[#2E2D2C] rounded-3xl p-8 shadow-2xl relative text-center select-none">
         {/* Exact Brand Logo */}
         <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4">
           <img
@@ -73,53 +73,53 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
         <h1 className="text-xl font-bold tracking-[2px] uppercase font-sans text-[#CECDC4] mb-1">
           WYRD
         </h1>
-        <p className="text-xs text-[#8E8E93] mb-6 font-sans">
+        <p className="text-xs text-[#8A8983] mb-6 font-sans">
           {isSignUp ? 'Create an account to synchronize' : 'Sign in to access your conversations'}
         </p>
 
         {errorMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-[#1A1A1A] border border-[#FF453A]/40 text-xs text-[#FF453A] text-left font-sans">
+          <div className="mb-4 p-3 rounded-xl bg-[#1F1E1D] border border-[#CECDC4]/40 text-xs text-[#CECDC4] text-left font-sans">
             {errorMsg}
           </div>
         )}
 
         {infoMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-[#1A1A1A] border border-[#32D74B]/40 text-xs text-[#32D74B] text-left font-sans">
+          <div className="mb-4 p-3 rounded-xl bg-[#1F1E1D] border border-[#CECDC4]/40 text-xs text-[#CECDC4] text-left font-sans">
             {infoMsg}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3.5 text-left">
           <div>
-            <label className="block text-[11px] font-sans font-medium text-[#8E8E93] mb-1">
+            <label className="block text-[11px] font-sans font-medium text-[#8A8983] mb-1">
               Email
             </label>
             <div className="relative flex items-center">
-              <Mail className="w-4 h-4 absolute left-3.5 text-[#636366] pointer-events-none" />
+              <Mail className="w-4 h-4 absolute left-3.5 text-[#8A8983] pointer-events-none" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@domain.com"
-                className="w-full pl-10 pr-3 py-2.5 bg-[#141414] border border-[#262626] rounded-xl text-sm text-[#CECDC4] placeholder-[#7A7A7A] focus:outline-none focus:border-[#CECDC4] transition-colors font-sans"
+                className="w-full pl-10 pr-3 py-2.5 bg-[#1F1E1D] border border-[#2E2D2C] rounded-xl text-sm text-[#CECDC4] placeholder-[#8A8983] focus:outline-none focus:border-[#CECDC4] transition-colors font-sans"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-sans font-medium text-[#8E8E93] mb-1">
+            <label className="block text-[11px] font-sans font-medium text-[#8A8983] mb-1">
               Password
             </label>
             <div className="relative flex items-center">
-              <Lock className="w-4 h-4 absolute left-3.5 text-[#636366] pointer-events-none" />
+              <Lock className="w-4 h-4 absolute left-3.5 text-[#8A8983] pointer-events-none" />
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-3 py-2.5 bg-[#141414] border border-[#262626] rounded-xl text-sm text-[#CECDC4] placeholder-[#7A7A7A] focus:outline-none focus:border-[#CECDC4] transition-colors font-sans"
+                className="w-full pl-10 pr-3 py-2.5 bg-[#1F1E1D] border border-[#2E2D2C] rounded-xl text-sm text-[#CECDC4] placeholder-[#8A8983] focus:outline-none focus:border-[#CECDC4] transition-colors font-sans"
               />
             </div>
           </div>
@@ -127,10 +127,10 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-3 py-2.5 px-4 rounded-xl bg-[#CECDC4] hover:bg-white text-black font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+            className="w-full mt-3 py-2.5 px-4 rounded-xl bg-[#CECDC4] hover:opacity-90 text-[#100F0F] font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
           >
             {loading ? (
-              <Loader2 className="w-4 h-4 animate-spin text-black" />
+              <Loader2 className="w-4 h-4 animate-spin text-[#100F0F]" />
             ) : (
               <>
                 <span>{isSignUp ? 'Create Account' : 'Sign In'}</span>
@@ -140,7 +140,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
           </button>
         </form>
 
-        <div className="mt-6 pt-5 border-t border-[#262626] flex items-center justify-center text-xs text-[#8E8E93] font-sans">
+        <div className="mt-6 pt-5 border-t border-[#2E2D2C] flex items-center justify-center text-xs text-[#8A8983] font-sans">
           <span>{isSignUp ? 'Already have an account?' : "Don't have an account yet?"}</span>
           <button
             onClick={() => {

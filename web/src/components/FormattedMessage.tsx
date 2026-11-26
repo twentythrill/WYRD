@@ -68,9 +68,9 @@ export const FormattedMessage = React.memo(function FormattedMessage({
     target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
   }
 
-  const textColor = isDark ? 'text-[#CECDC4]' : 'text-[#141414]'
-  const mutedColor = isDark ? 'text-[#8E8E93]' : 'text-[#636366]'
-  const quoteBorder = isDark ? 'border-[#8E8E93]' : 'border-[#636366]'
+  const textColor = isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'
+  const mutedColor = isDark ? 'text-[#8A8983]' : 'text-[#666460]'
+  const quoteBorder = isDark ? 'border-[#8A8983]' : 'border-[#666460]'
 
   return (
     <div
@@ -139,7 +139,7 @@ function RenderBlock({
     case 'horizontalRule':
       return (
         <hr
-          className={`my-5 border-t border-[#262626] dark:border-[#262626] light:border-[#CECDC4]`}
+          className={`my-5 border-t border-wyrd-border`}
         />
       )
 
@@ -258,8 +258,8 @@ function RenderSpans({
         else if (span.type === 'code') {
           spanClasses = `px-1.5 py-0.5 rounded-[4px] font-mono text-[14.5px] border ${
             isDark
-              ? 'bg-[#141414] border-[#262626] text-[#CECDC4]'
-              : 'bg-[#E8E7E1] border-[#CECDC4] text-[#141414]'
+              ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4]'
+              : 'bg-[#EBE9DF] border-[#D8D6CD] text-[#100F0F]'
           }`
         }
 
@@ -316,12 +316,12 @@ function WordItem({
       (Math.max(word.start, activeHighlightRange[0]) < Math.min(word.end, activeHighlightRange[1])))
 
   // Warm Brutalist inverted high-contrast highlight pill
-  // Dark mode: #CECDC4 pill with black text
-  // Light mode: #141414 pill with #F9F9F7 text
+  // Dark mode: ink (#CECDC4) pill with surface text
+  // Light mode: ink (#100F0F) pill with surface text
   // px-0.5 -mx-0.5 guarantees zero net layout impact, preventing text jitter
   const highlightClass = isDark
-    ? 'bg-[#CECDC4] text-black font-medium rounded-[3px] px-0.5 -mx-0.5 shadow-xs'
-    : 'bg-[#141414] text-[#F9F9F7] font-medium rounded-[3px] px-0.5 -mx-0.5 shadow-xs'
+    ? 'bg-[#CECDC4] text-[#100F0F] font-medium rounded-[3px] px-0.5 -mx-0.5 shadow-xs'
+    : 'bg-[#100F0F] text-[#FEFCF1] font-medium rounded-[3px] px-0.5 -mx-0.5 shadow-xs'
 
   return (
     <span
@@ -367,10 +367,10 @@ function CodeBlockItem({
     setTimeout(() => setCopied(false), 1800)
   }
 
-  const containerBg = isDark ? 'bg-[#0A0A0A] border-[#262626]' : 'bg-[#F0EFEA] border-[#CECDC4]'
-  const headerBg = isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#E8E7E1] border-[#CECDC4]'
-  const headerText = isDark ? 'text-[#8E8E93]' : 'text-[#636366]'
-  const codeColor = isDark ? 'text-[#CECDC4]' : 'text-[#141414]'
+  const containerBg = isDark ? 'bg-[#100F0F] border-[#2E2D2C]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
+  const headerBg = isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#EBE9DF] border-[#D8D6CD]'
+  const headerText = isDark ? 'text-[#8A8983]' : 'text-[#666460]'
+  const codeColor = isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'
 
   return (
     <div className={`my-3.5 rounded-xl overflow-hidden border ${containerBg} shadow-xs`}>
@@ -380,10 +380,10 @@ function CodeBlockItem({
         <span className="font-medium">{language || 'code'}</span>
         <button
           onClick={handleCopy}
-          className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+          className="hover:text-wyrd-text-primary transition-colors flex items-center gap-1 cursor-pointer"
           title="Copy code"
         >
-          {copied ? <Check className="w-3 h-3 text-[#32D74B]" /> : <Copy className="w-3 h-3" />}
+          {copied ? <Check className="w-3 h-3 text-wyrd-text-primary" /> : <Copy className="w-3 h-3" />}
           <span>{copied ? 'Copied' : 'Copy'}</span>
         </button>
       </div>
@@ -419,11 +419,11 @@ function TableBlockItem({
   isDark: boolean
   activeWordRef: React.MutableRefObject<HTMLSpanElement | null>
 }) {
-  const containerBg = isDark ? 'bg-[#141414] border-[#262626]' : 'bg-[#E8E7E1] border-[#CECDC4]'
-  const headerBg = isDark ? 'bg-[#1A1A1A] border-[#262626]' : 'bg-[#DFDED8] border-[#CECDC4]'
-  const headerTextColor = isDark ? 'text-[#CECDC4]' : 'text-[#141414]'
-  const rowBorder = isDark ? 'border-[#262626]' : 'border-[#CECDC4]'
-  const hoverRowBg = isDark ? 'hover:bg-[#1A1A1A]/50' : 'hover:bg-[#DFDED8]/50'
+  const containerBg = isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#EBE9DF] border-[#D8D6CD]'
+  const headerBg = isDark ? 'bg-[#1F1E1D] border-[#2E2D2C]' : 'bg-[#E1E0D6] border-[#D8D6CD]'
+  const headerTextColor = isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'
+  const rowBorder = isDark ? 'border-[#2E2D2C]' : 'border-[#D8D6CD]'
+  const hoverRowBg = isDark ? 'hover:bg-[#1F1E1D]/50' : 'hover:bg-[#E1E0D6]/50'
 
   const getAlignClass = (align?: ColumnAlignment) => {
     switch (align) {
@@ -469,7 +469,7 @@ function TableBlockItem({
             <tr
               key={rIdx}
               className={`border-b ${rowBorder} last:border-b-0 ${hoverRowBg} ${
-                rIdx % 2 === 1 ? (isDark ? 'bg-[#101010]/60' : 'bg-[#E5E4DD]/60') : 'bg-transparent'
+                rIdx % 2 === 1 ? (isDark ? 'bg-[#100F0F]/60' : 'bg-[#EBE9DF]/60') : 'bg-transparent'
               } transition-colors`}
             >
               {row.cells.map((cell, cIdx) => {

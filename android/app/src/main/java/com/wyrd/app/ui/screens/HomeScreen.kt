@@ -136,7 +136,6 @@ import com.wyrd.app.ui.components.ProjectDialog
 import com.wyrd.app.ui.components.TopBar
 import com.wyrd.app.ui.components.UserMessageBubble
 import kotlin.math.roundToInt
-import com.wyrd.app.ui.theme.AccentRed
 import com.wyrd.app.ui.theme.Black
 import com.wyrd.app.ui.theme.DarkBorder
 import com.wyrd.app.ui.theme.DarkCard
@@ -1260,7 +1259,7 @@ fun HomeScreen(
                                 Icon(
                                     imageVector = Icons.Default.Warning,
                                     contentDescription = "Error",
-                                    tint = AccentRed,
+                                    tint = TextWhite,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))

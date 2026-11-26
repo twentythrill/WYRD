@@ -64,7 +64,6 @@ import androidx.compose.ui.window.DialogProperties
 import com.wyrd.app.data.local.ProjectEntity
 import com.wyrd.app.data.local.ProjectFileEntity
 import com.wyrd.app.ui.MainViewModel
-import com.wyrd.app.ui.theme.AccentRed
 import com.wyrd.app.ui.theme.DarkBorder
 import com.wyrd.app.ui.theme.DarkCard
 import com.wyrd.app.ui.theme.DarkSurface
@@ -76,6 +75,7 @@ import com.wyrd.app.ui.theme.TextWhite
 import com.wyrd.app.ui.theme.White
 import com.wyrd.app.ui.theme.OnPrimaryColor
 import com.wyrd.app.ui.theme.WyrdIcons
+import com.wyrd.app.ui.theme.DitherMono
 import com.wyrd.app.util.AttachmentHelper
 
 val PROJECT_COLOR_PRESETS = listOf(
@@ -247,11 +247,11 @@ fun ProjectDialog(
                     ) {
                         PROJECT_COLOR_PRESETS.forEach { (presetHex, label) ->
                             val isSelected = color.equals(presetHex, ignoreCase = true)
-                            val swatchColor = if (presetHex.isEmpty()) Color(0xFFE8E8E6) else {
+                            val swatchColor = if (presetHex.isEmpty()) TextWhite else {
                                 try {
                                     Color(android.graphics.Color.parseColor(presetHex))
                                 } catch (e: Exception) {
-                                    Color(0xFFE8E8E6)
+                                    TextWhite
                                 }
                             }
                             Box(
@@ -271,7 +271,7 @@ fun ProjectDialog(
                                     Icon(
                                         imageVector = Icons.Default.Check,
                                         contentDescription = label,
-                                        tint = if (presetHex.isEmpty() || presetHex.equals("#F59E0B", true)) Color.Black else Color.White,
+                                        tint = if (presetHex.isEmpty()) OnPrimaryColor else if (presetHex.equals("#F59E0B", true)) DitherMono.Black else DitherMono.Paper,
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
@@ -449,7 +449,7 @@ fun ProjectDialog(
                                             Icon(
                                                 imageVector = Icons.Default.Delete,
                                                 contentDescription = "Remove file",
-                                                tint = AccentRed.copy(alpha = 0.8f),
+                                                tint = TextWhite.copy(alpha = 0.8f),
                                                 modifier = Modifier.size(16.dp)
                                             )
                                         }
@@ -533,7 +533,7 @@ fun ProjectDialog(
                                         Icon(
                                             imageVector = Icons.Default.Delete,
                                             contentDescription = "Remove file",
-                                            tint = AccentRed.copy(alpha = 0.8f),
+                                            tint = TextWhite.copy(alpha = 0.8f),
                                             modifier = Modifier.size(16.dp)
                                         )
                                     }
@@ -549,22 +549,22 @@ fun ProjectDialog(
                         OutlinedButton(
                             onClick = { showDeleteConfirm = true },
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = AccentRed
+                                contentColor = TextWhite
                             ),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, AccentRed.copy(alpha = 0.4f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, TextWhite.copy(alpha = 0.4f)),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
                                 contentDescription = null,
-                                tint = AccentRed,
+                                tint = TextWhite,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Delete Project",
-                                color = AccentRed,
+                                color = TextWhite,
                                 fontFamily = SpaceGrotesk,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -647,7 +647,7 @@ fun ProjectDialog(
                         onDismiss()
                     }
                 ) {
-                    Text("Delete", color = AccentRed, fontWeight = FontWeight.Bold, fontFamily = SpaceGrotesk)
+                    Text("Delete", color = TextWhite, fontWeight = FontWeight.Bold, fontFamily = SpaceGrotesk)
                 }
             },
             dismissButton = {

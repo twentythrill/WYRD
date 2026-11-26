@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Wyrd" parent="android:Theme.Material.NoActionBar">
-        <item name="android:statusBarColor">#000000</item>
-        <item name="android:navigationBarColor">#000000</item>
-        <item name="android:windowBackground">#000000</item>
-        <item name="android:windowSplashScreenBackground">#000000</item>
+        <item name="android:statusBarColor">#100F0F</item>
+        <item name="android:navigationBarColor">#100F0F</item>
+        <item name="android:windowBackground">#100F0F</item>
+        <item name="android:windowSplashScreenBackground">#100F0F</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
     </style>

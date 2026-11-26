@@ -28,14 +28,14 @@ export function OpenAiKeyModal({ isOpen, onClose, onSuccess, isDark = true }: Op
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#100F0F]/80 backdrop-blur-sm p-4 select-none">
       <div className={`w-full max-w-md border rounded-2xl shadow-2xl p-6 relative ${
-        isDark ? 'bg-[#0A0A0A] border-[#262626]' : 'bg-[#F0EFEA] border-[#CECDC4]'
+        isDark ? 'bg-[#100F0F] border-[#2E2D2C]' : 'bg-[#FEFCF1] border-[#D8D6CD]'
       }`}>
         <button
           onClick={onClose}
           className={`absolute top-4 right-4 transition-colors p-1 cursor-pointer ${
-            isDark ? 'text-[#8E8E93] hover:text-[#CECDC4]' : 'text-[#636366] hover:text-[#141414]'
+            isDark ? 'text-[#8A8983] hover:text-[#CECDC4]' : 'text-[#666460] hover:text-[#100F0F]'
           }`}
         >
           <X className="w-5 h-5" />
@@ -43,28 +43,28 @@ export function OpenAiKeyModal({ isOpen, onClose, onSuccess, isDark = true }: Op
 
         <div className="flex items-center gap-3 mb-3">
           <div className={`w-10 h-10 rounded-full border flex items-center justify-center ${
-            isDark ? 'bg-[#1A1A1A] border-[#262626] text-[#CECDC4]' : 'bg-[#DFDED8] border-[#CECDC4] text-[#141414]'
+            isDark ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4]' : 'bg-[#E1E0D6] border-[#D8D6CD] text-[#100F0F]'
           }`}>
             <Key className="w-5 h-5" />
           </div>
           <div>
-            <h3 className={`text-base font-bold font-sans ${isDark ? 'text-[#CECDC4]' : 'text-[#141414]'}`}>
+            <h3 className={`text-base font-bold font-sans ${isDark ? 'text-[#CECDC4]' : 'text-[#100F0F]'}`}>
               OpenAI API Key Required
             </h3>
-            <p className={`text-xs font-sans ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
+            <p className={`text-xs font-sans ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>
               Voice Dictation (OpenAI gpt-4o-mini-transcribe)
             </p>
           </div>
         </div>
 
-        <p className={`text-xs font-sans leading-relaxed mb-4 ${isDark ? 'text-[#8E8E93]' : 'text-[#636366]'}`}>
+        <p className={`text-xs font-sans leading-relaxed mb-4 ${isDark ? 'text-[#8A8983]' : 'text-[#666460]'}`}>
           To record audio and transcribe your voice to text using OpenAI gpt-4o-mini-transcribe, configure your OpenAI API key below.
         </p>
 
         <div className="space-y-3">
           <div>
             <label className={`block text-[11px] font-sans uppercase font-bold tracking-wider mb-1.5 ${
-              isDark ? 'text-[#636366]' : 'text-[#8E8E93]'
+              isDark ? 'text-[#8A8983]' : 'text-[#666460]'
             }`}>
               OpenAI API Key
             </label>
@@ -83,14 +83,14 @@ export function OpenAiKeyModal({ isOpen, onClose, onSuccess, isDark = true }: Op
               autoFocus
               className={`w-full px-3.5 py-2.5 border rounded-xl text-sm font-mono focus:outline-none transition-colors ${
                 isDark
-                  ? 'bg-[#141414] border-[#262626] text-[#CECDC4] focus:border-[#CECDC4]'
-                  : 'bg-[#DFDED8] border-[#CECDC4] text-[#141414] focus:border-[#141414]'
+                  ? 'bg-[#1F1E1D] border-[#2E2D2C] text-[#CECDC4] focus:border-[#CECDC4]'
+                  : 'bg-[#E1E0D6] border-[#D8D6CD] text-[#100F0F] focus:border-[#100F0F]'
               }`}
             />
           </div>
 
           {error && (
-            <p className="text-xs text-[#FF453A] font-sans">{error}</p>
+            <p className="text-xs text-wyrd-text-primary font-sans">{error}</p>
           )}
 
           <div className="pt-2 flex items-center justify-end gap-2.5">
@@ -98,8 +98,8 @@ export function OpenAiKeyModal({ isOpen, onClose, onSuccess, isDark = true }: Op
               onClick={onClose}
               className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors font-sans cursor-pointer ${
                 isDark
-                  ? 'text-[#8E8E93] hover:text-[#CECDC4] hover:bg-[#141414]'
-                  : 'text-[#636366] hover:text-[#141414] hover:bg-[#E8E7E1]'
+                  ? 'text-[#8A8983] hover:text-[#CECDC4] hover:bg-[#1F1E1D]'
+                  : 'text-[#666460] hover:text-[#100F0F] hover:bg-[#EBE9DF]'
               }`}
             >
               Cancel
@@ -110,11 +110,11 @@ export function OpenAiKeyModal({ isOpen, onClose, onSuccess, isDark = true }: Op
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all font-sans flex items-center gap-1.5 cursor-pointer ${
                 !key.trim()
                   ? isDark
-                    ? 'bg-[#262626] text-[#636366] cursor-not-allowed border border-[#262626]'
-                    : 'bg-[#CECDC4] text-[#8E8E93] cursor-not-allowed border border-[#CECDC4]'
+                    ? 'bg-[#2E2D2C] text-[#8A8983] cursor-not-allowed border border-[#2E2D2C]'
+                    : 'bg-[#D8D6CD] text-[#666460] cursor-not-allowed border border-[#D8D6CD]'
                   : isDark
-                  ? 'bg-[#CECDC4] text-black hover:bg-white active:scale-95'
-                  : 'bg-[#141414] text-[#F9F9F7] hover:bg-black active:scale-95'
+                  ? 'bg-[#CECDC4] text-[#100F0F] hover:bg-[#CECDC4] active:scale-95'
+                  : 'bg-[#100F0F] text-[#FEFCF1] hover:bg-[#100F0F] active:scale-95'
               }`}
             >
               <Check className="w-4 h-4 stroke-[2.5]" />

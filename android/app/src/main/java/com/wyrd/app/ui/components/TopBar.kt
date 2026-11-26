@@ -35,6 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wyrd.app.data.preferences.SupportedModel
 import com.wyrd.app.ui.theme.DarkCard
+import com.wyrd.app.ui.theme.DarkBorder
+import com.wyrd.app.ui.theme.OnPrimaryColor
+import com.wyrd.app.ui.theme.White
 import com.wyrd.app.ui.theme.DarkSurface
 import com.wyrd.app.ui.theme.TextGray
 import com.wyrd.app.ui.theme.TextMuted
@@ -278,10 +281,10 @@ fun ModelAndEffortSelector(
                         onToggleThinking(it)
                     },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color(0xFF141414),
-                        checkedTrackColor = Color(0xFFCECDC4),
-                        uncheckedThumbColor = Color(0xFF8E8E93),
-                        uncheckedTrackColor = Color(0xFF2C2C2E),
+                        checkedThumbColor = OnPrimaryColor,
+                        checkedTrackColor = White,
+                        uncheckedThumbColor = TextMuted,
+                        uncheckedTrackColor = DarkBorder,
                         uncheckedBorderColor = Color.Transparent
                     )
                 )

@@ -7,10 +7,11 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 ## Core Features
 
 ### 1. Visual Design & Theming
-- **Dual Brutalist Theme**:
-  - **AMOLED Dark**: Pure black (`#000000`) background, `#141414` elevated surfaces, `#1A1A1A` message bubbles, and `#cecdc4` warm bone-white text and primary buttons.
-  - **Inverted Light**: Warm off-white (`#F9F9F7`) background, `#E8E7E1` elevated cards, `#DFDED8` message bubbles, `#141414` deep charcoal text, and solid black action buttons.
-  - **Theme Selection**: Settings dropdown under **APPEARANCE** supporting **System** (tracks OS theme), **Light** (manual forced light mode), and **Dark** (manual AMOLED black).
+- **Dual DitherMono Theme**:
+  - **DitherMono palette** (`ui/theme/Color.kt`): one `surface` ground, `ink` for text/icons/primary button, and `fill` / `hairline` / `ink-muted` as ink at 8% / 16% / 64% pre-composited on `surface`. No accent colours.
+  - **Dark**: `#CECDC4` ink on `#100F0F` (fill `#1F1E1D`, hairline `#2E2D2C`, muted `#8A8983`).
+  - **Light**: `#100F0F` ink on `#FEFCF1` (fill `#EBE9DF`, hairline `#D8D6CD`, muted `#666460`).
+  - **Theme Selection**: Settings dropdown under **APPEARANCE** supporting **System** (tracks OS theme), **Light** (manual forced light mode), and **Dark** (manual dark).
   - **Adaptive Insets**: Edge-to-edge status and navigation bar icons invert dynamically for continuous contrast.
   - **Application Icon**: High-contrast dark variant icon (`app_icon.jpg`).
   - **Custom Vector Iconography (`WyrdIcons`)**: Lightweight custom `ImageVector` set replacing `material-icons-extended`, paired with R8 code shrinking and resource shrinking (`isMinifyEnabled = true`, `isShrinkResources = true`).
@@ -22,8 +23,8 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
     - **Top Seamless Gradient**: Multi-stop, slightly transparent vertical gradient that smoothly dissolves scrolling messages behind the floating top bar and status bar up to the top screen edge across both dark and light themes.
     - **Bottom Seamless Scrim & Fade**: Multi-stop, slightly transparent vertical gradient (`totalBottomScrimHeight = navBarBottom + 108.dp`) that smoothly dissolves scrolling messages through the floating input capsule and Android 3-button system navigation bar down to the bottom screen edge across both dark and light themes.
 - **Markdown, Code Block & Tabular Layout Engine (`ReadingMarkdownParser`)**:
-  - **Native Markdown Code Blocks (`CodeBlockCard`)**: Fenced code blocks (` ```lang ... ``` `) render inside dedicated, Warm Brutalist cards adhering to active theme tokens (`wyrdColors.surface`, `1.dp` border `wyrdColors.border`, `12.dp` rounded corners). Features:
-    - **Header Bar**: Displays language title (`FontFamily.Monospace`, 11sp) on `wyrdColors.surfaceElevated` alongside a one-tap copy button with instant mechanical haptic feedback and a dynamic green checkmark (`AccentGreen`, "Copied") state.
+  - **Native Markdown Code Blocks (`CodeBlockCard`)**: Fenced code blocks (` ```lang ... ``` `) render inside dedicated, DitherMono cards adhering to active theme tokens (`wyrdColors.surface`, `1.dp` border `wyrdColors.border`, `12.dp` rounded corners). Features:
+    - **Header Bar**: Displays language title (`FontFamily.Monospace`, 11sp) on `wyrdColors.surfaceElevated` alongside a one-tap copy button with instant mechanical haptic feedback and a checkmark ("Copied") state in `ink`.
     - **Natural Line Wrapping & Text Selection**: Monospace code body (`17sp`, `23sp` line height, matching body text) with natural soft line-wrapping, eliminating horizontal scrolling even for long code lines or minified tokens, and non-jumping text selection (`SelectionContainer` with `suppressBringIntoView()`).
     - **Audio & TTS Parity**: Preserves 1:1 character index offsets in `plainBuilder` and `annotatedBuilder`, allowing word-by-word reading highlight pills and tap-to-seek playback inside code blocks.
     - **Streaming Resilient**: Streams in real-time without layout jumps even while code blocks are unclosed mid-stream.
@@ -137,7 +138,7 @@ WYRD is a high-performance, minimalist, brutalist native Android chat applicatio
 
 ### 8. Projects & Knowledge Base Spaces
 - **Custom System Prompt Override & Knowledge Base Source Files**: Attach `.md`, `.txt`, `.pdf`, and code documents to any project. Text is extracted client-side via `AttachmentHelper` and `PdfTextExtractor` and injected into contextual knowledge base memory.
-- **Custom Project Colors & Palettes**: 9-color curated warm brutalist palette with two-way Supabase sync.
+- **Custom Project Colors & Palettes**: 9-color curated project palette with two-way Supabase sync.
 
 ---
 

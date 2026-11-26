@@ -6,9 +6,17 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-// Fixed accent colors
-val AccentRed = Color(0xFFFF453A)
-val AccentGreen = Color(0xFF32D74B)
+// DitherMono design system: two inks on one ground.
+// Paper #FEFCF1, black #100F0F, soft grey #CECDC4. Every other value is ink at an opacity,
+// pre-composited onto `surface` so overlays (drawer, dialogs) stay opaque.
+//   fill     = ink 8%   composer, selected row, icon buttons, cards
+//   hairline = ink 16%  dividers, borders
+//   muted    = ink 64%  secondary text, labels, placeholders
+object DitherMono {
+    val Paper = Color(0xFFFEFCF1)
+    val Black = Color(0xFF100F0F)
+    val Grey = Color(0xFFCECDC4)
+}
 
 // Color Palette Definition
 @Immutable
@@ -28,32 +36,32 @@ data class WyrdColors(
 )
 
 val DarkWyrdColors = WyrdColors(
-    background = Color(0xFF000000),         // Pure AMOLED Black
-    surface = Color(0xFF0A0A0A),            // Drawer & dialogs
-    surfaceElevated = Color(0xFF141414),    // Input capsule, elevated cards
-    card = Color(0xFF1A1A1A),               // User message bubble, code card
-    border = Color(0xFF262626),             // Subtle border
-    textPrimary = Color(0xFFCECDC4),        // Warm bone white
-    textSecondary = Color(0xFF8E8E93),      // Secondary gray
-    textMuted = Color(0xFF636366),          // Muted metadata
-    textPlaceholder = Color(0xFF7A7A7A),    // Input placeholder
-    primary = Color(0xFFCECDC4),            // Primary action button (send button)
-    onPrimary = Color(0xFF000000),          // Icon/text on primary button
+    background = DitherMono.Black,          // surface
+    surface = DitherMono.Black,             // surface (drawer, dialogs: split by hairline)
+    surfaceElevated = Color(0xFF1F1E1D),    // fill
+    card = Color(0xFF1F1E1D),               // fill
+    border = Color(0xFF2E2D2C),             // hairline
+    textPrimary = DitherMono.Grey,          // ink
+    textSecondary = Color(0xFF8A8983),      // ink-muted
+    textMuted = Color(0xFF8A8983),          // ink-muted
+    textPlaceholder = Color(0xFF8A8983),    // ink-muted
+    primary = DitherMono.Grey,              // ink (send button)
+    onPrimary = DitherMono.Black,           // surface on ink
     isDark = true
 )
 
 val LightWyrdColors = WyrdColors(
-    background = Color(0xFFF9F9F7),         // Warm brutalist parchment / off-white
-    surface = Color(0xFFF0EFEA),            // Drawer & dialogs
-    surfaceElevated = Color(0xFFE8E7E1),    // Input capsule, elevated cards
-    card = Color(0xFFDFDED8),               // User message bubble, code card
-    border = Color(0xFFCECDC4),             // Subtle border
-    textPrimary = Color(0xFF141414),        // Deep charcoal/black
-    textSecondary = Color(0xFF636366),      // Secondary gray
-    textMuted = Color(0xFF8E8E93),          // Muted metadata
-    textPlaceholder = Color(0xFF9E9E9B),    // Input placeholder
-    primary = Color(0xFF141414),            // Primary action button (deep black send button)
-    onPrimary = Color(0xFFF9F9F7),          // Icon/text on primary button
+    background = DitherMono.Paper,          // surface
+    surface = DitherMono.Paper,             // surface (drawer, dialogs: split by hairline)
+    surfaceElevated = Color(0xFFEBE9DF),    // fill
+    card = Color(0xFFEBE9DF),               // fill
+    border = Color(0xFFD8D6CD),             // hairline
+    textPrimary = DitherMono.Black,         // ink
+    textSecondary = Color(0xFF666460),      // ink-muted
+    textMuted = Color(0xFF666460),          // ink-muted
+    textPlaceholder = Color(0xFF666460),    // ink-muted
+    primary = DitherMono.Black,             // ink (send button)
+    onPrimary = DitherMono.Paper,           // surface on ink
     isDark = false
 )
 

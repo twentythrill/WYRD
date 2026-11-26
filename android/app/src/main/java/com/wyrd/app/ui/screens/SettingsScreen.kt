@@ -71,8 +71,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wyrd.app.ui.MainViewModel
-import com.wyrd.app.ui.theme.AccentGreen
-import com.wyrd.app.ui.theme.AccentRed
 import com.wyrd.app.ui.theme.Black
 import com.wyrd.app.ui.theme.DarkBorder
 import com.wyrd.app.ui.theme.DarkCard
@@ -293,7 +291,7 @@ fun SettingsScreen(
                     Text(
                         text = if (supabaseEmail != null) "Connected as $supabaseEmail" else "Tap to link with web companion",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = if (supabaseEmail != null) AccentGreen else TextMuted,
+                            color = if (supabaseEmail != null) TextWhite else TextMuted,
                             fontFamily = SpaceGrotesk,
                             fontSize = 13.sp
                         )
@@ -340,7 +338,7 @@ fun SettingsScreen(
                             Icon(
                                 imageVector = WyrdIcons.Logout,
                                 contentDescription = "Disconnect",
-                                tint = AccentRed,
+                                tint = TextWhite,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -553,7 +551,7 @@ fun SettingsScreen(
                     Text(
                         text = "Reset All App Data",
                         style = MaterialTheme.typography.titleMedium.copy(
-                            color = AccentRed,
+                            color = TextWhite,
                             fontFamily = SpaceGrotesk,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 16.sp
@@ -687,13 +685,13 @@ fun SettingsScreen(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(DarkSurfaceElevated)
-                                    .border(1.dp, AccentRed.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                                    .border(1.dp, TextWhite.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
                                     .padding(horizontal = 12.dp, vertical = 10.dp)
                             ) {
                                 Text(
                                     text = supabaseAuthError ?: "",
                                     style = MaterialTheme.typography.bodySmall.copy(
-                                        color = AccentRed,
+                                        color = TextWhite,
                                         fontFamily = SpaceGrotesk,
                                         fontSize = 12.sp,
                                         lineHeight = 16.sp
@@ -898,7 +896,7 @@ fun SettingsScreen(
                     Text(
                         text = "Reset All App Data?",
                         style = MaterialTheme.typography.titleMedium.copy(
-                            color = AccentRed,
+                            color = TextWhite,
                             fontFamily = SpaceGrotesk,
                             fontWeight = FontWeight.Bold
                         )
@@ -925,7 +923,7 @@ fun SettingsScreen(
                     ) {
                         Text(
                             text = "Wipe Everything",
-                            color = AccentRed,
+                            color = TextWhite,
                             fontFamily = SpaceGrotesk,
                             fontWeight = FontWeight.Bold
                         )
@@ -984,7 +982,7 @@ fun SettingsScreen(
                     ) {
                         Text(
                             text = "Delete",
-                            color = AccentRed,
+                            color = TextWhite,
                             fontFamily = SpaceGrotesk,
                             fontWeight = FontWeight.Bold
                         )
@@ -1055,7 +1053,7 @@ private fun ProviderConfigRow(
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Key set",
-                        tint = Color(0xFF32D74B),
+                        tint = TextWhite,
                         modifier = Modifier.size(15.dp)
                     )
                 }
@@ -1676,7 +1674,7 @@ private fun TtsSettingsSection(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (isTestPlaying) AccentRed else White)
+                    .background(White)
                     .clickable { onTestClick() }
                     .padding(horizontal = 14.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
@@ -1685,7 +1683,7 @@ private fun TtsSettingsSection(
                     Icon(
                         imageVector = if (isTestPlaying) WyrdIcons.Stop else Icons.Default.PlayArrow,
                         contentDescription = if (isTestPlaying) "Stop" else "Test",
-                        tint = if (isTestPlaying) White else Black,
+                        tint = OnPrimaryColor,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
